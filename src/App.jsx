@@ -42,7 +42,7 @@ import SpeakersScreen from './pages/gamification/SpeakersScreen'
 import LearningPathsScreen from './pages/gamification/LearningPathsScreen'
 
 // Pages - Engagement Center & Admin
-import { EngagementCenterScreen } from './pages/engagement-center/engagementCenterScreen.jsx'
+import EngagementCenterScreen from './pages/engagement-center/engagementCenterScreen.jsx'
 import AdminDashboardScreen from './pages/admin/AdminDashboardScreen'
 
 // Components
