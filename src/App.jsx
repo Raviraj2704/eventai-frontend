@@ -46,7 +46,7 @@ import EngagementCenterScreen from './pages/engagement-center/engagementCenterSc
 import adminDashboardScreen from './pages/admin/adminDashboardScreen.jsx'
 
 // Components
-import PrivateRoute from './components/auth/PrivateRoute'
+import PrivateRoute from './components/Auth/PrivateRoute'
 
 const App = () => {
   const { isAuthenticated, checkAuth } = useAuthStore()
