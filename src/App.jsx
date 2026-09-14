@@ -43,7 +43,7 @@ import LearningPathsScreen from './pages/gamification/LearningPathsScreen'
 
 // Pages - Engagement Center & Admin
 import EngagementCenterScreen from './pages/engagement-center/engagementCenterScreen.jsx'
-import adminDashboardScreen from './pages/admin/adminDashboardScreen.jsx'
+import AdminDashboardScreen from './pages/admin/AdminDashboardScreen.jsx'
 
 // Components
 import PrivateRoute from './components/Auth/PrivateRoute'
