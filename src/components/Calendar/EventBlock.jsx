@@ -28,7 +28,7 @@ export const EventBlock = ({ event, isRegistered, onRegister, onUnregister }) =>
   const duration = Math.floor(
     (new Date(event.end_time) - new Date(event.start_time)) / 60000
   );
-
+  if (!event) return null;
   const startTime = new Date(event.start_time).toLocaleTimeString([], {
     hour: '2-digit',
     minute: '2-digit'
