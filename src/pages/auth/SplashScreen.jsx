@@ -20,7 +20,7 @@ const SplashScreen = () => {
   // }, [isAuthenticated, navigate])
 
   const handleGetStarted = () => {
-    navigate('/auth/login')
+    navigate('/register')
   }
 
   const features = [
@@ -110,7 +110,7 @@ const SplashScreen = () => {
           </button>
           
           <button
-            onClick={() => navigate('/auth/login')}
+            onClick={() => navigate('/login')}
             className="w-full btn btn-outline btn-lg border-white text-white hover:bg-white/10"
             style={{ padding: '12px', borderRadius: '8px', border: '1px solid white' }}
           >
