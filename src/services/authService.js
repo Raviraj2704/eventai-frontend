@@ -9,16 +9,15 @@ import apiClient from '../config/apiClient'
 
 export const authService = {
   // Register new user
-  register: async (username, email, password, firstName, lastName) => {
-    const response = await apiClient.post('/auth/register', {
-      username,
-      email,
-      password,
-      first_name: firstName,
-      last_name: lastName
-    })
-    return response.data
-  },
+    register: async (firstName, lastName, email, password) => {
+        const response = await apiClient.post('/auth/register', {
+            first_name: firstName,
+            last_name: lastName,
+            email: email,
+            password: password
+        })
+        return response.data;
+    },
 
   // Login user
   login: async (usernameOrEmail, password) => {
