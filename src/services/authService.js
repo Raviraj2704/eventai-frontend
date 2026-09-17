@@ -20,13 +20,14 @@ export const authService = {
     },
 
   // Login user
-  login: async (usernameOrEmail, password) => {
-    const response = await apiClient.post('/auth/login', {
-      username_or_email: usernameOrEmail,
-      password
-    })
-    return response.data
-  },
+ // Login user
+    login: async (Email, password) => {
+        const response = await apiClient.post('/auth/login', {
+            email: Email,  // <--- Changed from username_or_email
+            password: password
+        })
+        return response.data;
+    },
 
   // Verify email
   verifyEmail: async (email, verificationCode) => {
