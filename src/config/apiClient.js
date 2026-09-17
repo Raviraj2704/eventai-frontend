@@ -55,29 +55,62 @@ apiClient.interceptors.request.use(
 );
 
 // ============================================
-// RESPONSE INTERCEPTOR
+// RESPONSE INTERCEPTOR (With Token Refresh)
 // ============================================
 apiClient.interceptors.response.use(
   (response) => {
-    return response;
+    // If the request succeeds, just pass the data through normally
+    return response; 
   },
-  (error) => {
+  async (error) => {
+    const originalRequest = error.config;
+
+    // Catch 401 Unauthorized errors and try to refresh the token silently
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      originalRequest._retry = true; // Mark as retried to prevent infinite loops
+
+      try {
+        const refreshToken = localStorage.getItem('refresh_token'); 
+        
+        if (!refreshToken) {
+          throw new Error("No refresh token available");
+        }
+
+        // Use the base 'axios' (imported at top) to avoid triggering this interceptor again
+        const response = await axios.post(`${API_BASE_URL}/auth/refresh`, {
+          refresh_token: refreshToken
+        });
+
+        const newAccessToken = response.data.access_token;
+
+        // Save the new token(s) to storage
+        localStorage.setItem('access_token', newAccessToken);
+        if (response.data.refresh_token) {
+            localStorage.setItem('refresh_token', response.data.refresh_token);
+        }
+
+        // Update the failed request's header with the new token and try it again!
+        originalRequest.headers['Authorization'] = `Bearer ${newAccessToken}`;
+        return apiClient(originalRequest);
+
+      } catch (refreshError) {
+        // If the refresh token is also expired or invalid, violently clear and kick to login
+        console.warn("⚠️ Refresh token failed/expired. Kicking to login.");
+        localStorage.clear();
+        window.location.href = '/login'; 
+        return Promise.reject(refreshError);
+      }
+    }
+
+    // For all other errors (404, 500, etc.), log them normally
     if (error.response) {
       console.error(`❌ ${error.response.status}:`, error.response.data);
-      
-      // Auto-logout if token is expired or unauthorized
-      if (error.response.status === 401) {
-        console.warn('⚠️ Unauthorized - violently clearing local storage to break loop');
-        // Clear EVERYTHING to ensure the app actually logs out and stops looping
-        localStorage.clear();
-        window.location.href = '/login';
-      }
     } else if (error.request) {
       console.error('❌ No response from server:', error.request);
     } else {
       console.error('❌ Error setup:', error.message);
     }
-    
+
     return Promise.reject(error);
   }
 );
@@ -88,7 +121,6 @@ apiClient.interceptors.response.use(
 
 export const checkHealth = async () => {
   try {
-    // Uses the base URL, but calls the health endpoint
     const response = await apiClient.get('/health');
     return response.data;
   } catch (error) {
@@ -99,7 +131,7 @@ export const checkHealth = async () => {
 
 export const getEvents = async () => {
   try {
-    const response = await apiClient.get('/events'); // Removed /api prefix since baseURL includes /api/v1
+    const response = await apiClient.get('/events');
     return response.data;
   } catch (error) {
     console.error('Failed to fetch events:', error);
