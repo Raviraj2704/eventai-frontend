@@ -26,8 +26,23 @@ const apiClient = axios.create({
 // ============================================
 apiClient.interceptors.request.use(
   (config) => {
-    // Add token to every request if it exists
-    const token = localStorage.getItem('access_token');
+    // 1. Try common direct token names
+    let token = localStorage.getItem('access_token') || localStorage.getItem('token');
+    
+    // 2. Try to extract it if you are using Zustand persist (commonly named auth-storage or auth-store)
+    if (!token) {
+        ['auth-storage', 'auth-store', 'auth'].forEach(key => {
+            const stored = localStorage.getItem(key);
+            if (stored) {
+                try {
+                    const parsed = JSON.parse(stored);
+                    token = token || parsed?.state?.token || parsed?.state?.access_token;
+                } catch (e) {}
+            }
+        });
+    }
+
+    // 3. Attach the token if we found it
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -52,8 +67,9 @@ apiClient.interceptors.response.use(
       
       // Auto-logout if token is expired or unauthorized
       if (error.response.status === 401) {
-        console.warn('⚠️ Unauthorized - clearing token');
-        localStorage.removeItem('access_token');
+        console.warn('⚠️ Unauthorized - violently clearing local storage to break loop');
+        // Clear EVERYTHING to ensure the app actually logs out and stops looping
+        localStorage.clear();
         window.location.href = '/login';
       }
     } else if (error.request) {
