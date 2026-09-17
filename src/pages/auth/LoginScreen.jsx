@@ -3,6 +3,7 @@ import { useNavigate, useLocation, Link } from 'react-router-dom'
 import { Mail, Lock, Eye, EyeOff, ArrowRight, Loader } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useAuthStore } from '@/store/authStore';
+import { authService } from '@/services/authService';
 
 const LoginScreen = () => {
   const navigate = useNavigate()
@@ -56,22 +57,26 @@ const LoginScreen = () => {
 
     setIsSubmitting(true)
     try {
-      const data = await login(formData.usernameOrEmail, formData.password)
+      // 1. Talk to the backend FIRST to verify credentials and get real tokens
+      const response = await authService.login(formData.usernameOrEmail, formData.password)
+      
+      // 2. NOW save those real tokens and user data into the store
+      login(response.access_token, response.refresh_token, response.user)
+      
       toast.success('Welcome back!')
       
-      if (!data.user?.company || !data.user?.job_title) {
-        navigate('/auth/complete-profile', { replace: true })
+      if (!response.user?.company || !response.user?.job_title) {
+        navigate('/complete-profile', { replace: true })
       } else {
         navigate('/home', { replace: true })
       }
     } catch (err) {
-      // Safe error display preventing Error #31
       toast.error(err.message || 'Login failed. Please check your credentials.')
     } finally {
       setIsSubmitting(false)
     }
   }
-
+  
   return (
     <div className="min-h-screen bg-gradient-to-br from-neutral-50 to-neutral-100 flex items-center justify-center px-4 py-8">
       <div className="w-full max-w-md">
