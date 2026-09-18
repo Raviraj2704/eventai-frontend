@@ -29,15 +29,20 @@ export const useAuthStore = create(
       checkAuth: () => {
         try {
           const token = localStorage.getItem('access_token')
-          const user = localStorage.getItem('user_data')
+          const userStr = localStorage.getItem('user_data')
           
-          if (token && user) {
+          // ADDED SAFEGUARD: explicitly reject the string "undefined"
+          if (token && userStr && userStr !== 'undefined') {
             set({
               token: token,
-              user: JSON.parse(user),
+              user: JSON.parse(userStr),
               isAuthenticated: true
             })
             console.log('✅ User restored from localStorage')
+          } else {
+            // Clean up any corrupted data silently
+            localStorage.removeItem('access_token')
+            localStorage.removeItem('user_data')
           }
         } catch (error) {
           console.error('❌ Auth check error:', error)

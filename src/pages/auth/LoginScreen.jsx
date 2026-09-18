@@ -48,7 +48,7 @@ const LoginScreen = () => {
     }
   }
 
-const handleSubmit = async (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
     if (!validateForm()) {
       toast.error('Please fill in all fields correctly')
@@ -59,13 +59,21 @@ const handleSubmit = async (e) => {
     try {
       const result = await authService.login(formData.usernameOrEmail, formData.password)
       
-      // Safely extract data whether Axios nested it inside .data or returned it directly
-      const accessToken = result?.access_token || result?.data?.access_token
-      const refreshToken = result?.refresh_token || result?.data?.refresh_token
-      const userData = result?.user || result?.data?.user
+      // 1. Bulletproof data extraction (whether Axios nested it or not)
+      const payload = result?.data || result;
+      const accessToken = payload?.access_token;
+      const refreshToken = payload?.refresh_token || null;
+      
+      // 2. Fallback: If backend doesn't return user data, create a placeholder 
+      // so we NEVER pass 'undefined' into local storage
+      const userData = payload?.user || { 
+        email: formData.usernameOrEmail, 
+        company: null, 
+        job_title: null 
+      };
 
-      // Prevent the crash if the token is still completely missing
       if (!accessToken) {
+        console.error("Full backend response:", result); // Helpful for debugging
         throw new Error('Server responded, but no access token was found.')
       }
       
