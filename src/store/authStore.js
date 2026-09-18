@@ -384,22 +384,6 @@ export const useUser = () => {
 };
 
 /**
- * Custom hook to get auth loading state
- */
-export const useAuthLoading = () => {
-  const isLoading = useAuthStore((state) => state.isLoading);
-  return isLoading;
-};
-
-/**
- * Custom hook to get auth error
- */
-export const useAuthError = () => {
-  const error = useAuthStore((state) => state.error);
-  return error;
-};
-
-/**
  * Custom hook to get auth actions
  */
 export const useAuthActions = () => {
