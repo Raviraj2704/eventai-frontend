@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import authService from './authService';
+import authService from '../services/authService';
 
 /**
  * Auth Store - Zustand store for authentication state management

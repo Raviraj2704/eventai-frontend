@@ -1,4 +1,4 @@
-import apiClient, { setAuthToken, clearAuthData, getAuthToken } from './apiClient';
+import apiClient, { setAuthToken, clearAuthData, getAuthToken } from '../config/apiClient';
 
 /**
  * Auth Service - Handles all authentication operations
