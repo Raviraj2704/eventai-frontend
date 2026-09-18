@@ -1,12 +1,5 @@
-// ============================================================================
-// Auth Store (Zustand)
-// ============================================================================
-// File: src/store/authStore.js
-// Purpose: Persistent authentication state management
-// Status: Production-Ready ✅
-
-import create from 'zustand'
-import { persist } from 'zustand/middleware'
+import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
 
 export const useAuthStore = create(
   persist(
@@ -14,7 +7,6 @@ export const useAuthStore = create(
       // ============================================================================
       // STATE
       // ============================================================================
-      
       token: null,
       refreshToken: null,
       user: null,
@@ -25,140 +17,106 @@ export const useAuthStore = create(
       // ACTIONS
       // ============================================================================
       
-      // Check if user is already authenticated
       checkAuth: () => {
         try {
-          const token = localStorage.getItem('access_token')
-          const userStr = localStorage.getItem('user_data')
+          const token = localStorage.getItem('access_token');
+          const userStr = localStorage.getItem('user_data');
           
-          // ADDED SAFEGUARD: explicitly reject the string "undefined"
-          if (token && userStr && userStr !== 'undefined') {
+          if (token && userStr && userStr !== 'undefined' && userStr !== 'null') {
             set({
               token: token,
               user: JSON.parse(userStr),
               isAuthenticated: true
-            })
-            console.log('✅ User restored from localStorage')
+            });
+            console.log('✅ User restored from localStorage');
           } else {
-            // Clean up any corrupted data silently
-            localStorage.removeItem('access_token')
-            localStorage.removeItem('user_data')
+            localStorage.removeItem('access_token');
+            localStorage.removeItem('user_data');
           }
         } catch (error) {
-          console.error('❌ Auth check error:', error)
-          set({ isAuthenticated: false })
+          console.error('❌ Auth check error:', error);
+          set({ isAuthenticated: false });
         }
       },
       
-      // Login user
       login: (accessToken, refreshToken, userData) => {
-        console.log('🔐 Logging in user:', userData?.email)
+        console.log('🔐 Logging in user:', userData?.email);
         
-        // Save to localStorage (PERMANENT)
-        localStorage.setItem('access_token', accessToken)
-        localStorage.setItem('refresh_token', refreshToken || '')
-        localStorage.setItem('user_data', JSON.stringify(userData))
+        localStorage.setItem('access_token', accessToken);
+        localStorage.setItem('refresh_token', refreshToken || '');
+        localStorage.setItem('user_data', JSON.stringify(userData));
         
-        // Update state
         set({
           token: accessToken,
           refreshToken: refreshToken || null,
           user: userData,
           isAuthenticated: true,
           loading: false
-        })
+        });
       },
       
-      // Register user
       registerUser: async (userData) => {
-        set({ loading: true })
+        set({ loading: true });
         try {
-          const baseUrl = import.meta.env.VITE_API_BASE_URL || 'https://event-ai-backend-o2f3.onrender.com'
+          const baseUrl = import.meta.env.VITE_API_BASE_URL || 'https://event-ai-backend-o2f3.onrender.com';
           const response = await fetch(`${baseUrl}/auth/register`, {
             method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(userData),
-          })
+          });
           
-          const data = await response.json()
+          const data = await response.json();
+          if (!response.ok) throw new Error(data.detail || 'Registration failed');
           
-          if (!response.ok) {
-            throw new Error(data.detail || 'Registration failed')
-          }
-          
-          set({ loading: false })
-          return { success: true, data }
+          set({ loading: false });
+          return { success: true, data };
         } catch (error) {
-          console.error('❌ Registration error:', error)
-          set({ loading: false })
-          throw error
+          console.error('❌ Registration error:', error);
+          set({ loading: false });
+          throw error;
         }
       },
       
-      // Logout user
       logout: () => {
-        console.log('👋 Logging out user')
+        console.log('👋 Logging out user');
+        localStorage.removeItem('access_token');
+        localStorage.removeItem('refresh_token');
+        localStorage.removeItem('user_data');
         
-        // Clear localStorage
-        localStorage.removeItem('access_token')
-        localStorage.removeItem('refresh_token')
-        localStorage.removeItem('user_data')
-        
-        // Clear state
         set({
           token: null,
           refreshToken: null,
           user: null,
           isAuthenticated: false,
           loading: false
-        })
+        });
       },
       
-      // Update user profile
       updateProfile: (userData) => {
-        console.log('📝 Updating profile')
-        
-        const updatedUser = { ...get().user, ...userData }
-        
-        // Update localStorage
-        localStorage.setItem('user_data', JSON.stringify(updatedUser))
-        
-        // Update state
-        set({ user: updatedUser })
+        console.log('📝 Updating profile');
+        const updatedUser = { ...get().user, ...userData };
+        localStorage.setItem('user_data', JSON.stringify(updatedUser));
+        set({ user: updatedUser });
       },
       
-      // Set loading state
-      setLoading: (loading) => {
-        set({ loading })
-      },
+      setLoading: (loading) => set({ loading }),
       
-      // Set token (for token refresh)
       setToken: (token) => {
-        localStorage.setItem('access_token', token)
-        set({ token })
+        localStorage.setItem('access_token', token);
+        set({ token });
       }
     }),
-    
-    // ============================================================================
-    // PERSIST CONFIG
-    // ============================================================================
     {
-      name: 'eventai-auth-store', // localStorage key name
-      
-      // Only persist these fields
+      name: 'eventai-auth-store',
       partialize: (state) => ({
         token: state.token,
         refreshToken: state.refreshToken,
         user: state.user,
         isAuthenticated: state.isAuthenticated
       }),
-      
-      // Auto-load from localStorage on init
       onRehydrateStorage: () => (state) => {
-        console.log('💾 Rehydrating auth store from localStorage')
+        console.log('💾 Rehydrating auth store from localStorage');
       }
     }
   )
-)
+);

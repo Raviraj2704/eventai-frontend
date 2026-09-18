@@ -1,71 +1,76 @@
-import React, { useState, useEffect } from 'react'
-import { useNavigate, useLocation, Link } from 'react-router-dom'
-import { Mail, Lock, Eye, EyeOff, ArrowRight, Loader } from 'lucide-react'
-import toast from 'react-hot-toast'
+import React, { useState, useEffect } from 'react';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
+import { Mail, Lock, Eye, EyeOff, ArrowRight, Loader } from 'lucide-react';
+import toast from 'react-hot-toast';
 import { useAuthStore } from '@/store/authStore';
 import { authService } from '@/services/authService';
 
 const LoginScreen = () => {
-  const navigate = useNavigate()
-  const location = useLocation()
+  const navigate = useNavigate();
+  const location = useLocation();
   
-  const login = useAuthStore((state) => state.login)
-  const isAuthenticated = useAuthStore((state) => state.isAuthenticated)
+  const login = useAuthStore((state) => state.login);
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
 
   const [formData, setFormData] = useState({
     usernameOrEmail: '',
     password: ''
-  })
-  const [showPassword, setShowPassword] = useState(false)
-  const [formErrors, setFormErrors] = useState({})
-  const [isSubmitting, setIsSubmitting] = useState(false)
+  });
+  const [showPassword, setShowPassword] = useState(false);
+  const [formErrors, setFormErrors] = useState({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     if (isAuthenticated && !isSubmitting) {
-      navigate('/home', { replace: true })
+      navigate('/home', { replace: true });
     }
-  }, [isAuthenticated, isSubmitting, navigate])
+  }, [isAuthenticated, isSubmitting, navigate]);
 
   const validateForm = () => {
-    const errors = {}
+    const errors = {};
     if (!formData.usernameOrEmail.trim()) {
-      errors.usernameOrEmail = 'Username or email is required'
+      errors.usernameOrEmail = 'Username or email is required';
     }
     if (!formData.password) {
-      errors.password = 'Password is required'
+      errors.password = 'Password is required';
     } else if (formData.password.length < 6) {
-      errors.password = 'Password must be at least 6 characters'
+      errors.password = 'Password must be at least 6 characters';
     }
-    setFormErrors(errors)
-    return Object.keys(errors).length === 0
-  }
+    setFormErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
 
   const handleChange = (e) => {
-    const { name, value } = e.target
-    setFormData(prev => ({ ...prev, [name]: value }))
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
     if (formErrors[name]) {
-      setFormErrors(prev => ({ ...prev, [name]: '' }))
+      setFormErrors(prev => ({ ...prev, [name]: '' }));
     }
-  }
+  };
 
   const handleSubmit = async (e) => {
-    e.preventDefault()
+    e.preventDefault();
     if (!validateForm()) {
-      toast.error('Please fill in all fields correctly')
-      return
+      toast.error('Please fill in all fields correctly');
+      return;
     }
 
-    setIsSubmitting(true)
+    setIsSubmitting(true);
     try {
-      const result = await authService.login(formData.usernameOrEmail, formData.password)
+      // 1. Fetch data from backend
+      const result = await authService.login(formData.usernameOrEmail, formData.password);
       
-      // 1. Bulletproof data extraction (whether Axios nested it or not)
+      // 2. Extract payload safely
       const payload = result?.data || result;
+      
+      if (!payload) {
+        throw new Error('No response from server. Check authService.js or apiClient.js interceptors.');
+      }
+
       const accessToken = payload?.access_token;
       const refreshToken = payload?.refresh_token || null;
       
-      // 2. Fallback: If backend doesn't return user data, create a placeholder 
-      // so we NEVER pass 'undefined' into local storage
+      // 3. Fallback user data to prevent 'undefined' JSON errors
       const userData = payload?.user || { 
         email: formData.usernameOrEmail, 
         company: null, 
@@ -73,26 +78,27 @@ const LoginScreen = () => {
       };
 
       if (!accessToken) {
-        console.error("Full backend response:", result); // Helpful for debugging
-        throw new Error('Server responded, but no access token was found.')
+        console.error("Full backend response payload:", payload);
+        throw new Error('Server responded, but no access token was found.');
       }
       
-      // Save tokens and user data into the store
-      login(accessToken, refreshToken, userData)
+      // 4. Save to global store
+      login(accessToken, refreshToken, userData);
+      toast.success('Welcome back!');
       
-      toast.success('Welcome back!')
-      
+      // 5. Route based on profile completion
       if (!userData?.company || !userData?.job_title) {
-        navigate('/complete-profile', { replace: true })
+        navigate('/complete-profile', { replace: true });
       } else {
-        navigate('/home', { replace: true })
+        navigate('/home', { replace: true });
       }
     } catch (err) {
-      toast.error(err.message || 'Login failed. Please check your credentials.')
+      console.error("Login Error:", err);
+      toast.error(err.message || 'Login failed. Please check your credentials.');
     } finally {
-      setIsSubmitting(false)
+      setIsSubmitting(false);
     }
-  }
+  };
     
   return (
     <div className="min-h-screen bg-gradient-to-br from-neutral-50 to-neutral-100 flex items-center justify-center px-4 py-8">
@@ -116,11 +122,11 @@ const LoginScreen = () => {
                 value={formData.usernameOrEmail}
                 onChange={handleChange}
                 placeholder="Enter your username or email"
-                className={`pl-12 w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 ${formErrors.usernameOrEmail ? 'border-error' : 'border-neutral-300'}`}
+                className={`pl-12 w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 ${formErrors.usernameOrEmail ? 'border-red-500' : 'border-neutral-300'}`}
                 disabled={isSubmitting}
               />
             </div>
-            {formErrors.usernameOrEmail && <p className="mt-1 text-sm text-error" style={{color: 'red'}}>{formErrors.usernameOrEmail}</p>}
+            {formErrors.usernameOrEmail && <p className="mt-1 text-sm text-red-500">{formErrors.usernameOrEmail}</p>}
           </div>
 
           <div>
@@ -136,14 +142,14 @@ const LoginScreen = () => {
                 value={formData.password}
                 onChange={handleChange}
                 placeholder="Enter your password"
-                className={`pl-12 pr-12 w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 ${formErrors.password ? 'border-error' : 'border-neutral-300'}`}
+                className={`pl-12 pr-12 w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 ${formErrors.password ? 'border-red-500' : 'border-neutral-300'}`}
                 disabled={isSubmitting}
               />
               <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-4 top-3 text-neutral-400 hover:text-neutral-600">
                 {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
               </button>
             </div>
-            {formErrors.password && <p className="mt-1 text-sm text-error" style={{color: 'red'}}>{formErrors.password}</p>}
+            {formErrors.password && <p className="mt-1 text-sm text-red-500">{formErrors.password}</p>}
           </div>
 
           <button type="submit" disabled={isSubmitting} className="w-full bg-primary-600 text-white font-semibold py-3 px-4 rounded-lg hover:bg-primary-700 transition duration-200 mt-8 flex items-center justify-center gap-2">
@@ -163,6 +169,7 @@ const LoginScreen = () => {
         </p>
       </div>
     </div>
-  )
-}
-export default LoginScreen
+  );
+};
+
+export default LoginScreen;
