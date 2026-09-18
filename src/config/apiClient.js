@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 // Get API base URL from environment variables
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://event-ai-backend-o2t3.onrender.com';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://event-ai-backend-o2f3.onrender.com';
 
 // Create axios instance
 const apiClient = axios.create({
