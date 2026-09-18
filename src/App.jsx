@@ -48,6 +48,9 @@ import AdminDashboardScreen from './pages/admin/AdminDashboardScreen.jsx'
 // Components
 import PrivateRoute from './components/Auth/PrivateRoute'
 
+const App = () => { // <--- MAKE SURE THIS OPENING BRACKET EXISTS (Around line 51)
+  const { isAuthenticated } = useAuthStore();
+
   return (
     <>
       <Toaster
