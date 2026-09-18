@@ -1,17 +1,15 @@
-// File: src/pages/SplashScreen.jsx
+import React from 'react';
+import { useNavigate } from 'react-router-dom';
+import { Sparkles, Zap, Users, TrendingUp } from 'lucide-react';
 
-import React from 'react'
-import { useNavigate } from 'react-router-dom'
-import { Sparkles, Zap, Users, TrendingUp } from 'lucide-react'
-
-// TODO: Uncomment when store is created
-// import { useAuthStore } from '../store/authStore' 
+// TODO: Uncomment when store is created and verified
+// import { useAuthStore } from '../../store/authStore'; 
 
 const SplashScreen = () => {
-  const navigate = useNavigate()
+  const navigate = useNavigate();
   
   // TODO: Uncomment when store is created
-  // const { isAuthenticated } = useAuthStore()
+  // const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
 
   // useEffect(() => {
   //   if (isAuthenticated) {
@@ -20,8 +18,8 @@ const SplashScreen = () => {
   // }, [isAuthenticated, navigate])
 
   const handleGetStarted = () => {
-    navigate('/register')
-  }
+    navigate('/register');
+  };
 
   const features = [
     {
@@ -44,12 +42,12 @@ const SplashScreen = () => {
       title: 'Gamification',
       description: 'Earn badges and climb the leaderboard'
     }
-  ]
+  ];
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary-600 via-primary-500 to-secondary-600">
       
-      {/* FIXED: Background Pattern as a React Component instead of an inline string */}
+      {/* Background Pattern */}
       <div className="absolute inset-0 opacity-10 pointer-events-none">
         <svg width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
           <defs>
@@ -81,7 +79,7 @@ const SplashScreen = () => {
         {/* Features Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full max-w-2xl mb-12">
           {features.map((feature, index) => {
-            const Icon = feature.icon
+            const Icon = feature.icon;
             return (
               <div
                 key={index}
@@ -95,7 +93,7 @@ const SplashScreen = () => {
                   {feature.description}
                 </p>
               </div>
-            )
+            );
           })}
         </div>
 
@@ -124,7 +122,7 @@ const SplashScreen = () => {
         </div>
       </div>
     </div>
-  )
-}
+  );
+};
 
-export default SplashScreen
+export default SplashScreen;

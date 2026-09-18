@@ -5,27 +5,31 @@
 // Purpose: Protect routes that require authentication
 // Status: Production-Ready ✅
 
-import React from 'react'
-import { Navigate } from 'react-router-dom'
-import { useAuthStore } from '../../store/authStore'
-import LoadingSpinner from '../common/LoadingSpinner'
+import React from 'react';
+import { Navigate } from 'react-router-dom';
+import { useAuthStore } from '../../store/authStore';
+import LoadingSpinner from '../common/LoadingSpinner';
 
 const PrivateRoute = ({ children, adminOnly = false }) => {
-  const { isAuthenticated, user, loading } = useAuthStore()
+  // Use specific selectors to prevent undefined variable crashes
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  const user = useAuthStore((state) => state.user);
+  const isLoading = useAuthStore((state) => state.isLoading);
 
-  if (loading) {
-    return <LoadingSpinner />
+  if (isLoading) {
+    return <LoadingSpinner />;
   }
 
   if (!isAuthenticated) {
-    return <Navigate to="/auth/login" replace />
+    // FIXED: Changed from /auth/login to /login to match App.jsx routes
+    return <Navigate to="/login" replace />; 
   }
 
   if (adminOnly && !user?.is_admin) {
-    return <Navigate to="/home" replace />
+    return <Navigate to="/home" replace />;
   }
 
-  return children
-}
+  return children;
+};
 
-export default PrivateRoute
+export default PrivateRoute;

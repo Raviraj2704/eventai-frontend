@@ -6,7 +6,7 @@ import { useAuthStore } from '../../store/authStore';
 
 const RegisterScreen = () => {
   const navigate = useNavigate();
-  const { registerUser } = useAuthStore();
+  const registerUser = useAuthStore((state) => state.registerUser);
 
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
