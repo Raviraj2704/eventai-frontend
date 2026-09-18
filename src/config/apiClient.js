@@ -1,152 +1,98 @@
-// ============================================
-// API CLIENT FIX (frontend/src/api/client.js)
-// ============================================
-
 import axios from 'axios';
 
-// ✅ Uses Vite environment variables with your Render URL as the bulletproof fallback
-const API_BASE_URL = import.meta.env.VITE_API_URL || import.meta.env.VITE_API_BASE_URL || 'https://event-ai-backend-o2f3.onrender.com/api/v1';
-const API_TIMEOUT = parseInt(import.meta.env.VITE_API_TIMEOUT) || 30000;
-
-console.log('🔗 API Base URL:', API_BASE_URL);
+// Get API base URL from environment variables
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://event-ai-backend-o2t3.onrender.com';
 
 // Create axios instance
 const apiClient = axios.create({
-  baseURL: API_BASE_URL,
-  timeout: API_TIMEOUT,
+  baseURL: `${API_BASE_URL}/api/v1`,
+  timeout: 30000,
   headers: {
-    'Content-Type': 'application/json',
-    'Accept': 'application/json',
-  },
-  withCredentials: true, // Important for CORS
+    'Content-Type': 'application/json'
+  }
 });
 
-// ============================================
-// REQUEST INTERCEPTOR
-// ============================================
-apiClient.interceptors.request.use(
-  (config) => {
-    // 1. Try common direct token names
-    let token = localStorage.getItem('access_token') || localStorage.getItem('token');
-    
-    // 2. Try to extract it if you are using Zustand persist (commonly named auth-storage or auth-store)
-    if (!token) {
-        ['auth-storage', 'auth-store', 'auth'].forEach(key => {
-            const stored = localStorage.getItem(key);
-            if (stored) {
-                try {
-                    const parsed = JSON.parse(stored);
-                    token = token || parsed?.state?.token || parsed?.state?.access_token;
-                } catch (e) {}
-            }
-        });
+// Token management
+const getToken = () => {
+  return localStorage.getItem('access_token');
+};
+
+const refreshAccessToken = async () => {
+  try {
+    const refreshToken = localStorage.getItem('refresh_token');
+    if (!refreshToken) {
+      throw new Error('No refresh token available');
     }
 
-    // 3. Attach the token if we found it
+    const response = await axios.post(`${API_BASE_URL}/api/v1/auth/refresh`, {
+      refresh_token: refreshToken
+    });
+
+    const { access_token, refresh_token: newRefreshToken } = response.data;
+    localStorage.setItem('access_token', access_token);
+    if (newRefreshToken) {
+      localStorage.setItem('refresh_token', newRefreshToken);
+    }
+
+    return access_token;
+  } catch (error) {
+    localStorage.removeItem('access_token');
+    localStorage.removeItem('refresh_token');
+    window.location.href = '/login';
+    throw error;
+  }
+};
+
+// Request interceptor - add token to headers
+apiClient.interceptors.request.use(
+  (config) => {
+    const token = getToken();
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
     return config;
   },
   (error) => {
-    console.error('❌ Request error:', error);
     return Promise.reject(error);
   }
 );
 
-// ============================================
-// RESPONSE INTERCEPTOR (With Token Refresh)
-// ============================================
+// Response interceptor - handle token expiration
 apiClient.interceptors.response.use(
   (response) => {
-    // If the request succeeds, just pass the data through normally
-    return response; 
+    return response.data;
   },
   async (error) => {
     const originalRequest = error.config;
 
-    // Catch 401 Unauthorized errors and try to refresh the token silently
+    // If 401 and not already retried, try to refresh token
     if (error.response?.status === 401 && !originalRequest._retry) {
-      originalRequest._retry = true; // Mark as retried to prevent infinite loops
+      originalRequest._retry = true;
 
       try {
-        const refreshToken = localStorage.getItem('refresh_token'); 
-        
-        if (!refreshToken) {
-          throw new Error("No refresh token available");
-        }
-
-        // Use the base 'axios' (imported at top) to avoid triggering this interceptor again
-        const response = await axios.post(`${API_BASE_URL}/auth/refresh`, {
-          refresh_token: refreshToken
-        });
-
-        const newAccessToken = response.data.access_token;
-
-        // Save the new token(s) to storage
-        localStorage.setItem('access_token', newAccessToken);
-        if (response.data.refresh_token) {
-            localStorage.setItem('refresh_token', response.data.refresh_token);
-        }
-
-        // Update the failed request's header with the new token and try it again!
-        originalRequest.headers['Authorization'] = `Bearer ${newAccessToken}`;
+        const newToken = await refreshAccessToken();
+        originalRequest.headers.Authorization = `Bearer ${newToken}`;
         return apiClient(originalRequest);
-
       } catch (refreshError) {
-        // If the refresh token is also expired or invalid, violently clear and kick to login
-        console.warn("⚠️ Refresh token failed/expired. Kicking to login.");
-        localStorage.clear();
-        window.location.href = '/login'; 
         return Promise.reject(refreshError);
       }
     }
 
-    // For all other errors (404, 500, etc.), log them normally
+    // Return error response with meaningful messages
     if (error.response) {
-      console.error(`❌ ${error.response.status}:`, error.response.data);
-    } else if (error.request) {
-      console.error('❌ No response from server:', error.request);
-    } else {
-      console.error('❌ Error setup:', error.message);
+      const errorData = error.response.data;
+      const message = errorData.detail || errorData.message || 'An error occurred';
+      
+      const customError = new Error(message);
+      customError.status = error.response.status;
+      customError.response = error.response;
+      customError.data = errorData;
+      
+      return Promise.reject(customError);
     }
 
     return Promise.reject(error);
   }
 );
-
-// ============================================
-// API METHODS
-// ============================================
-
-export const checkHealth = async () => {
-  try {
-    const response = await apiClient.get('/health');
-    return response.data;
-  } catch (error) {
-    console.error('Health check failed:', error);
-    throw error;
-  }
-};
-
-export const getEvents = async () => {
-  try {
-    const response = await apiClient.get('/events');
-    return response.data;
-  } catch (error) {
-    console.error('Failed to fetch events:', error);
-    throw error;
-  }
-};
-
-export const createEvent = async (eventData) => {
-  try {
-    const response = await apiClient.post('/events', eventData);
-    return response.data;
-  } catch (error) {
-    console.error('Failed to create event:', error);
-    throw error;
-  }
-};
 
 export default apiClient;

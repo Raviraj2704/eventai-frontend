@@ -1,261 +1,220 @@
-// ============================================================================
-// Sessions Screen
-// ============================================================================
-// File: src/pages/main/SessionsScreen.jsx
-// Purpose: Browse and filter sessions
-// Status: Production-Ready ✅
-
-import React, { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { Search, Filter, ChevronDown } from 'lucide-react'
-import toast from 'react-hot-toast'
-import Header from '../../components/layout/Header'
-import BottomNavigation from '../../components/layout/BottomNavigation'
-import LoadingSpinner from '../../components/common/LoadingSpinner'
-import SessionCard from '../../components/cards/SessionCard'
-import apiClient from '../../config/apiClient'
+import React, { useState, useEffect } from 'react';
+import { Search, Filter, ChevronDown } from 'lucide-react';
+import SessionCard from '../../components/SessionCard'; // <-- Updated this path!
+import apiClient from '../services/apiClient';
 
 const SessionsScreen = () => {
-  const navigate = useNavigate()
-  const [loading, setLoading] = useState(true)
-  const [sessions, setSessions] = useState([])
-  const [filteredSessions, setFilteredSessions] = useState([])
-  const [page, setPage] = useState(1)
-  const [totalPages, setTotalPages] = useState(1)
-  const [searchQuery, setSearchQuery] = useState('')
-  const [selectedCategory, setSelectedCategory] = useState('')
-  const [selectedDifficulty, setSelectedDifficulty] = useState('')
-  const [showFilters, setShowFilters] = useState(false)
+  const [sessions, setSessions] = useState([]);
+  const [filteredSessions, setFilteredSessions] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [selectedFilter, setSelectedFilter] = useState('all');
+  const [error, setError] = useState(null);
 
-  const categories = ['Keynote', 'Workshop', 'Panel', 'Networking']
-  const difficulties = ['Beginner', 'Intermediate', 'Advanced']
-
+  // Fetch sessions on mount
   useEffect(() => {
-    loadSessions()
-  }, [page, selectedCategory, selectedDifficulty])
+    fetchSessions();
+  }, []);
 
+  // Filter sessions when search query or filter changes
   useEffect(() => {
-    filterSessions()
-  }, [searchQuery, sessions])
+    filterSessions();
+  }, [searchQuery, selectedFilter, sessions]);
 
-  const loadSessions = async () => {
-    setLoading(true)
+  const fetchSessions = async () => {
+    setLoading(true);
+    setError(null);
     try {
-      const params = {
-        page,
-        limit: 12,
-        ...(selectedCategory && { category: selectedCategory }),
-        ...(selectedDifficulty && { difficulty: selectedDifficulty })
-      }
-
-      const response = await apiClient.get('/sessions', { params })
-      setSessions(response.data.data || [])
-      setTotalPages(response.data.total_pages || 1)
-      setFilteredSessions(response.data.data || [])
-    } catch (error) {
-      console.error('Error loading sessions:', error)
-      toast.error('Failed to load sessions')
+      const response = await apiClient.get('/sessions?limit=50');
+      setSessions(response.data || []);
+    } catch (err) {
+      console.error('Failed to fetch sessions:', err);
+      setError('Failed to load sessions. Please try again.');
+      setSessions([]);
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   const filterSessions = () => {
-    if (!searchQuery) {
-      setFilteredSessions(sessions)
-      return
+    let filtered = sessions;
+
+    // Search filter
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(
+        (session) =>
+          session.title?.toLowerCase().includes(query) ||
+          session.speaker_name?.toLowerCase().includes(query) ||
+          session.description?.toLowerCase().includes(query)
+      );
     }
 
-    const query = searchQuery.toLowerCase()
-    const filtered = sessions.filter((session) =>
-      session.title.toLowerCase().includes(query) ||
-      session.description?.toLowerCase().includes(query)
-    )
+    // Category filter
+    if (selectedFilter !== 'all') {
+      filtered = filtered.filter((session) => session.category === selectedFilter);
+    }
 
-    setFilteredSessions(filtered)
-  }
+    setFilteredSessions(filtered);
+  };
 
-  const resetFilters = () => {
-    setSearchQuery('')
-    setSelectedCategory('')
-    setSelectedDifficulty('')
-    setPage(1)
-  }
+  // Skeleton loader for session cards
+  const SkeletonCard = () => (
+    <div className="bg-white dark:bg-slate-800 rounded-lg shadow-md overflow-hidden animate-pulse border border-slate-200 dark:border-slate-700">
+      <div className="bg-gradient-to-r from-slate-300 to-slate-400 dark:from-slate-600 dark:to-slate-700 h-24"></div>
+      <div className="p-4 space-y-3">
+        <div className="h-4 bg-slate-300 dark:bg-slate-600 rounded w-3/4"></div>
+        <div className="h-3 bg-slate-300 dark:bg-slate-600 rounded w-1/2"></div>
+        <div className="h-3 bg-slate-300 dark:bg-slate-600 rounded w-full"></div>
+      </div>
+      <div className="px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border-t border-slate-200 dark:border-slate-700">
+        <div className="flex gap-2">
+          {[1, 2, 3, 4].map((i) => (
+            <div key={i} className="flex-1 h-10 bg-slate-300 dark:bg-slate-600 rounded"></div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
 
   return (
-    <>
-      <Header />
+    <div className="min-h-screen bg-white dark:bg-slate-950">
+      {/* Header */}
+      <div className="bg-gradient-to-r from-blue-500 to-blue-600 text-white p-6 pt-8">
+        <h1 className="text-3xl font-bold mb-2">Sessions</h1>
+        <p className="text-blue-100">Browse and discover {sessions.length || '0'} sessions</p>
+      </div>
 
-      <main className="pb-20 md:pb-0">
-        {/* Page Header */}
-        <div className="bg-gradient-to-r from-primary-600 to-secondary-600 text-white">
-          <div className="container-max py-8">
-            <h1 className="text-3xl md:text-4xl font-bold mb-2">Sessions</h1>
-            <p className="text-white/80">
-              Browse and discover {sessions.length} sessions
-            </p>
+      {/* Search & Filter Bar */}
+      <div className="sticky top-0 z-40 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700 p-4">
+        <div className="max-w-6xl mx-auto">
+          {/* Search Box */}
+          <div className="relative mb-3">
+            <Search className="absolute left-3 top-3 text-slate-400" size={20} />
+            <input
+              type="text"
+              placeholder="Search sessions, speakers..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-slate-800 dark:text-white"
+            />
           </div>
-        </div>
 
-        <div className="container-max py-8">
-          {/* Search and Filter Bar */}
-          <div className="space-y-4 mb-8">
-            {/* Search */}
-            <div className="relative">
-              <Search className="absolute left-4 top-3 w-5 h-5 text-neutral-400" />
-              <input
-                type="text"
-                placeholder="Search sessions..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-12 bg-white"
-              />
-            </div>
+          {/* Filter Dropdown */}
+          <div className="relative w-full">
+            <button
+              onClick={() => setFilterOpen(!filterOpen)}
+              className="flex items-center gap-2 px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors dark:text-white"
+            >
+              <Filter size={18} />
+              <span className="text-sm font-medium">
+                {selectedFilter === 'all' ? 'All Sessions' : selectedFilter}
+              </span>
+              <ChevronDown size={16} className={`transition-transform ${filterOpen ? 'rotate-180' : ''}`} />
+            </button>
 
-            {/* Filter Toggle */}
-            <div className="flex gap-2">
-              <button
-                onClick={() => setShowFilters(!showFilters)}
-                className="btn btn-outline flex items-center gap-2"
-              >
-                <Filter className="w-4 h-4" />
-                Filters
-                <ChevronDown className={`w-4 h-4 transition-transform ${showFilters ? 'rotate-180' : ''}`} />
-              </button>
-
-              {(selectedCategory || selectedDifficulty) && (
+            {filterOpen && (
+              <div className="absolute top-full left-0 mt-2 w-48 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg shadow-lg z-50">
                 <button
-                  onClick={resetFilters}
-                  className="btn btn-ghost text-sm"
+                  onClick={() => {
+                    setSelectedFilter('all');
+                    setFilterOpen(false);
+                  }}
+                  className="block w-full text-left px-4 py-2 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors dark:text-white font-medium"
                 >
-                  Reset
+                  All Sessions
                 </button>
-              )}
-            </div>
-
-            {/* Filters Panel */}
-            {showFilters && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-neutral-50 rounded-lg border border-neutral-200">
-                {/* Category Filter */}
-                <div>
-                  <label className="block text-sm font-medium text-neutral-700 mb-2">
-                    Category
-                  </label>
-                  <select
-                    value={selectedCategory}
-                    onChange={(e) => {
-                      setSelectedCategory(e.target.value)
-                      setPage(1)
-                    }}
-                    className="w-full"
-                  >
-                    <option value="">All Categories</option>
-                    {categories.map((cat) => (
-                      <option key={cat} value={cat}>
-                        {cat}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* Difficulty Filter */}
-                <div>
-                  <label className="block text-sm font-medium text-neutral-700 mb-2">
-                    Difficulty
-                  </label>
-                  <select
-                    value={selectedDifficulty}
-                    onChange={(e) => {
-                      setSelectedDifficulty(e.target.value)
-                      setPage(1)
-                    }}
-                    className="w-full"
-                  >
-                    <option value="">All Levels</option>
-                    {difficulties.map((diff) => (
-                      <option key={diff} value={diff}>
-                        {diff}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                <button
+                  onClick={() => {
+                    setSelectedFilter('Technical');
+                    setFilterOpen(false);
+                  }}
+                  className="block w-full text-left px-4 py-2 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors dark:text-white"
+                >
+                  Technical
+                </button>
+                <button
+                  onClick={() => {
+                    setSelectedFilter('Workshop');
+                    setFilterOpen(false);
+                  }}
+                  className="block w-full text-left px-4 py-2 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors dark:text-white"
+                >
+                  Workshop
+                </button>
+                <button
+                  onClick={() => {
+                    setSelectedFilter('Networking');
+                    setFilterOpen(false);
+                  }}
+                  className="block w-full text-left px-4 py-2 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors dark:text-white"
+                >
+                  Networking
+                </button>
               </div>
             )}
           </div>
-
-          {/* Sessions Grid */}
-          {loading ? (
-            <LoadingSpinner />
-          ) : filteredSessions.length > 0 ? (
-            <>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-                {filteredSessions.map((session) => (
-                  <SessionCard
-                    key={session.id}
-                    session={session}
-                    onViewDetails={() => navigate(`/sessions/${session.id}`)}
-                  />
-                ))}
-              </div>
-
-              {/* Pagination */}
-              {totalPages > 1 && (
-                <div className="flex items-center justify-center gap-2">
-                  <button
-                    onClick={() => setPage(p => Math.max(1, p - 1))}
-                    disabled={page === 1}
-                    className="btn btn-outline btn-sm"
-                  >
-                    Previous
-                  </button>
-
-                  <div className="flex items-center gap-1">
-                    {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
-                      <button
-                        key={p}
-                        onClick={() => setPage(p)}
-                        className={`w-10 h-10 rounded-lg font-medium transition-colors ${
-                          page === p
-                            ? 'bg-primary-600 text-white'
-                            : 'bg-neutral-100 text-neutral-900 hover:bg-neutral-200'
-                        }`}
-                      >
-                        {p}
-                      </button>
-                    ))}
-                  </div>
-
-                  <button
-                    onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-                    disabled={page === totalPages}
-                    className="btn btn-outline btn-sm"
-                  >
-                    Next
-                  </button>
-                </div>
-              )}
-            </>
-          ) : (
-            <div className="bg-neutral-50 rounded-lg border border-neutral-200 p-12 text-center">
-              <p className="text-neutral-600 mb-4">
-                {searchQuery ? 'No sessions found matching your search' : 'No sessions available'}
-              </p>
-              {searchQuery && (
-                <button
-                  onClick={() => setSearchQuery('')}
-                  className="btn btn-primary"
-                >
-                  Clear Search
-                </button>
-              )}
-            </div>
-          )}
         </div>
-      </main>
+      </div>
 
-      <BottomNavigation />
-    </>
-  )
-}
+      {/* Main Content */}
+      <div className="max-w-6xl mx-auto p-6">
+        {/* Error State */}
+        {error && (
+          <div className="mb-6 p-4 bg-red-100 dark:bg-red-900/30 border border-red-300 dark:border-red-700 text-red-700 dark:text-red-300 rounded-lg">
+            {error}
+            <button
+              onClick={fetchSessions}
+              className="ml-3 underline font-medium hover:no-underline"
+            >
+              Try Again
+            </button>
+          </div>
+        )}
 
-export default SessionsScreen
+        {/* Loading State - Skeleton Grid */}
+        {loading ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {[1, 2, 3, 4, 5, 6].map((i) => (
+              <SkeletonCard key={i} />
+            ))}
+          </div>
+        ) : filteredSessions.length > 0 ? (
+          <>
+            <div className="mb-4 text-sm text-slate-600 dark:text-slate-400">
+              Showing {filteredSessions.length} of {sessions.length} sessions
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {filteredSessions.map((session) => (
+                <SessionCard
+                  key={session.id}
+                  session={session}
+                  onSessionUpdate={fetchSessions}
+                />
+              ))}
+            </div>
+          </>
+        ) : (
+          <div className="text-center py-16">
+            <p className="text-lg text-slate-600 dark:text-slate-400 mb-4">
+              {searchQuery
+                ? `No sessions found matching "${searchQuery}"`
+                : 'No sessions available yet'}
+            </p>
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg font-medium transition-colors"
+              >
+                Clear Search
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+export default SessionsScreen;
