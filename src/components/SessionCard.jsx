@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Share2, Star, Bookmark, CheckCircle } from 'lucide-react';
-import apiClient from '../services/apiClient';
+import apiClient from '../../config/apiClient';
 
 const SessionCard = ({ session, onSessionUpdate }) => {
   const [isLoading, setIsLoading] = useState(false);
