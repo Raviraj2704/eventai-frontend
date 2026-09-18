@@ -19,7 +19,7 @@ const getBaseURL = () => {
   }
 
   // For Vercel/Railway production
-  return 'https://event-ai-backend-2f3.onrender.com';
+  return 'https://event-ai-backend-o2f3.onrender.com';
 };
 
 // Create axios instance
