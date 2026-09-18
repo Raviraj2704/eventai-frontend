@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Search, MapPin, Briefcase, MessageCircle, UserPlus } from 'lucide-react';
-import apiClient from '../services/apiClient';
+import apiClient from '../../config/apiClient';
 
 const NetworkingScreen = () => {
   const [users, setUsers] = useState([]);
