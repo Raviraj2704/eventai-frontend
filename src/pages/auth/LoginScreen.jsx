@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore, useAuthLoading, useAuthError } from '@/stores/authStore';
-import styles from './LoginPage.module.css';
+import styles from '../../styles/LoginPage.module.css';
 
 /**
  * LoginScreen Component
