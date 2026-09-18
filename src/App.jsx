@@ -48,14 +48,6 @@ import AdminDashboardScreen from './pages/admin/AdminDashboardScreen.jsx'
 // Components
 import PrivateRoute from './components/Auth/PrivateRoute'
 
-const App = () => {
-  const { isAuthenticated, checkAuth } = useAuthStore()
-
-  useEffect(() => {
-    // ✅ Check if user is already logged in (restore from localStorage)
-    checkAuth()
-  }, [checkAuth])
-
   return (
     <>
       <Toaster
