@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuthStore, useAuthLoading, useAuthError } from '@/stores/authStore';
+import { useAuthStore, useAuthLoading, useAuthError } from '../../store/authStore';
 import styles from '../../styles/LoginPage.module.css';
 
 /**
