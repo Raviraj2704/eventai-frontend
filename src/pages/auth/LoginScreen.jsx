@@ -48,7 +48,7 @@ const LoginScreen = () => {
     }
   }
 
-  const handleSubmit = async (e) => {
+const handleSubmit = async (e) => {
     e.preventDefault()
     if (!validateForm()) {
       toast.error('Please fill in all fields correctly')
@@ -57,15 +57,24 @@ const LoginScreen = () => {
 
     setIsSubmitting(true)
     try {
-      // 1. Talk to the backend FIRST to verify credentials and get real tokens
-      const response = await authService.login(formData.usernameOrEmail, formData.password)
+      const result = await authService.login(formData.usernameOrEmail, formData.password)
       
-      // 2. NOW save those real tokens and user data into the store
-      login(response.access_token, response.refresh_token, response.user)
+      // Safely extract data whether Axios nested it inside .data or returned it directly
+      const accessToken = result?.access_token || result?.data?.access_token
+      const refreshToken = result?.refresh_token || result?.data?.refresh_token
+      const userData = result?.user || result?.data?.user
+
+      // Prevent the crash if the token is still completely missing
+      if (!accessToken) {
+        throw new Error('Server responded, but no access token was found.')
+      }
+      
+      // Save tokens and user data into the store
+      login(accessToken, refreshToken, userData)
       
       toast.success('Welcome back!')
       
-      if (!response.user?.company || !response.user?.job_title) {
+      if (!userData?.company || !userData?.job_title) {
         navigate('/complete-profile', { replace: true })
       } else {
         navigate('/home', { replace: true })
@@ -76,7 +85,7 @@ const LoginScreen = () => {
       setIsSubmitting(false)
     }
   }
-  
+    
   return (
     <div className="min-h-screen bg-gradient-to-br from-neutral-50 to-neutral-100 flex items-center justify-center px-4 py-8">
       <div className="w-full max-w-md">
