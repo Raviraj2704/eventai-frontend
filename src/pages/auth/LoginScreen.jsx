@@ -1,175 +1,283 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate, useLocation, Link } from 'react-router-dom';
-import { Mail, Lock, Eye, EyeOff, ArrowRight, Loader } from 'lucide-react';
-import toast from 'react-hot-toast';
-import { useAuthStore } from '@/store/authStore';
-import { authService } from '@/services/authService';
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useAuthStore, useAuthLoading, useAuthError } from '@/stores/authStore';
+import styles from './LoginPage.module.css';
 
-const LoginScreen = () => {
+/**
+ * LoginScreen Component
+ * Handles user login with email and password
+ * Uses Zustand auth store for state management
+ */
+
+function LoginScreen() {
   const navigate = useNavigate();
-  const location = useLocation();
-  
   const login = useAuthStore((state) => state.login);
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  const isLoading = useAuthLoading();
+  const error = useAuthError();
+  const clearError = useAuthStore((state) => state.clearError);
 
-  const [formData, setFormData] = useState({
-    usernameOrEmail: '',
-    password: ''
-  });
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [formErrors, setFormErrors] = useState({});
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [localError, setLocalError] = useState('');
+  const [validated, setValidated] = useState(false);
 
+  // Redirect if already authenticated
   useEffect(() => {
-    if (isAuthenticated && !isSubmitting) {
-      navigate('/home', { replace: true });
+    if (isAuthenticated) {
+      navigate('/home');
     }
-  }, [isAuthenticated, isSubmitting, navigate]);
+  }, [isAuthenticated, navigate]);
 
+  // Clear errors when component mounts
+  useEffect(() => {
+    return () => {
+      clearError();
+      setLocalError('');
+    };
+  }, [clearError]);
+
+  /**
+   * Validate form inputs
+   */
   const validateForm = () => {
-    const errors = {};
-    if (!formData.usernameOrEmail.trim()) {
-      errors.usernameOrEmail = 'Username or email is required';
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    
+    if (!email.trim()) {
+      setLocalError('Email is required');
+      return false;
     }
-    if (!formData.password) {
-      errors.password = 'Password is required';
-    } else if (formData.password.length < 6) {
-      errors.password = 'Password must be at least 6 characters';
+
+    if (!emailRegex.test(email)) {
+      setLocalError('Please enter a valid email address');
+      return false;
     }
-    setFormErrors(errors);
-    return Object.keys(errors).length === 0;
+
+    if (!password) {
+      setLocalError('Password is required');
+      return false;
+    }
+
+    if (password.length < 6) {
+      setLocalError('Password must be at least 6 characters');
+      return false;
+    }
+
+    return true;
   };
 
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
-    if (formErrors[name]) {
-      setFormErrors(prev => ({ ...prev, [name]: '' }));
-    }
-  };
-
+  /**
+   * Handle form submission
+   */
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setValidated(true);
+    setLocalError('');
+
     if (!validateForm()) {
-      toast.error('Please fill in all fields correctly');
       return;
     }
 
-    setIsSubmitting(true);
-    try {
-      // 1. Fetch data from backend
-      const result = await authService.login(formData.usernameOrEmail, formData.password);
-      
-      // 2. Extract payload safely
-      const payload = result?.data || result;
-      
-      if (!payload) {
-        throw new Error('No response from server. Check authService.js or apiClient.js interceptors.');
-      }
+    const result = await login(email.toLowerCase().trim(), password);
 
-      const accessToken = payload?.access_token;
-      const refreshToken = payload?.refresh_token || null;
-      
-      // 3. Fallback user data to prevent 'undefined' JSON errors
-      const userData = payload?.user || { 
-        email: formData.usernameOrEmail, 
-        company: null, 
-        job_title: null 
-      };
-
-      if (!accessToken) {
-        console.error("Full backend response payload:", payload);
-        throw new Error('Server responded, but no access token was found.');
-      }
-      
-      // 4. Save to global store
-      login(accessToken, refreshToken, userData);
-      toast.success('Welcome back!');
-      
-      // 5. Route based on profile completion
-      if (!userData?.company || !userData?.job_title) {
-        navigate('/complete-profile', { replace: true });
-      } else {
-        navigate('/home', { replace: true });
-      }
-    } catch (err) {
-      console.error("Login Error:", err);
-      toast.error(err.message || 'Login failed. Please check your credentials.');
-    } finally {
-      setIsSubmitting(false);
+    if (result.success) {
+      // Redirect to home after successful login
+      navigate('/home');
+    } else {
+      setLocalError(result.error || 'Login failed. Please try again.');
     }
   };
+
+  /**
+   * Handle email input change
+   */
+  const handleEmailChange = (e) => {
+    const value = e.target.value;
+    setEmail(value);
     
+    // Clear error when user starts typing
+    if (localError) {
+      setLocalError('');
+    }
+  };
+
+  /**
+   * Handle password input change
+   */
+  const handlePasswordChange = (e) => {
+    const value = e.target.value;
+    setPassword(value);
+    
+    // Clear error when user starts typing
+    if (localError) {
+      setLocalError('');
+    }
+  };
+
+  /**
+   * Display error message from store or local error
+   */
+  const displayError = error || localError;
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-neutral-50 to-neutral-100 flex items-center justify-center px-4 py-8">
-      <div className="w-full max-w-md">
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-12 h-12 bg-primary-600 rounded-lg mb-4">
-            <Mail className="w-6 h-6 text-white" />
-          </div>
-          <h1 className="text-3xl font-bold text-neutral-900 mb-2">Welcome Back</h1>
-          <p className="text-neutral-600">Sign in to your EventAI account</p>
+    <div className={styles.container}>
+      <div className={styles.formWrapper}>
+        {/* Logo or Brand */}
+        <div className={styles.header}>
+          <h1 className={styles.title}>EventAI</h1>
+          <p className={styles.subtitle}>Welcome Back</p>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-5 mb-6">
-          <div>
-            <label className="block text-sm font-medium text-neutral-700 mb-2">Username or Email</label>
-            <div className="relative">
-              <Mail className="absolute left-4 top-3 w-5 h-5 text-neutral-400" />
+        {/* Error Message */}
+        {displayError && (
+          <div className={styles.errorAlert} role="alert">
+            <span className={styles.errorIcon}>⚠️</span>
+            <span>{displayError}</span>
+            <button
+              type="button"
+              className={styles.closeError}
+              onClick={() => {
+                setLocalError('');
+                clearError();
+              }}
+              aria-label="Close error"
+            >
+              ✕
+            </button>
+          </div>
+        )}
+
+        {/* Login Form */}
+        <form onSubmit={handleSubmit} className={styles.form} noValidate>
+          {/* Email Input */}
+          <div className={styles.formGroup}>
+            <label htmlFor="email" className={styles.label}>
+              Email Address
+            </label>
+            <div className={styles.inputWrapper}>
+              <span className={styles.inputIcon}>📧</span>
               <input
-                type="text"
-                name="usernameOrEmail"
-                value={formData.usernameOrEmail}
-                onChange={handleChange}
-                placeholder="Enter your username or email"
-                className={`pl-12 w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 ${formErrors.usernameOrEmail ? 'border-red-500' : 'border-neutral-300'}`}
-                disabled={isSubmitting}
+                id="email"
+                type="email"
+                className={`${styles.input} ${
+                  validated && !email ? styles.invalid : ''
+                }`}
+                placeholder="you@example.com"
+                value={email}
+                onChange={handleEmailChange}
+                disabled={isLoading}
+                required
+                aria-label="Email address"
+                autoComplete="email"
               />
             </div>
-            {formErrors.usernameOrEmail && <p className="mt-1 text-sm text-red-500">{formErrors.usernameOrEmail}</p>}
+            {validated && !email && (
+              <span className={styles.fieldError}>Email is required</span>
+            )}
           </div>
 
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <label className="block text-sm font-medium text-neutral-700">Password</label>
-              <Link to="/auth/forgot-password" className="text-sm text-primary-600 hover:text-primary-700">Forgot password?</Link>
-            </div>
-            <div className="relative">
-              <Lock className="absolute left-4 top-3 w-5 h-5 text-neutral-400" />
+          {/* Password Input */}
+          <div className={styles.formGroup}>
+            <label htmlFor="password" className={styles.label}>
+              Password
+            </label>
+            <div className={styles.passwordWrapper}>
+              <span className={styles.inputIcon}>🔒</span>
               <input
+                id="password"
                 type={showPassword ? 'text' : 'password'}
-                name="password"
-                value={formData.password}
-                onChange={handleChange}
-                placeholder="Enter your password"
-                className={`pl-12 pr-12 w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 ${formErrors.password ? 'border-red-500' : 'border-neutral-300'}`}
-                disabled={isSubmitting}
+                className={`${styles.input} ${
+                  validated && !password ? styles.invalid : ''
+                }`}
+                placeholder="••••••••"
+                value={password}
+                onChange={handlePasswordChange}
+                disabled={isLoading}
+                required
+                aria-label="Password"
+                autoComplete="current-password"
               />
-              <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-4 top-3 text-neutral-400 hover:text-neutral-600">
-                {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+              <button
+                type="button"
+                className={styles.togglePassword}
+                onClick={() => setShowPassword(!showPassword)}
+                disabled={isLoading}
+                aria-label={
+                  showPassword ? 'Hide password' : 'Show password'
+                }
+              >
+                {showPassword ? '👁️' : '👁️‍🗨️'}
               </button>
             </div>
-            {formErrors.password && <p className="mt-1 text-sm text-red-500">{formErrors.password}</p>}
+            {validated && !password && (
+              <span className={styles.fieldError}>Password is required</span>
+            )}
           </div>
 
-          <button type="submit" disabled={isSubmitting} className="w-full bg-primary-600 text-white font-semibold py-3 px-4 rounded-lg hover:bg-primary-700 transition duration-200 mt-8 flex items-center justify-center gap-2">
-            {isSubmitting ? <><Loader className="w-5 h-5 animate-spin" /> Signing in...</> : <><ArrowRight className="w-5 h-5" /> Sign In</>}
+          {/* Remember Me & Forgot Password */}
+          <div className={styles.formActions}>
+            <label className={styles.checkbox}>
+              <input
+                type="checkbox"
+                defaultChecked={false}
+                disabled={isLoading}
+              />
+              <span>Remember me</span>
+            </label>
+            <a href="/forgot-password" className={styles.link}>
+              Forgot password?
+            </a>
+          </div>
+
+          {/* Submit Button */}
+          <button
+            type="submit"
+            className={styles.submitButton}
+            disabled={isLoading}
+            aria-busy={isLoading}
+          >
+            {isLoading ? (
+              <span className={styles.loadingSpinner}>
+                <span className={styles.spinner}></span>
+                Signing In...
+              </span>
+            ) : (
+              <>
+                <span>Sign In</span>
+                <span className={styles.arrow}>→</span>
+              </>
+            )}
           </button>
         </form>
 
-        <div className="relative mb-6">
-          <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-neutral-300" /></div>
-          <div className="relative flex justify-center text-sm"><span className="px-2 bg-neutral-50 text-neutral-600">Don't have an account?</span></div>
+        {/* Sign Up Link */}
+        <div className={styles.footer}>
+          <p>
+            Don't have an account?{' '}
+            <a href="/register" className={styles.link}>
+              Create Account
+            </a>
+          </p>
         </div>
 
-        <Link to="/auth/register" className="block w-full text-center py-3 px-4 rounded-lg border-2 border-primary-600 text-primary-600 font-medium hover:bg-primary-50 transition-colors">Create Account</Link>
-
-        <p className="text-center text-xs text-neutral-600 mt-6">
-          By signing in, you agree to our <a href="#" className="text-primary-600 hover:underline">Terms of Service</a> and <a href="#" className="text-primary-600 hover:underline">Privacy Policy</a>
-        </p>
+        {/* Debug Info (Dev Only) */}
+        {import.meta.env.DEV && (
+          <details className={styles.debugInfo}>
+            <summary>Debug Info</summary>
+            <pre>
+              Backend URL:{' '}
+              {import.meta.env.VITE_BACKEND_URL ||
+                'http://localhost:8000'}
+              {'\n'}
+              Form State:
+              {JSON.stringify({ email, password, isLoading }, null, 2)}
+            </pre>
+          </details>
+        )}
       </div>
     </div>
   );
-};
+}
 
 export default LoginScreen;

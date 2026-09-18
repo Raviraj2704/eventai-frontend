@@ -1,122 +1,413 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import authService from './authService';
+
+/**
+ * Auth Store - Zustand store for authentication state management
+ * Includes user data, tokens, loading states, and auth methods
+ */
 
 export const useAuthStore = create(
   persist(
     (set, get) => ({
-      // ============================================================================
+      // ============================================
       // STATE
-      // ============================================================================
-      token: null,
-      refreshToken: null,
+      // ============================================
       user: null,
+      accessToken: null,
+      refreshToken: null,
       isAuthenticated: false,
-      loading: false,
-      
-      // ============================================================================
+      isLoading: false,
+      error: null,
+      lastLoginTime: null,
+
+      // ============================================
       // ACTIONS
-      // ============================================================================
-      
-      checkAuth: () => {
+      // ============================================
+
+      /**
+       * Login action
+       */
+      login: async (email, password) => {
+        set({ isLoading: true, error: null });
+
         try {
-          const token = localStorage.getItem('access_token');
-          const userStr = localStorage.getItem('user_data');
-          
-          if (token && userStr && userStr !== 'undefined' && userStr !== 'null') {
+          const result = await authService.login(email, password);
+
+          if (result.success) {
             set({
-              token: token,
-              user: JSON.parse(userStr),
-              isAuthenticated: true
+              user: result.user,
+              accessToken: result.access_token,
+              refreshToken: result.refresh_token,
+              isAuthenticated: true,
+              error: null,
+              lastLoginTime: new Date().toISOString(),
             });
-            console.log('✅ User restored from localStorage');
+
+            return { success: true };
           } else {
-            localStorage.removeItem('access_token');
-            localStorage.removeItem('user_data');
+            set({
+              error: result.error,
+              isAuthenticated: false,
+            });
+
+            return { success: false, error: result.error };
           }
         } catch (error) {
-          console.error('❌ Auth check error:', error);
-          set({ isAuthenticated: false });
-        }
-      },
-      
-      login: (accessToken, refreshToken, userData) => {
-        console.log('🔐 Logging in user:', userData?.email);
-        
-        localStorage.setItem('access_token', accessToken);
-        localStorage.setItem('refresh_token', refreshToken || '');
-        localStorage.setItem('user_data', JSON.stringify(userData));
-        
-        set({
-          token: accessToken,
-          refreshToken: refreshToken || null,
-          user: userData,
-          isAuthenticated: true,
-          loading: false
-        });
-      },
-      
-      registerUser: async (userData) => {
-        set({ loading: true });
-        try {
-          const baseUrl = import.meta.env.VITE_API_BASE_URL || 'https://event-ai-backend-o2f3.onrender.com';
-          const response = await fetch(`${baseUrl}/auth/register`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(userData),
+          const errorMessage = error.message || 'Login failed';
+          set({
+            error: errorMessage,
+            isAuthenticated: false,
           });
-          
-          const data = await response.json();
-          if (!response.ok) throw new Error(data.detail || 'Registration failed');
-          
-          set({ loading: false });
-          return { success: true, data };
-        } catch (error) {
-          console.error('❌ Registration error:', error);
-          set({ loading: false });
-          throw error;
+
+          return { success: false, error: errorMessage };
+        } finally {
+          set({ isLoading: false });
         }
       },
-      
-      logout: () => {
-        console.log('👋 Logging out user');
-        localStorage.removeItem('access_token');
-        localStorage.removeItem('refresh_token');
-        localStorage.removeItem('user_data');
-        
-        set({
-          token: null,
-          refreshToken: null,
-          user: null,
-          isAuthenticated: false,
-          loading: false
-        });
+
+      /**
+       * Register action
+       */
+      register: async (userData) => {
+        set({ isLoading: true, error: null });
+
+        try {
+          const result = await authService.register(userData);
+
+          if (result.success) {
+            return { success: true };
+          } else {
+            set({ error: result.error });
+            return { success: false, error: result.error };
+          }
+        } catch (error) {
+          const errorMessage = error.message || 'Registration failed';
+          set({ error: errorMessage });
+          return { success: false, error: errorMessage };
+        } finally {
+          set({ isLoading: false });
+        }
       },
-      
-      updateProfile: (userData) => {
-        console.log('📝 Updating profile');
-        const updatedUser = { ...get().user, ...userData };
-        localStorage.setItem('user_data', JSON.stringify(updatedUser));
-        set({ user: updatedUser });
+
+      /**
+       * Verify email action
+       */
+      verifyEmail: async (email, otp) => {
+        set({ isLoading: true, error: null });
+
+        try {
+          const result = await authService.verifyEmail(email, otp);
+
+          if (result.success) {
+            return { success: true };
+          } else {
+            set({ error: result.error });
+            return { success: false, error: result.error };
+          }
+        } catch (error) {
+          const errorMessage = error.message || 'Email verification failed';
+          set({ error: errorMessage });
+          return { success: false, error: errorMessage };
+        } finally {
+          set({ isLoading: false });
+        }
       },
-      
-      setLoading: (loading) => set({ loading }),
-      
-      setToken: (token) => {
-        localStorage.setItem('access_token', token);
-        set({ token });
-      }
+
+      /**
+       * Resend verification email
+       */
+      resendVerificationEmail: async (email) => {
+        set({ isLoading: true, error: null });
+
+        try {
+          const result = await authService.resendVerificationEmail(email);
+
+          if (result.success) {
+            return { success: true };
+          } else {
+            set({ error: result.error });
+            return { success: false, error: result.error };
+          }
+        } catch (error) {
+          const errorMessage = error.message || 'Failed to resend email';
+          set({ error: errorMessage });
+          return { success: false, error: errorMessage };
+        } finally {
+          set({ isLoading: false });
+        }
+      },
+
+      /**
+       * Complete profile action
+       */
+      completeProfile: async (profileData) => {
+        set({ isLoading: true, error: null });
+
+        try {
+          const result = await authService.completeProfile(profileData);
+
+          if (result.success) {
+            // Update user with completed profile
+            set((state) => ({
+              user: result.data?.user || state.user,
+            }));
+
+            return { success: true };
+          } else {
+            set({ error: result.error });
+            return { success: false, error: result.error };
+          }
+        } catch (error) {
+          const errorMessage = error.message || 'Profile completion failed';
+          set({ error: errorMessage });
+          return { success: false, error: errorMessage };
+        } finally {
+          set({ isLoading: false });
+        }
+      },
+
+      /**
+       * Logout action
+       */
+      logout: async () => {
+        set({ isLoading: true, error: null });
+
+        try {
+          await authService.logout();
+
+          set({
+            user: null,
+            accessToken: null,
+            refreshToken: null,
+            isAuthenticated: false,
+            error: null,
+            lastLoginTime: null,
+          });
+
+          return { success: true };
+        } catch (error) {
+          console.error('Logout error:', error);
+          
+          // Force logout anyway
+          set({
+            user: null,
+            accessToken: null,
+            refreshToken: null,
+            isAuthenticated: false,
+            lastLoginTime: null,
+          });
+
+          return { success: true };
+        } finally {
+          set({ isLoading: false });
+        }
+      },
+
+      /**
+       * Refresh token action
+       */
+      refreshAccessToken: async () => {
+        try {
+          const result = await authService.refreshToken();
+
+          if (result.success) {
+            set({
+              accessToken: result.access_token,
+              refreshToken: result.refresh_token,
+            });
+
+            return { success: true };
+          } else {
+            // Refresh failed, logout user
+            set({
+              user: null,
+              accessToken: null,
+              refreshToken: null,
+              isAuthenticated: false,
+              error: 'Session expired',
+            });
+
+            return { success: false, error: result.error };
+          }
+        } catch (error) {
+          set({
+            user: null,
+            accessToken: null,
+            refreshToken: null,
+            isAuthenticated: false,
+          });
+
+          return { success: false, error: error.message };
+        }
+      },
+
+      /**
+       * Request password reset
+       */
+      requestPasswordReset: async (email) => {
+        set({ isLoading: true, error: null });
+
+        try {
+          const result = await authService.requestPasswordReset(email);
+
+          if (result.success) {
+            return { success: true };
+          } else {
+            set({ error: result.error });
+            return { success: false, error: result.error };
+          }
+        } catch (error) {
+          const errorMessage = error.message || 'Password reset request failed';
+          set({ error: errorMessage });
+          return { success: false, error: errorMessage };
+        } finally {
+          set({ isLoading: false });
+        }
+      },
+
+      /**
+       * Reset password
+       */
+      resetPassword: async (token, newPassword) => {
+        set({ isLoading: true, error: null });
+
+        try {
+          const result = await authService.resetPassword(token, newPassword);
+
+          if (result.success) {
+            return { success: true };
+          } else {
+            set({ error: result.error });
+            return { success: false, error: result.error };
+          }
+        } catch (error) {
+          const errorMessage = error.message || 'Password reset failed';
+          set({ error: errorMessage });
+          return { success: false, error: errorMessage };
+        } finally {
+          set({ isLoading: false });
+        }
+      },
+
+      /**
+       * Restore auth state from localStorage
+       */
+      restoreAuth: () => {
+        try {
+          const user = localStorage.getItem('user');
+          const accessToken = localStorage.getItem('access_token');
+          const refreshToken = localStorage.getItem('refresh_token');
+
+          if (user && accessToken) {
+            set({
+              user: JSON.parse(user),
+              accessToken,
+              refreshToken,
+              isAuthenticated: true,
+            });
+
+            return true;
+          }
+
+          return false;
+        } catch (error) {
+          console.error('Error restoring auth:', error);
+          return false;
+        }
+      },
+
+      /**
+       * Clear error
+       */
+      clearError: () => {
+        set({ error: null });
+      },
+
+      /**
+       * Set error
+       */
+      setError: (error) => {
+        set({ error });
+      },
+
+      /**
+       * Update user data
+       */
+      setUser: (user) => {
+        set({ user });
+        if (user) {
+          localStorage.setItem('user', JSON.stringify(user));
+        }
+      },
+
+      /**
+       * Hydrate store from localStorage on app load
+       */
+      hydrate: () => {
+        try {
+          const savedState = localStorage.getItem('auth-store');
+          if (savedState) {
+            const parsed = JSON.parse(savedState);
+            set(parsed.state);
+          }
+        } catch (error) {
+          console.error('Error hydrating auth store:', error);
+        }
+      },
     }),
     {
-      name: 'eventai-auth-store',
+      name: 'auth-store',
       partialize: (state) => ({
-        token: state.token,
-        refreshToken: state.refreshToken,
         user: state.user,
-        isAuthenticated: state.isAuthenticated
+        isAuthenticated: state.isAuthenticated,
+        lastLoginTime: state.lastLoginTime,
       }),
-      onRehydrateStorage: () => (state) => {
-        console.log('💾 Rehydrating auth store from localStorage');
-      }
     }
   )
 );
+
+/**
+ * Custom hook to check if user is authenticated
+ */
+export const useIsAuthenticated = () => {
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  return isAuthenticated;
+};
+
+/**
+ * Custom hook to get current user
+ */
+export const useUser = () => {
+  const user = useAuthStore((state) => state.user);
+  return user;
+};
+
+/**
+ * Custom hook to get auth loading state
+ */
+export const useAuthLoading = () => {
+  const isLoading = useAuthStore((state) => state.isLoading);
+  return isLoading;
+};
+
+/**
+ * Custom hook to get auth error
+ */
+export const useAuthError = () => {
+  const error = useAuthStore((state) => state.error);
+  return error;
+};
+
+/**
+ * Custom hook to get auth actions
+ */
+export const useAuthActions = () => {
+  const login = useAuthStore((state) => state.login);
+  const logout = useAuthStore((state) => state.logout);
+  const register = useAuthStore((state) => state.register);
+
+  return { login, logout, register };
+};
+
+export default useAuthStore;
