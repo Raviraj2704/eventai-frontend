@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuthStore, useAuthLoading, useAuthError } from '../../store/authStore';
+import { useAuthStore } from '../../store/authStore';
 import styles from '../../styles/LoginPage.module.css';
 
 /**
@@ -13,8 +13,8 @@ function LoginScreen() {
   const navigate = useNavigate();
   const login = useAuthStore((state) => state.login);
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
-  const isLoading = useAuthLoading();
-  const error = useAuthError();
+  const isLoading = useAuthStore((state) => state.isLoading);
+  const error = useAuthStore((state) => state.error);
   const clearError = useAuthStore((state) => state.clearError);
 
   const [email, setEmail] = useState('');
