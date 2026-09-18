@@ -68,7 +68,7 @@ export const useAuthStore = create(
       registerUser: async (userData) => {
         set({ loading: true })
         try {
-          const baseUrl = import.meta.env.VITE_API_BASE_URL || 'https://event-ai-backend-o2f3.onrender.com/api/v1'
+          const baseUrl = import.meta.env.VITE_API_BASE_URL || 'https://event-ai-backend-o2f3.onrender.com'
           const response = await fetch(`${baseUrl}/auth/register`, {
             method: 'POST',
             headers: {
