@@ -4,7 +4,7 @@ import {
   AlertCircle, Loader, Search, Filter, MoreVertical, Edit2, Trash2,
   Download, Plus, X
 } from 'lucide-react';
-import apiClient from '../services/apiClient';
+import apiClient from '../../config/apiClient';
 
 const AdminRBACDashboard = ({ userProfile }) => {
   const [activeTab, setActiveTab] = useState('overview');
