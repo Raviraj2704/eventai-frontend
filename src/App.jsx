@@ -5,7 +5,7 @@
 // Purpose: Root component with React Router setup and authentication flow
 // Status: Production-Ready ✅
 
-import React, { useEffect } from 'react'
+import React, { useEffect, useState } from 'react'
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
 import { Toaster } from 'react-hot-toast'
 
@@ -48,11 +48,18 @@ import AdminDashboardScreen from './pages/admin/AdminDashboardScreen.jsx'
 // Components
 import PrivateRoute from './components/Auth/PrivateRoute'
 
-const App = () => { // <--- MAKE SURE THIS OPENING BRACKET EXISTS (Around line 51)
+// AI Features
+import AIAssistant from './components/ai/AIAssistant'
+import AIEventRecommendations from './components/ai/AIEventRecommendations'
+import AISessionSummary from './components/ai/AISessionSummary'
+import AIQuizGenerator from './components/ai/AIQuizGenerator'
+
+const App = () => {
   const { isAuthenticated } = useAuthStore();
+  const [userProfile, setUserProfile] = useState(null);
 
   return (
-    <>
+    <div className="min-h-screen bg-white dark:bg-slate-950">
       <Toaster
         position="top-right"
         reverseOrder={false}
@@ -291,6 +298,37 @@ const App = () => { // <--- MAKE SURE THIS OPENING BRACKET EXISTS (Around line 5
           />
 
           {/* ============================================================================
+              AI FEATURES ROUTES
+              ============================================================================ */}
+          
+          <Route 
+            path="/discover" 
+            element={
+              <PrivateRoute>
+                <AIEventRecommendations userProfile={userProfile} />
+              </PrivateRoute>
+            } 
+          />
+          
+          <Route 
+            path="/sessions/:id/summary" 
+            element={
+              <PrivateRoute>
+                <AISessionSummary />
+              </PrivateRoute>
+            } 
+          />
+          
+          <Route 
+            path="/sessions/:id/quiz" 
+            element={
+              <PrivateRoute>
+                <AIQuizGenerator sessionTitle="Session Name" />
+              </PrivateRoute>
+            } 
+          />
+
+          {/* ============================================================================
               FALLBACK ROUTE - Catch-all redirect
               ============================================================================ */}
 
@@ -306,7 +344,10 @@ const App = () => { // <--- MAKE SURE THIS OPENING BRACKET EXISTS (Around line 5
           />
         </Routes>
       </Router>
-    </>
+
+      {/* AI Assistant Floating Widget */}
+      {userProfile && <AIAssistant userProfile={userProfile} />}
+    </div>
   )
 }
 
