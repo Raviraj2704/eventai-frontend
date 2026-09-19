@@ -53,6 +53,7 @@ import AIAssistant from './components/ai/AIAssistant'
 import AIEventRecommendations from './components/ai/AIEventRecommendations'
 import AISessionSummary from './components/ai/AISessionSummary'
 import AIQuizGenerator from './components/ai/AIQuizGenerator'
+import AIPerfectNetworkMatch from './components/ai/AIPerfectNetworkMatch'
 
 const App = () => {
   const { isAuthenticated } = useAuthStore();
@@ -324,6 +325,15 @@ const App = () => {
             element={
               <PrivateRoute>
                 <AIQuizGenerator sessionTitle="Session Name" />
+              </PrivateRoute>
+            } 
+          />
+
+          <Route 
+            path="/network-matches" 
+            element={
+              <PrivateRoute>
+                <AIPerfectNetworkMatch />
               </PrivateRoute>
             } 
           />
