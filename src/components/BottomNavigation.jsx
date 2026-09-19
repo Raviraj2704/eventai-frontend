@@ -8,7 +8,7 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Sparkles } from 'lucide-react';
 
-export const BottomNavigation = ({ activeTab, onTabChange }) => {
+export const BottomNavigation = ({ activeTab, onTabChange, userProfile }) => {
   const navigate = useNavigate();
 
   const tabs = [
@@ -20,6 +20,10 @@ export const BottomNavigation = ({ activeTab, onTabChange }) => {
     { id: 'networking', label: 'Networking', icon: '🤝' },
     { id: 'profile', label: 'Profile', icon: '👤' },
   ];
+
+  if (userProfile?.is_admin) {
+    tabs.push({ id: 'admin', label: 'Admin', icon: '⚙️' });
+  }
 
   return (
     <div className="bottom-nav">
@@ -37,6 +41,9 @@ export const BottomNavigation = ({ activeTab, onTabChange }) => {
               // Trigger your requested navigate function specifically for Discover
               if (tab.id === 'discover') {
                 navigate('/discover');
+              }
+              if (tab.id === 'admin') {
+                navigate('/admin');
               }
               // Maintain existing active tab logic
               if (onTabChange) {

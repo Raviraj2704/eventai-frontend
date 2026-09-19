@@ -44,6 +44,7 @@ import LearningPathsScreen from './pages/gamification/LearningPathsScreen'
 // Pages - Engagement Center & Admin
 import EngagementCenterScreen from './pages/engagement-center/engagementCenterScreen.jsx'
 import AdminDashboardScreen from './pages/admin/AdminDashboardScreen.jsx'
+import AdminRBACDashboard from './pages/admin/AdminRBACDashboard.jsx'
 
 // Components
 import PrivateRoute from './components/Auth/PrivateRoute'
@@ -294,6 +295,15 @@ const App = () => {
             element={
               <PrivateRoute adminOnly={true}>
                 <AdminDashboardScreen />
+              </PrivateRoute>
+            }
+          />
+          {/* Admin RBAC Dashboard */}
+          <Route
+            path="/admin/rbac"
+            element={
+              <PrivateRoute adminOnly={true}>
+                <AdminRBACDashboard />
               </PrivateRoute>
             }
           />
