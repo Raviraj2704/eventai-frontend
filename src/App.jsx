@@ -355,8 +355,8 @@ const App = () => {
         </Routes>
       </Router>
 
-      {/* AI Assistant Floating Widget */}
-      {userProfile && <AIAssistant userProfile={userProfile} />}
+      {/* AI Assistant Floating Widget - REMOVED the userProfile condition */}
+      <AIAssistant />
     </div>
   )
 }
