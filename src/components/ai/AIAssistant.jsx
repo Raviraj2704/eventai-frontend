@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { X, Send, MessageCircle, Loader, ThumbsUp, ThumbsDown } from 'lucide-react';
-import apiClient from '../services/apiClient';
+import apiClient from '../config/apiClient';
 
 const AIAssistant = ({ userProfile }) => {
   const [isOpen, setIsOpen] = useState(false);

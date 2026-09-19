@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Sparkles, TrendingUp, Heart, Share2, Clock, Users } from 'lucide-react';
-import apiClient from '../services/apiClient';
+import apiClient from '../config/apiClient';
 
 const AIEventRecommendations = ({ userProfile }) => {
   const [recommendations, setRecommendations] = useState([]);
