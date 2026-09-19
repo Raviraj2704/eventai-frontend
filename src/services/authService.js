@@ -25,7 +25,7 @@ const authService = {
       console.log('🔐 Attempting login for:', email);
 
       // Make login request
-      const response = await apiClient.post('/api/v1/auth/login', {
+      const response = await apiClient.post('/auth/login', {
         email: email.toLowerCase().trim(),
         password,
       });
