@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Users, Sparkles, MessageCircle, UserPlus, Heart, Share2, MapPin, Briefcase, Trophy, Loader, RotateCcw } from 'lucide-react';
-import apiClient from '../services/apiClient';
+import apiClient from '../../config/apiClient';
 
 const AIPerfectNetworkMatch = ({ userProfile }) => {
   const [matches, setMatches] = useState([]);

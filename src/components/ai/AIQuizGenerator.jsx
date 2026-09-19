@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { BookOpen, CheckCircle, XCircle, RotateCcw, Award, Loader } from 'lucide-react';
-import apiClient from '../config/apiClient';
+import apiClient from '../../config/apiClient';
 
 const AIQuizGenerator = ({ sessionId, sessionTitle }) => {
   const [quiz, setQuiz] = useState(null);
