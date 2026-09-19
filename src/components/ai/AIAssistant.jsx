@@ -124,7 +124,7 @@ const AIAssistant = ({ userProfile }) => {
       {/* Floating Bubble Button */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className={`fixed bottom-6 right-6 rounded-full shadow-lg transition-all duration-300 hover:scale-110 z-40 ${
+        className={`fixed bottom-20 right-6 rounded-full shadow-lg transition-all duration-300 hover:scale-110 z-40 ${
           isOpen
             ? 'bg-purple-600 hover:bg-purple-700 text-white w-12 h-12 flex items-center justify-center'
             : 'bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white w-14 h-14 flex items-center justify-center shadow-xl'
