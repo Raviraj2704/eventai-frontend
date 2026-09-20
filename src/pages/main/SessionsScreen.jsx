@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Search, Filter, ChevronDown } from 'lucide-react';
 import SessionCard from '../../components/SessionCard'; // <-- Updated this path!
 import apiClient from '../../config/apiClient';
+import CreateSessionForm from '../../components/CreateSessionForm'; // <-- Added form import
 
 const SessionsScreen = () => {
   const [sessions, setSessions] = useState([]);
@@ -11,6 +12,7 @@ const SessionsScreen = () => {
   const [filterOpen, setFilterOpen] = useState(false);
   const [selectedFilter, setSelectedFilter] = useState('all');
   const [error, setError] = useState(null);
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false); // <-- Added modal state
 
   // Fetch sessions on mount
   useEffect(() => {
@@ -80,10 +82,19 @@ const SessionsScreen = () => {
 
   return (
     <div className="min-h-screen bg-white dark:bg-slate-950">
-      {/* Header */}
-      <div className="bg-gradient-to-r from-blue-500 to-blue-600 text-white p-6 pt-8">
-        <h1 className="text-3xl font-bold mb-2">Sessions</h1>
-        <p className="text-blue-100">Browse and discover {sessions.length || '0'} sessions</p>
+      {/* Header - Updated with Flexbox and Create Button */}
+      <div className="bg-gradient-to-r from-blue-500 to-blue-600 text-white p-6 pt-8 flex justify-between items-center">
+        <div>
+          <h1 className="text-3xl font-bold mb-2">Sessions</h1>
+          <p className="text-blue-100">Browse and discover {sessions.length || '0'} sessions</p>
+        </div>
+        
+        <button 
+          onClick={() => setIsCreateModalOpen(true)}
+          className="bg-white text-blue-600 px-4 py-2 rounded-lg font-semibold hover:bg-blue-50 transition-colors shadow-sm"
+        >
+          + Create Session
+        </button>
       </div>
 
       {/* Search & Filter Bar */}
@@ -213,6 +224,33 @@ const SessionsScreen = () => {
           </div>
         )}
       </div>
+
+      {/* Create Session Modal */}
+      {isCreateModalOpen && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto relative">
+            
+            {/* Close Button (X) */}
+            <button 
+              onClick={() => setIsCreateModalOpen(false)}
+              className="absolute top-4 right-4 text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 z-10"
+            >
+              ✕
+            </button>
+
+            {/* Your Form Component */}
+            <div className="p-2">
+              <CreateSessionForm 
+                onSuccess={() => {
+                  setIsCreateModalOpen(false); 
+                  fetchSessions();             
+                }} 
+              />
+            </div>
+
+          </div>
+        </div>
+      )}
     </div>
   );
 };
