@@ -30,7 +30,7 @@ export default function CreateSessionForm({ onSubmit, onCancel }) {
     setError(null);
 
     try {
-      const result = await apiPost('/api/v1/sessions', formData);
+      const result = await apiPost('/sessions', formData);
       alert('Session created successfully!');
       onSubmit(result);
       setFormData({
