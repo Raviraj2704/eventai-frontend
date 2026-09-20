@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Search, Filter, ChevronDown } from 'lucide-react';
 import SessionCard from '../../components/SessionCard'; // <-- Updated this path!
 import apiClient from '../../config/apiClient';
-import CreateSessionForm from '../../components/CreateSessionForm'; // <-- Added form import
+import CreateSessionForm from '../../components/forms/CreateSessionForm'; // <-- Added form import
 
 const SessionsScreen = () => {
   const [sessions, setSessions] = useState([]);
