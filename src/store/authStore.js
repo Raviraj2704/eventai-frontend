@@ -34,29 +34,63 @@ export const useAuthStore = create(
         try {
           const result = await authService.login(email, password);
 
-          if (result.success) {
-            // Save admin and auth flags to localStorage
-            const isAdmin = result.is_admin ?? result.user?.is_admin ?? false;
+          if (result.success || result.access_token) {
+            // Check every possible place where is_admin might arrive
+            const rawAdmin =
+              result.is_admin ??
+              result.user?.is_admin ??
+              result.data?.is_admin ??
+              result.data?.user?.is_admin;
+
+            // If user's role is 'admin', or rawAdmin is truthy, flag as true
+            const role =
+              result.user_role ||
+              result.user?.role ||
+              result.data?.role ||
+              result.data?.user?.role;
+
+            const userEmail =
+              email ||
+              result.email ||
+              result.user?.email;
+
+            // Explicitly verify true flag or fallback to admin account email check
+            const isAdmin =
+              rawAdmin === true ||
+              rawAdmin === 'true' ||
+              role === 'admin' ||
+              userEmail === 'ravirajapanthulu@gmail.com';
+
             localStorage.setItem('is_admin', String(isAdmin));
-            if (result.access_token) {
-              localStorage.setItem('access_token', result.access_token);
+
+            const token = result.access_token || result.data?.access_token;
+            if (token) {
+              localStorage.setItem('access_token', token);
             }
-            if (result.user_id || result.user?.id) {
-              localStorage.setItem('user_id', String(result.user_id || result.user?.id));
+
+            const uid =
+              result.user_id ||
+              result.user?.id ||
+              result.data?.user_id ||
+              result.data?.id;
+            if (uid) {
+              localStorage.setItem('user_id', String(uid));
             }
-            if (result.user_role || result.user?.role) {
-              localStorage.setItem('user_role', result.user_role || result.user?.role);
+
+            if (role) {
+              localStorage.setItem('user_role', role);
             }
 
             set({
               user: {
-                ...(result.user || {}),
-                id: result.user_id || result.user?.id,
-                role: result.user_role || result.user?.role,
+                ...(result.user || result.data?.user || {}),
+                id: uid,
+                role: role,
                 is_admin: isAdmin,
+                email: userEmail,
               },
-              accessToken: result.access_token,
-              refreshToken: result.refresh_token,
+              accessToken: token,
+              refreshToken: result.refresh_token || result.data?.refresh_token,
               isAuthenticated: true,
               error: null,
               lastLoginTime: new Date().toISOString(),
@@ -83,7 +117,7 @@ export const useAuthStore = create(
           set({ isLoading: false });
         }
       },
-
+      
       /**
        * Register action
        */
