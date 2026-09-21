@@ -92,26 +92,42 @@ export default function SpeakersPage() {
         </div>
 
         <button
-          className="btn-create-profile"
+          className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition font-medium"
           onClick={() => {
-            setShowEditForm(!showEditForm);
+            setShowEditForm(true);
             setSelectedSpeakerId(null);
           }}
         >
-          {showEditForm ? '✖ Close' : '+ Create Speaker Profile'}
+          + Create Speaker Profile
         </button>
       </div>
 
-      {/* Edit Speaker Form */}
+      {/* Create/Edit Speaker Modal Overlay */}
       {showEditForm && (
-        <EditSpeakerForm
-          speakerId={selectedSpeakerId}
-          onSubmit={selectedSpeakerId ? handleSpeakerUpdated : handleCreateNew}
-          onCancel={() => {
-            setShowEditForm(false);
-            setSelectedSpeakerId(null);
-          }}
-        />
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white p-6 rounded-lg w-full max-w-2xl relative shadow-xl max-h-[90vh] overflow-y-auto">
+            <button 
+              onClick={() => {
+                setShowEditForm(false);
+                setSelectedSpeakerId(null);
+              }}
+              className="absolute top-4 right-4 text-gray-500 hover:text-gray-800 text-xl font-bold"
+            >
+              ✕
+            </button>
+            <h2 className="text-2xl font-bold mb-4">
+              {selectedSpeakerId ? 'Edit Speaker Profile' : 'Create New Speaker'}
+            </h2>
+            <EditSpeakerForm
+              speakerId={selectedSpeakerId}
+              onSubmit={selectedSpeakerId ? handleSpeakerUpdated : handleCreateNew}
+              onCancel={() => {
+                setShowEditForm(false);
+                setSelectedSpeakerId(null);
+              }}
+            />
+          </div>
+        </div>
       )}
 
       {/* Speakers Grid */}
@@ -125,7 +141,7 @@ export default function SpeakersPage() {
             </p>
             {!searchTerm && (
               <button
-                className="btn-primary"
+                className="btn-primary mt-4"
                 onClick={() => {
                   setShowEditForm(true);
                   setSelectedSpeakerId(null);

@@ -115,24 +115,36 @@ export default function AnnouncementsPage() {
         </div>
       )}
 
-      {/* Admin Controls */}
+      {/* Admin Controls - Upgraded to a clear Create Button */}
       {isAdmin && (
-        <div className="announcements-admin">
+        <div className="announcements-admin mb-4">
           <button
-            className="btn-create-announcement"
-            onClick={() => setShowCreateForm(!showCreateForm)}
+            className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition"
+            onClick={() => setShowCreateForm(true)}
           >
-            {showCreateForm ? '✖ Close' : '+ New Announcement'}
+            + Create Announcement
           </button>
         </div>
       )}
 
-      {/* Create Announcement Form */}
+      {/* Create Announcement Modal Overlay */}
       {showCreateForm && isAdmin && (
-        <CreateAnnouncementForm
-          onSubmit={handleAnnouncementCreated}
-          onCancel={() => setShowCreateForm(false)}
-        />
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white p-6 rounded-lg w-full max-w-2xl relative shadow-xl max-h-[90vh] overflow-y-auto">
+            <button 
+              onClick={() => setShowCreateForm(false)}
+              className="absolute top-4 right-4 text-gray-500 hover:text-gray-800 text-xl font-bold"
+            >
+              ✕
+            </button>
+            <h2 className="text-2xl font-bold mb-4">Create New Announcement</h2>
+            <CreateAnnouncementForm
+              onSubmit={handleAnnouncementCreated}
+              onCancel={() => setShowCreateForm(false)}
+              onClose={() => setShowCreateForm(false)}
+            />
+          </div>
+        </div>
       )}
 
       {/* Filters */}
