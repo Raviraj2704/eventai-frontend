@@ -268,7 +268,7 @@ function LoginScreen() {
             <pre>
               Backend URL:{' '}
               {import.meta.env.VITE_BACKEND_URL ||
-                'http://localhost:8000'}
+                'https://event-ai-backend-o2f3.onrender.com'}
               {'\n'}
               Form State:
               {JSON.stringify({ email, password, isLoading }, null, 2)}

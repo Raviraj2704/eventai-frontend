@@ -35,8 +35,26 @@ export const useAuthStore = create(
           const result = await authService.login(email, password);
 
           if (result.success) {
+            // Save admin and auth flags to localStorage
+            const isAdmin = result.is_admin ?? result.user?.is_admin ?? false;
+            localStorage.setItem('is_admin', String(isAdmin));
+            if (result.access_token) {
+              localStorage.setItem('access_token', result.access_token);
+            }
+            if (result.user_id || result.user?.id) {
+              localStorage.setItem('user_id', String(result.user_id || result.user?.id));
+            }
+            if (result.user_role || result.user?.role) {
+              localStorage.setItem('user_role', result.user_role || result.user?.role);
+            }
+
             set({
-              user: result.user,
+              user: {
+                ...(result.user || {}),
+                id: result.user_id || result.user?.id,
+                role: result.user_role || result.user?.role,
+                is_admin: isAdmin,
+              },
               accessToken: result.access_token,
               refreshToken: result.refresh_token,
               isAuthenticated: true,
@@ -176,6 +194,11 @@ export const useAuthStore = create(
         try {
           await authService.logout();
 
+          localStorage.removeItem('is_admin');
+          localStorage.removeItem('access_token');
+          localStorage.removeItem('user_id');
+          localStorage.removeItem('user_role');
+
           set({
             user: null,
             accessToken: null,
@@ -189,6 +212,11 @@ export const useAuthStore = create(
         } catch (error) {
           console.error('Logout error:', error);
           
+          localStorage.removeItem('is_admin');
+          localStorage.removeItem('access_token');
+          localStorage.removeItem('user_id');
+          localStorage.removeItem('user_role');
+
           // Force logout anyway
           set({
             user: null,
