@@ -115,20 +115,18 @@ export default function AnnouncementsPage() {
         </div>
       )}
 
-      {/* Admin Controls - Upgraded to a clear Create Button */}
-      {isAdmin && (
-        <div className="announcements-admin mb-4">
-          <button
-            className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition"
-            onClick={() => setShowCreateForm(true)}
-          >
-            + Create Announcement
-          </button>
-        </div>
-      )}
+      {/* Create Button (Always Visible) */}
+      <div className="announcements-admin mb-4">
+        <button
+          className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition"
+          onClick={() => setShowCreateForm(true)}
+        >
+          + Create Announcement
+        </button>
+      </div>
 
       {/* Create Announcement Modal Overlay */}
-      {showCreateForm && isAdmin && (
+      {showCreateForm && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white p-6 rounded-lg w-full max-w-2xl relative shadow-xl max-h-[90vh] overflow-y-auto">
             <button 
