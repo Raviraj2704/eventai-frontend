@@ -1,152 +1,140 @@
 // ============================================================================
-// Email Verification Screen - CRASH FREE VERSION
+// Email Verification Screen - REAL API VERSION
 // ============================================================================
 // File: src/pages/VerifyEmailScreen.jsx
 
-import React, { useState, useEffect, useRef } from 'react'
-import { useNavigate, useLocation } from 'react-router-dom'
-import { Mail, ArrowRight, Loader, RotateCcw } from 'lucide-react'
-import toast from 'react-hot-toast'
-
-// TODO: Uncomment these when you create the store and config folders later!
-// import { useAuthStore } from '../store/authStore'
-// import apiClient from '../config/apiClient'
+import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { Mail, ArrowRight, Loader, RotateCcw } from 'lucide-react';
+import toast from 'react-hot-toast';
+import { apiPost } from '../services/api';
 
 const VerifyEmailScreen = () => {
-  const navigate = useNavigate()
-  const location = useLocation()
-  
-  // TODO: Uncomment this when you create the authStore later!
-  // const { verifyEmail, loading } = useAuthStore()
-  
-  // TEMPORARY VARIABLE (To prevent app crash until store is built)
-  const loading = false
+  const navigate = useNavigate();
+  const location = useLocation();
 
-  // Fallback to sessionStorage if location state is empty
-  const [email, setEmail] = useState('')
-  const [codes, setCodes] = useState(['', '', '', '', '', ''])
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const [resendLoading, setResendLoading] = useState(false)
-  const [resendCooldown, setResendCooldown] = useState(0)
-  const inputRefs = useRef([])
+  const [email, setEmail] = useState('');
+  const [codes, setCodes] = useState(['', '', '', '', '', '']);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [resendLoading, setResendLoading] = useState(false);
+  const [resendCooldown, setResendCooldown] = useState(0);
+  const inputRefs = useRef([]);
 
   // Redirect if no email is found
   useEffect(() => {
-    const sessionEmail = location.state?.email || sessionStorage.getItem('tempEmail')
+    const sessionEmail = location.state?.email || sessionStorage.getItem('tempEmail');
     if (!sessionEmail) {
-      navigate('/auth/login')
+      toast.error('Session expired. Please log in or sign up again.');
+      navigate('/auth/login');
     } else {
-      setEmail(sessionEmail)
+      setEmail(sessionEmail);
     }
-  }, [location, navigate])
+  }, [location, navigate]);
 
   // Resend cooldown timer
   useEffect(() => {
-    let interval
+    let interval;
     if (resendCooldown > 0) {
       interval = setInterval(() => {
-        setResendCooldown(prev => prev - 1)
-      }, 1000)
+        setResendCooldown(prev => prev - 1);
+      }, 1000);
     }
-    return () => clearInterval(interval)
-  }, [resendCooldown])
+    return () => clearInterval(interval);
+  }, [resendCooldown]);
 
   const handleCodeChange = (index, value) => {
     // Only allow digits
-    if (value && !/^\d$/.test(value)) return
+    if (value && !/^\d$/.test(value)) return;
 
-    const newCodes = [...codes]
-    newCodes[index] = value
+    const newCodes = [...codes];
+    newCodes[index] = value;
 
-    setCodes(newCodes)
+    setCodes(newCodes);
 
     // Auto-focus next input
     if (value && index < 5) {
-      inputRefs.current[index + 1]?.focus()
+      inputRefs.current[index + 1]?.focus();
     }
-  }
+  };
 
   const handleKeyDown = (index, e) => {
     // Handle backspace
     if (e.key === 'Backspace' && !codes[index] && index > 0) {
-      inputRefs.current[index - 1]?.focus()
+      inputRefs.current[index - 1]?.focus();
     }
 
     // Handle arrow keys
     if (e.key === 'ArrowRight' && index < 5) {
-      inputRefs.current[index + 1]?.focus()
+      inputRefs.current[index + 1]?.focus();
     }
     if (e.key === 'ArrowLeft' && index > 0) {
-      inputRefs.current[index - 1]?.focus()
+      inputRefs.current[index - 1]?.focus();
     }
-  }
+  };
 
   const handleSubmit = async (e) => {
-    e.preventDefault()
+    e.preventDefault();
 
-    const verificationCode = codes.join('')
+    const verificationCode = codes.join('');
 
     if (verificationCode.length !== 6) {
-      toast.error('Please enter the 6-digit code')
-      return
+      toast.error('Please enter the full 6-digit code');
+      return;
     }
 
-    setIsSubmitting(true)
+    setIsSubmitting(true);
 
     try {
-      // TEMPORARY: Simulate a network request (Wait 1.5 seconds)
-      await new Promise(resolve => setTimeout(resolve, 1500))
-      
-      sessionStorage.setItem('emailVerified', 'true')
-      sessionStorage.setItem('verifiedEmail', email)
-      
-      toast.success('Email verified successfully!')
-      navigate('/auth/complete-profile', { replace: true })
+      // Connect to real backend verification endpoint
+      const response = await apiPost('/api/v1/auth/verify-email', {
+        email: email,
+        code: verificationCode
+      });
 
-      // TODO: When authStore is ready, replace the mock code above with this:
-      /*
-      const result = await verifyEmail(email, verificationCode)
-      if (result.success) {
-        toast.success('Email verified successfully!')
-        navigate('/auth/complete-profile', { replace: true })
-      } else {
-        toast.error(result.error || 'Verification failed')
-        setCodes(['', '', '', '', '', ''])
-        inputRefs.current[0]?.focus()
+      // If backend returns a new access token on successful verification, store it
+      if (response && response.access_token) {
+        localStorage.setItem('access_token', response.access_token);
+        if (response.user_id) localStorage.setItem('user_id', response.user_id);
       }
-      */
+      
+      sessionStorage.setItem('emailVerified', 'true');
+      sessionStorage.setItem('verifiedEmail', email);
+      
+      toast.success('Email verified successfully!');
+      navigate('/auth/complete-profile', { replace: true });
     } catch (err) {
-      toast.error('An error occurred. Please try again.')
+      console.error('Verification error:', err);
+      toast.error(err.response?.data?.detail || err.message || 'Verification failed. Please check the code.');
+      setCodes(['', '', '', '', '', '']);
+      inputRefs.current[0]?.focus();
     } finally {
-      setIsSubmitting(false)
+      setIsSubmitting(false);
     }
-  }
+  };
 
   const handleResendCode = async () => {
-    setResendLoading(true)
+    setResendLoading(true);
 
     try {
-      // TEMPORARY: Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000))
+      // Connect to real backend resend verification endpoint
+      await apiPost('/api/v1/auth/resend-code', { email });
       
-      // TODO: When apiClient is ready, uncomment this:
-      // await apiClient.post('/auth/resend-verification-code', { email })
-      
-      toast.success('Verification code sent to your email!')
-      setResendCooldown(60)
+      toast.success('Verification code sent to your email!');
+      setResendCooldown(60);
     } catch (err) {
-      toast.error('Failed to resend code. Please try again.')
+      console.error('Resend error:', err);
+      toast.error(err.response?.data?.detail || 'Failed to resend code. Please try again.');
     } finally {
-      setResendLoading(false)
+      setResendLoading(false);
     }
-  }
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-neutral-50 to-neutral-100 flex items-center justify-center px-4 py-8">
       <div className="w-full max-w-md">
         {/* Header */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-12 h-12 bg-primary-600 rounded-lg mb-4">
+          <div className="inline-flex items-center justify-center w-12 h-12 bg-blue-600 rounded-lg mb-4 shadow-lg">
             <Mail className="w-6 h-6 text-white" />
           </div>
           
@@ -158,7 +146,7 @@ const VerifyEmailScreen = () => {
             Enter the 6-digit code sent to
           </p>
           
-          <p className="text-sm font-medium text-primary-600 break-all">
+          <p className="text-sm font-medium text-blue-600 break-all">
             {email}
           </p>
         </div>
@@ -182,7 +170,7 @@ const VerifyEmailScreen = () => {
                   onChange={(e) => handleCodeChange(index, e.target.value)}
                   onKeyDown={(e) => handleKeyDown(index, e)}
                   maxLength="1"
-                  className="w-12 h-14 text-center text-2xl font-bold rounded-lg border-2 border-neutral-300 focus:border-primary-500 focus:outline-none transition-colors"
+                  className="w-12 h-14 text-center text-2xl font-bold rounded-lg border-2 border-neutral-300 focus:border-blue-500 focus:outline-none transition-colors bg-white shadow-sm"
                   disabled={isSubmitting}
                 />
               ))}
@@ -192,10 +180,10 @@ const VerifyEmailScreen = () => {
           {/* Submit Button */}
           <button
             type="submit"
-            disabled={isSubmitting || loading || codes.join('').length !== 6}
-            className="w-full bg-primary-600 text-white font-semibold py-3 px-4 rounded-lg hover:bg-primary-700 transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            disabled={isSubmitting || codes.join('').length !== 6}
+            className="w-full bg-blue-600 text-white font-semibold py-3 px-4 rounded-lg hover:bg-blue-700 transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-md"
           >
-            {isSubmitting || loading ? (
+            {isSubmitting ? (
               <>
                 <Loader className="w-5 h-5 animate-spin" />
                 Verifying...
@@ -216,9 +204,10 @@ const VerifyEmailScreen = () => {
           </p>
           
           <button
+            type="button"
             onClick={handleResendCode}
             disabled={resendCooldown > 0 || resendLoading}
-            className="inline-flex items-center gap-2 text-primary-600 hover:text-primary-700 disabled:text-neutral-400 transition-colors"
+            className="inline-flex items-center gap-2 text-blue-600 hover:text-blue-700 disabled:text-neutral-400 transition-colors font-medium"
           >
             {resendLoading ? (
               <>
@@ -245,7 +234,7 @@ const VerifyEmailScreen = () => {
         </p>
       </div>
     </div>
-  )
-}
+  );
+};
 
-export default VerifyEmailScreen
+export default VerifyEmailScreen;

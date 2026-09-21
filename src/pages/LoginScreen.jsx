@@ -1,121 +1,117 @@
 // ============================================================================
-// Login Screen - CRASH FREE VERSION
+// Login Screen - REAL API VERSION
 // ============================================================================
 // File: src/pages/LoginScreen.jsx
 
-import React, { useState, useEffect } from 'react'
-import { useNavigate, useLocation, Link } from 'react-router-dom'
-import { Mail, Lock, Eye, EyeOff, ArrowRight, Loader } from 'lucide-react'
-import toast from 'react-hot-toast'
-
-// TODO: Uncomment this when you create the store folder later!
-// import { useAuthStore } from '../store/authStore'
+import React, { useState, useEffect } from 'react';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
+import { Mail, Lock, Eye, EyeOff, ArrowRight, Loader } from 'lucide-react';
+import toast from 'react-hot-toast';
+import { apiPost } from '../services/api';
 
 const LoginScreen = () => {
-  const navigate = useNavigate()
-  const location = useLocation()
-  
-  // TODO: Uncomment this when you create the authStore later!
-  // const { login, loading, error, isAuthenticated } = useAuthStore()
-
-  // TEMPORARY VARIABLES (To prevent app crash until store is built)
-  const loading = false
-  const isAuthenticated = false
+  const navigate = useNavigate();
+  const location = useLocation();
 
   const [formData, setFormData] = useState({
     usernameOrEmail: '',
     password: ''
-  })
-  const [showPassword, setShowPassword] = useState(false)
-  const [formErrors, setFormErrors] = useState({})
-  const [isSubmitting, setIsSubmitting] = useState(false)
+  });
+  const [showPassword, setShowPassword] = useState(false);
+  const [formErrors, setFormErrors] = useState({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Redirect if already authenticated
   useEffect(() => {
-    if (isAuthenticated) {
-      navigate('/home', { replace: true })
+    const token = localStorage.getItem('access_token');
+    if (token) {
+      navigate('/home', { replace: true });
     }
-  }, [isAuthenticated, navigate])
+  }, [navigate]);
 
   const validateForm = () => {
-    const errors = {}
+    const errors = {};
 
     if (!formData.usernameOrEmail.trim()) {
-      errors.usernameOrEmail = 'Username or email is required'
+      errors.usernameOrEmail = 'Username or email is required';
     }
 
     if (!formData.password) {
-      errors.password = 'Password is required'
+      errors.password = 'Password is required';
     } else if (formData.password.length < 6) {
-      errors.password = 'Password must be at least 6 characters'
+      errors.password = 'Password must be at least 6 characters';
     }
 
-    setFormErrors(errors)
-    return Object.keys(errors).length === 0
-  }
+    setFormErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
 
   const handleChange = (e) => {
-    const { name, value } = e.target
+    const { name, value } = e.target;
     setFormData(prev => ({
       ...prev,
       [name]: value
-    }))
+    }));
+    
     // Clear error for this field
     if (formErrors[name]) {
       setFormErrors(prev => ({
         ...prev,
         [name]: ''
-      }))
+      }));
     }
-  }
+  };
 
   const handleSubmit = async (e) => {
-    e.preventDefault()
+    e.preventDefault();
 
     if (!validateForm()) {
-      toast.error('Please fill in all fields correctly')
-      return
+      toast.error('Please fill in all fields correctly');
+      return;
     }
 
-    setIsSubmitting(true)
+    setIsSubmitting(true);
 
     try {
-      // TEMPORARY: Simulate a network request (Wait 1 second)
-      await new Promise(resolve => setTimeout(resolve, 1000))
-      
-      // FIX: Save email to sessionStorage so the next screen doesn't kick you out
-      sessionStorage.setItem('tempEmail', formData.usernameOrEmail)
-      
-      toast.success('Code sent! Please verify your email.')
-      
-      // FIX: Route to verify-email instead of home, passing the email state
-      navigate('/auth/verify-email', { 
-        replace: true,
-        state: { email: formData.usernameOrEmail }
-      })
+      // Connect to real backend login endpoint
+      const response = await apiPost('/api/v1/auth/login', {
+        email: formData.usernameOrEmail.toLowerCase().trim(),
+        password: formData.password
+      });
 
-      // TODO: When authStore is ready, replace the 4 lines above with this:
-      /*
-      const result = await login(formData.usernameOrEmail, formData.password)
-      if (result.success) {
-        toast.success('Login successful!')
-        navigate('/home', { replace: true })
+      // Handle successful login (store token and route to home)
+      if (response && response.access_token) {
+        localStorage.setItem('access_token', response.access_token);
+        
+        // Store user info if returned by backend
+        if (response.user_id) localStorage.setItem('user_id', response.user_id);
+        if (response.user) sessionStorage.setItem('userProfile', JSON.stringify(response.user));
+
+        toast.success('Login successful!');
+        navigate('/home', { replace: true });
       } else {
-        toast.error(result.error || 'Login failed')
+        // Fallback for 2FA / Email Verification flow if backend requires it
+        sessionStorage.setItem('tempEmail', formData.usernameOrEmail);
+        toast.success('Code sent! Please verify your email.');
+        navigate('/auth/verify-email', { 
+          replace: true,
+          state: { email: formData.usernameOrEmail }
+        });
       }
-      */
     } catch (err) {
-      toast.error('An error occurred. Please try again.')
+      console.error('Login error:', err);
+      toast.error(err.response?.data?.detail || err.message || 'Invalid credentials. Please try again.');
     } finally {
-      setIsSubmitting(false)
+      setIsSubmitting(false);
     }
-  }
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-neutral-50 to-neutral-100 flex items-center justify-center px-4 py-8">
       <div className="w-full max-w-md">
         {/* Header */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-12 h-12 bg-primary-600 rounded-lg mb-4">
+          <div className="inline-flex items-center justify-center w-12 h-12 bg-blue-600 rounded-lg mb-4 shadow-lg">
             <Mail className="w-6 h-6 text-white" />
           </div>
           
@@ -144,15 +140,15 @@ const LoginScreen = () => {
                 value={formData.usernameOrEmail}
                 onChange={handleChange}
                 placeholder="Enter your username or email"
-                className={`pl-12 w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 ${
-                  formErrors.usernameOrEmail ? 'border-error' : 'border-neutral-300'
+                className={`pl-12 w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors ${
+                  formErrors.usernameOrEmail ? 'border-red-500' : 'border-neutral-300'
                 }`}
                 disabled={isSubmitting}
               />
             </div>
             
             {formErrors.usernameOrEmail && (
-              <p className="mt-1 text-sm text-error" style={{color: 'red'}}>{formErrors.usernameOrEmail}</p>
+              <p className="mt-1 text-sm text-red-500">{formErrors.usernameOrEmail}</p>
             )}
           </div>
 
@@ -164,7 +160,7 @@ const LoginScreen = () => {
               </label>
               <Link
                 to="/auth/forgot-password"
-                className="text-sm text-primary-600 hover:text-primary-700"
+                className="text-sm text-blue-600 hover:text-blue-700 transition-colors"
               >
                 Forgot password?
               </Link>
@@ -178,8 +174,8 @@ const LoginScreen = () => {
                 value={formData.password}
                 onChange={handleChange}
                 placeholder="Enter your password"
-                className={`pl-12 pr-12 w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 ${
-                  formErrors.password ? 'border-error' : 'border-neutral-300'
+                className={`pl-12 pr-12 w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors ${
+                  formErrors.password ? 'border-red-500' : 'border-neutral-300'
                 }`}
                 disabled={isSubmitting}
               />
@@ -187,7 +183,7 @@ const LoginScreen = () => {
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-4 top-3 text-neutral-400 hover:text-neutral-600"
+                className="absolute right-4 top-3 text-neutral-400 hover:text-neutral-600 transition-colors"
               >
                 {showPassword ? (
                   <EyeOff className="w-5 h-5" />
@@ -198,17 +194,17 @@ const LoginScreen = () => {
             </div>
             
             {formErrors.password && (
-              <p className="mt-1 text-sm text-error" style={{color: 'red'}}>{formErrors.password}</p>
+              <p className="mt-1 text-sm text-red-500">{formErrors.password}</p>
             )}
           </div>
 
           {/* Submit Button */}
           <button
             type="submit"
-            disabled={isSubmitting || loading}
-            className="w-full bg-primary-600 text-white font-semibold py-3 px-4 rounded-lg hover:bg-primary-700 transition duration-200 mt-8 flex items-center justify-center gap-2"
+            disabled={isSubmitting}
+            className="w-full bg-blue-600 text-white font-semibold py-3 px-4 rounded-lg hover:bg-blue-700 transition duration-200 mt-8 flex items-center justify-center gap-2 shadow-md hover:shadow-lg disabled:opacity-70"
           >
-            {isSubmitting || loading ? (
+            {isSubmitting ? (
               <>
                 <Loader className="w-5 h-5 animate-spin" />
                 Signing in...
@@ -237,7 +233,7 @@ const LoginScreen = () => {
         {/* Sign Up Link */}
         <Link
           to="/auth/register"
-          className="block w-full text-center py-3 px-4 rounded-lg border-2 border-primary-600 text-primary-600 font-medium hover:bg-primary-50 transition-colors"
+          className="block w-full text-center py-3 px-4 rounded-lg border-2 border-blue-600 text-blue-600 font-medium hover:bg-blue-50 transition-colors"
         >
           Create Account
         </Link>
@@ -245,17 +241,17 @@ const LoginScreen = () => {
         {/* Footer */}
         <p className="text-center text-xs text-neutral-600 mt-6">
           By signing in, you agree to our{' '}
-          <a href="#" className="text-primary-600 hover:underline">
+          <a href="#" className="text-blue-600 hover:underline">
             Terms of Service
           </a>
           {' '}and{' '}
-          <a href="#" className="text-primary-600 hover:underline">
+          <a href="#" className="text-blue-600 hover:underline">
             Privacy Policy
           </a>
         </p>
       </div>
     </div>
-  )
-}
+  );
+};
 
-export default LoginScreen
+export default LoginScreen;

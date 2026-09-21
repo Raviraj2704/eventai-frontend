@@ -1,14 +1,13 @@
 // FEATURE 15: EMAIL NOTIFICATIONS SYSTEM
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import { apiGet, apiPost, apiPut } from '../services/api';
 import { BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line } from 'recharts';
-
-const API_BASE = 'http://127.0.0.1:8000';
 
 // ============= EMAIL PREFERENCES COMPONENT =============
 export const EmailPreferences = () => {
   const [preferences, setPreferences] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [saved, setSaved] = useState(false);
 
   useEffect(() => {
@@ -17,13 +16,13 @@ export const EmailPreferences = () => {
 
   const fetchPreferences = async () => {
     try {
-      const token = localStorage.getItem('access_token');
-      const res = await axios.get(`${API_BASE}/emails/preferences`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      setPreferences(res.data.preferences);
+      setLoading(true);
+      setError(null);
+      const data = await apiGet('/api/v1/emails/preferences');
+      setPreferences(data?.preferences || data);
     } catch (err) {
-      console.error('Error:', err);
+      console.error('Error fetching preferences:', err);
+      setError('Failed to load preferences. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -31,24 +30,40 @@ export const EmailPreferences = () => {
 
   const handleToggle = async (key) => {
     try {
-      const token = localStorage.getItem('access_token');
       const updates = {
         [key]: !preferences[key]
       };
       
-      const res = await axios.put(`${API_BASE}/emails/preferences`, updates, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const data = await apiPut('/api/v1/emails/preferences', updates);
+      setPreferences(data?.preferences || data);
       
-      setPreferences(res.data.preferences);
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
     } catch (err) {
-      console.error('Error:', err);
+      console.error('Error updating preferences:', err);
+      alert('Failed to update preference.');
     }
   };
 
-  if (loading) return <div className="text-center py-12">Loading...</div>;
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center py-12">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="text-center py-12">
+        <div className="bg-red-100 text-red-700 p-4 rounded-lg inline-block">
+          ⚠️ {error}
+          <button onClick={fetchPreferences} className="ml-4 underline hover:no-underline">Retry</button>
+        </div>
+      </div>
+    );
+  }
+
   if (!preferences) return <div className="text-center py-12">Unable to load preferences</div>;
 
   const emailTypes = [
@@ -67,7 +82,7 @@ export const EmailPreferences = () => {
       <p className="text-gray-600 dark:text-gray-400 mb-8">Choose which emails you want to receive</p>
 
       {saved && (
-        <div className="mb-6 p-4 bg-green-100 dark:bg-green-900/30 border border-green-400 text-green-700 dark:text-green-300 rounded-lg">
+        <div className="mb-6 p-4 bg-green-100 dark:bg-green-900/30 border border-green-400 text-green-700 dark:text-green-300 rounded-lg transition-all">
           ✅ Preferences saved successfully!
         </div>
       )}
@@ -117,6 +132,7 @@ export const EmailPreferences = () => {
 export const EmailTemplatesManager = () => {
   const [templates, setTemplates] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [showForm, setShowForm] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
@@ -132,24 +148,26 @@ export const EmailTemplatesManager = () => {
 
   const fetchTemplates = async () => {
     try {
-      const token = localStorage.getItem('access_token');
-      const res = await axios.get(`${API_BASE}/emails/templates`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      setTemplates(res.data.templates || []);
+      setLoading(true);
+      setError(null);
+      const data = await apiGet('/api/v1/emails/templates');
+      setTemplates(data?.templates || data || []);
     } catch (err) {
-      console.error('Error:', err);
+      console.error('Error fetching templates:', err);
+      setError('Failed to load templates.');
     } finally {
       setLoading(false);
     }
   };
 
   const handleCreate = async () => {
+    if (!formData.name || !formData.subject || !formData.body) {
+      alert("Please fill in the required fields (Name, Subject, Body)");
+      return;
+    }
+
     try {
-      const token = localStorage.getItem('access_token');
-      await axios.post(`${API_BASE}/emails/templates/create`, formData, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      await apiPost('/api/v1/emails/templates/create', formData);
       alert('✅ Template created!');
       setShowForm(false);
       setFormData({ name: '', subject: '', body: '', variables: '', is_active: true });
@@ -159,7 +177,13 @@ export const EmailTemplatesManager = () => {
     }
   };
 
-  if (loading) return <div className="text-center py-12">Loading...</div>;
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center py-12">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-6xl mx-auto p-8">
@@ -169,12 +193,18 @@ export const EmailTemplatesManager = () => {
           onClick={() => setShowForm(!showForm)}
           className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold"
         >
-          + Create Template
+          {showForm ? 'Cancel' : '+ Create Template'}
         </button>
       </div>
 
+      {error && (
+        <div className="mb-6 bg-red-100 text-red-700 p-4 rounded-lg">
+          ⚠️ {error} <button onClick={fetchTemplates} className="ml-2 underline">Retry</button>
+        </div>
+      )}
+
       {showForm && (
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 mb-8 border-2 border-blue-300 dark:border-blue-700">
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 mb-8 border-2 border-blue-300 dark:border-blue-700 animate-fade-in">
           <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">Create Email Template</h2>
           <div className="space-y-4">
             <input
@@ -182,35 +212,35 @@ export const EmailTemplatesManager = () => {
               placeholder="Template Name (e.g., welcome_email)"
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              className="w-full px-4 py-2 border-2 border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white font-mono"
+              className="w-full px-4 py-2 border-2 border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white font-mono focus:border-blue-500 focus:outline-none"
             />
             <input
               type="text"
               placeholder="Subject (use {{variable}} syntax)"
               value={formData.subject}
               onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
-              className="w-full px-4 py-2 border-2 border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white"
+              className="w-full px-4 py-2 border-2 border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white focus:border-blue-500 focus:outline-none"
             />
             <textarea
               placeholder="HTML Body (use {{variable}} for dynamic content)"
               value={formData.body}
               onChange={(e) => setFormData({ ...formData, body: e.target.value })}
               rows="8"
-              className="w-full px-4 py-2 border-2 border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white font-mono text-sm"
+              className="w-full px-4 py-2 border-2 border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white font-mono text-sm focus:border-blue-500 focus:outline-none"
             />
             <input
               type="text"
               placeholder="Variables (comma-separated, e.g., user_name, event_title)"
               value={formData.variables}
               onChange={(e) => setFormData({ ...formData, variables: e.target.value })}
-              className="w-full px-4 py-2 border-2 border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white"
+              className="w-full px-4 py-2 border-2 border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white focus:border-blue-500 focus:outline-none"
             />
             <div className="flex gap-4">
               <button
                 onClick={handleCreate}
                 className="flex-1 px-6 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-semibold"
               >
-                ✅ Create Template
+                ✅ Save Template
               </button>
               <button
                 onClick={() => setShowForm(false)}
@@ -225,33 +255,39 @@ export const EmailTemplatesManager = () => {
 
       {/* Templates List */}
       <div className="grid grid-cols-1 gap-6">
-        {templates.map((template) => (
-          <div key={template.id} className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border-l-4 border-blue-500">
-            <div className="flex justify-between items-start mb-3">
-              <div>
-                <h3 className="text-xl font-bold text-gray-900 dark:text-white">{template.name}</h3>
-                <p className="text-sm text-gray-600 dark:text-gray-400">{template.subject}</p>
+        {templates.length > 0 ? (
+          templates.map((template) => (
+            <div key={template.id} className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border-l-4 border-blue-500">
+              <div className="flex justify-between items-start mb-3">
+                <div>
+                  <h3 className="text-xl font-bold text-gray-900 dark:text-white">{template.name}</h3>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">{template.subject}</p>
+                </div>
+                <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                  template.is_active
+                    ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300'
+                    : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
+                }`}>
+                  {template.is_active ? '✅ Active' : '❌ Inactive'}
+                </span>
               </div>
-              <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                template.is_active
-                  ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300'
-                  : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
-              }`}>
-                {template.is_active ? '✅ Active' : '❌ Inactive'}
-              </span>
-            </div>
-            {template.variables && (
-              <div className="mb-3 text-sm text-gray-600 dark:text-gray-400">
-                <strong>Variables:</strong> {template.variables}
+              {template.variables && (
+                <div className="mb-3 text-sm text-gray-600 dark:text-gray-400">
+                  <strong>Variables:</strong> {template.variables}
+                </div>
+              )}
+              <div className="flex gap-2">
+                <button className="px-4 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded text-sm transition-colors">Edit</button>
+                <button className="px-4 py-1 bg-red-600 hover:bg-red-700 text-white rounded text-sm transition-colors">Delete</button>
+                <button className="px-4 py-1 bg-purple-600 hover:bg-purple-700 text-white rounded text-sm transition-colors">Test Send</button>
               </div>
-            )}
-            <div className="flex gap-2">
-              <button className="px-4 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded text-sm">Edit</button>
-              <button className="px-4 py-1 bg-red-600 hover:bg-red-700 text-white rounded text-sm">Delete</button>
-              <button className="px-4 py-1 bg-purple-600 hover:bg-purple-700 text-white rounded text-sm">Test Send</button>
             </div>
+          ))
+        ) : (
+          <div className="text-center py-10 text-gray-500 bg-white dark:bg-gray-800 rounded-xl shadow">
+            No templates found. Create one to get started.
           </div>
-        ))}
+        )}
       </div>
     </div>
   );
@@ -262,6 +298,7 @@ export const EmailLogsAndStats = () => {
   const [logs, setLogs] = useState([]);
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     fetchData();
@@ -269,49 +306,70 @@ export const EmailLogsAndStats = () => {
 
   const fetchData = async () => {
     try {
-      const token = localStorage.getItem('access_token');
+      setLoading(true);
+      setError(null);
       
-      const logsRes = await axios.get(`${API_BASE}/emails/logs?limit=50`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const [logsData, statsData] = await Promise.all([
+        apiGet('/api/v1/emails/logs?limit=50'),
+        apiGet('/api/v1/emails/stats')
+      ]);
       
-      const statsRes = await axios.get(`${API_BASE}/emails/stats`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      
-      setLogs(logsRes.data.logs || []);
-      setStats(statsRes.data);
+      setLogs(logsData?.logs || logsData || []);
+      setStats(statsData || null);
     } catch (err) {
-      console.error('Error:', err);
+      console.error('Error fetching email data:', err);
+      setError('Failed to load email statistics and logs.');
     } finally {
       setLoading(false);
     }
   };
 
-  if (loading) return <div className="text-center py-12">Loading...</div>;
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center py-12">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="text-center py-12">
+        <div className="bg-red-100 text-red-700 p-4 rounded-lg inline-block">
+          ⚠️ {error}
+          <button onClick={fetchData} className="ml-4 underline hover:no-underline">Retry</button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-6xl mx-auto p-8">
-      <h1 className="text-4xl font-bold text-gray-900 dark:text-white mb-8">📊 Email Statistics & Logs</h1>
+      <div className="flex justify-between items-center mb-8">
+        <h1 className="text-4xl font-bold text-gray-900 dark:text-white">📊 Email Statistics & Logs</h1>
+        <button onClick={fetchData} className="px-4 py-2 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-800 dark:text-white rounded-lg transition-colors">
+          🔄 Refresh
+        </button>
+      </div>
 
       {/* Stats Cards */}
       {stats && (
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          <div className="bg-green-100 dark:bg-green-900/30 rounded-xl p-6 text-center">
+          <div className="bg-green-100 dark:bg-green-900/30 rounded-xl p-6 text-center shadow">
             <p className="text-gray-600 dark:text-gray-400 text-sm font-semibold mb-2">Emails Sent</p>
-            <p className="text-4xl font-bold text-green-600 dark:text-green-300">{stats.total_sent}</p>
+            <p className="text-4xl font-bold text-green-600 dark:text-green-300">{stats.total_sent || 0}</p>
           </div>
-          <div className="bg-red-100 dark:bg-red-900/30 rounded-xl p-6 text-center">
+          <div className="bg-red-100 dark:bg-red-900/30 rounded-xl p-6 text-center shadow">
             <p className="text-gray-600 dark:text-gray-400 text-sm font-semibold mb-2">Failed</p>
-            <p className="text-4xl font-bold text-red-600 dark:text-red-300">{stats.total_failed}</p>
+            <p className="text-4xl font-bold text-red-600 dark:text-red-300">{stats.total_failed || 0}</p>
           </div>
-          <div className="bg-yellow-100 dark:bg-yellow-900/30 rounded-xl p-6 text-center">
+          <div className="bg-yellow-100 dark:bg-yellow-900/30 rounded-xl p-6 text-center shadow">
             <p className="text-gray-600 dark:text-gray-400 text-sm font-semibold mb-2">Pending</p>
-            <p className="text-4xl font-bold text-yellow-600 dark:text-yellow-300">{stats.pending_count}</p>
+            <p className="text-4xl font-bold text-yellow-600 dark:text-yellow-300">{stats.pending_count || 0}</p>
           </div>
-          <div className="bg-blue-100 dark:bg-blue-900/30 rounded-xl p-6 text-center">
+          <div className="bg-blue-100 dark:bg-blue-900/30 rounded-xl p-6 text-center shadow">
             <p className="text-gray-600 dark:text-gray-400 text-sm font-semibold mb-2">Success Rate</p>
-            <p className="text-4xl font-bold text-blue-600 dark:text-blue-300">{stats.success_rate}%</p>
+            <p className="text-4xl font-bold text-blue-600 dark:text-blue-300">{stats.success_rate || 0}%</p>
           </div>
         </div>
       )}
@@ -360,25 +418,33 @@ export const EmailLogsAndStats = () => {
               </tr>
             </thead>
             <tbody>
-              {logs.map((log) => (
-                <tr key={log.id} className="border-t border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50">
-                  <td className="px-6 py-3 text-gray-900 dark:text-white text-sm">{log.recipient_email}</td>
-                  <td className="px-6 py-3 text-gray-900 dark:text-white text-sm font-mono">{log.template_name}</td>
-                  <td className="px-6 py-3 text-gray-900 dark:text-white text-sm">{log.subject.substring(0, 40)}...</td>
-                  <td className="px-6 py-3">
-                    <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                      log.status === 'sent'
-                        ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300'
-                        : 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300'
-                    }`}>
-                      {log.status === 'sent' ? '✅ Sent' : '❌ Failed'}
-                    </span>
-                  </td>
-                  <td className="px-6 py-3 text-gray-600 dark:text-gray-400 text-sm">
-                    {log.sent_at ? new Date(log.sent_at).toLocaleString() : '-'}
+              {logs.length > 0 ? (
+                logs.map((log) => (
+                  <tr key={log.id} className="border-t border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                    <td className="px-6 py-3 text-gray-900 dark:text-white text-sm">{log.recipient_email}</td>
+                    <td className="px-6 py-3 text-gray-900 dark:text-white text-sm font-mono">{log.template_name}</td>
+                    <td className="px-6 py-3 text-gray-900 dark:text-white text-sm">{log.subject?.substring(0, 40) || 'No Subject'}...</td>
+                    <td className="px-6 py-3">
+                      <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                        log.status === 'sent'
+                          ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300'
+                          : 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300'
+                      }`}>
+                        {log.status === 'sent' ? '✅ Sent' : '❌ Failed'}
+                      </span>
+                    </td>
+                    <td className="px-6 py-3 text-gray-600 dark:text-gray-400 text-sm">
+                      {log.sent_at ? new Date(log.sent_at).toLocaleString() : '-'}
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan="5" className="px-6 py-8 text-center text-gray-500">
+                    No email logs found.
                   </td>
                 </tr>
-              ))}
+              )}
             </tbody>
           </table>
         </div>
@@ -407,7 +473,7 @@ export const EmailManagementPage = () => {
   return (
     <div className="bg-gray-50 dark:bg-gray-900 min-h-screen">
       {/* Navigation Tabs */}
-      <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 sticky top-0 z-50">
+      <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 sticky top-0 z-50 shadow-sm">
         <div className="max-w-7xl mx-auto px-8">
           <div className="flex gap-8">
             <button
@@ -445,10 +511,9 @@ export const EmailManagementPage = () => {
       </div>
 
       {/* Content */}
-      <div>{renderTab()}</div>
+      <div className="animate-fade-in">{renderTab()}</div>
     </div>
   );
 };
 
-// REQUIRED: Vite expects a default export for routed components
 export default EmailManagementPage;

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import { apiGet, apiPost } from '../services/api';
 import BottomNavigation from '../components/BottomNavigation';
 import AttendeeCard from '../components/networking/PersonCard'; 
 import '../styles/networking.css';
@@ -10,16 +10,15 @@ export const NetworkingPage = () => {
 
   // ============= STATE MANAGEMENT =============
   const [activeTab, setActiveTab] = useState('networking');
-  const [userProfile, setUserProfile] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedDesignation, setSelectedDesignation] = useState('');
   const [showAIMatches, setShowAIMatches] = useState(false);
   
   // Data States
   const [people, setPeople] = useState([]);
-  const [connections, setConnections] = useState([]);
   const [filteredAttendees, setFilteredAttendees] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   // ============= DESIGNATION OPTIONS =============
   const designations = [
@@ -27,62 +26,40 @@ export const NetworkingPage = () => {
     'HR Director', 'CHRO', 'Learning & Development', 'Compensation Manager',
   ];
 
-  // ============= MOCK DATA FALLBACK =============
-  const mockAttendees = [
-    { id: 'attendee-1', name: 'A.K Naik', jobTitle: 'HR Executive', company: 'Asram Medical College', badges: ['Virtual'], avatar: null, initials: 'AN', aiMatch: true, isBookmarked: false, isConnected: false },
-    { id: 'attendee-2', name: 'Aachal Jain', jobTitle: 'Recruiter', company: 'CDM Smith', badges: ['Virtual'], avatar: null, initials: 'AJ', aiMatch: false, isBookmarked: false, isConnected: false },
-    { id: 'attendee-3', name: 'Aadit Shah', jobTitle: 'AI Manager', company: 'CompiQ', badges: ['Onground'], avatar: null, initials: 'AS', aiMatch: true, isBookmarked: false, isConnected: false },
-    { id: 'attendee-4', name: 'Aagam Jhaveri', jobTitle: 'Sr Executive', company: 'Apexon', badges: ['Virtual'], initials: 'AJ', aiMatch: false, isBookmarked: false, isConnected: false },
-    { id: 'attendee-5', name: 'Aakanksha Gupta', jobTitle: 'Associate Director, HR', company: 'Mercer', badges: ['Onground'], initials: 'AG', aiMatch: true, isBookmarked: false, isConnected: false },
-    { id: 'attendee-6', name: 'Aakanksha Lath', jobTitle: 'VP - HR', company: 'MakeMyTrip', badges: ['Virtual'], initials: 'AL', aiMatch: true, isBookmarked: false, isConnected: false },
-  ];
-
-  // ============= GET USER PROFILE =============
+  // ============= FETCH REAL DATA FROM API =============
   useEffect(() => {
-    // [Mock Mode] - Completely disabled backend fetch to eliminate 404 errors
-    // axios.get(`${API_BASE}/api/connections...`)
-    
-    setConnections([
-      { id: 1, name: 'Aagam Jhaveri', designation: 'Exec', company: 'Apexon', isAiMatch: true },
-      { id: 2, name: 'Aakanksha Gupta', designation: 'Director', company: 'HR', isAiMatch: true }
-    ]);
-    setLoading(false);
+    loadNetworkingData();
   }, []);
 
-  // ============= AXIOS BACKEND FETCHES =============
-  useEffect(() => {
-    fetchPeople();
-    fetchConnections();
-  }, []);
-
-  const fetchPeople = async () => {
+  const loadNetworkingData = async () => {
     try {
-      const res = await axios.get('http://127.0.0.1:8000/api/search/people', {
-        params: { q: '', event_id: 1, limit: 50 }
-      });
-      setPeople(res.data.results || mockAttendees);
+      setLoading(true);
+      setError(null);
+
+      // Fetch all users (attendees)
+      const usersData = await apiGet('/api/v1/users');
+      const attendees = Array.isArray(usersData) ? usersData : [];
+      
+      setPeople(attendees);
     } catch (err) {
-      console.error('Backend offline, using fallback data:', err);
-      // Failsafe: Use mock data so UI doesn't crash on 404
-      setPeople(mockAttendees);
+      console.error('Failed to load attendees:', err);
+      setError('Unable to load attendees. Please try again.');
+      setPeople([]);
     } finally {
       setLoading(false);
     }
   };
 
-  const fetchConnections = async () => {
-    // [Mock Mode] Backend call disabled
-    setLoading(false);
-  };
-
-  const handleConnect = async (recipientId, message = '') => {
+  const handleConnect = async (recipientId) => {
     try {
-      // [Mock Mode] - Silencing backend POST to eliminate 404 errors
-      // await axios.post(`${API_BASE}/api/connections/request`, { ... });
-      
-      alert('Simulated: Connection request sent!');
+      await apiPost('/api/v1/connections/request', {
+        recipient_id: recipientId,
+        message: 'Let\'s connect at the event!'
+      });
+      alert('Connection request sent!');
     } catch (err) {
-      alert('Simulated: Connection request sent!');
+      console.error('Failed to send connection request:', err);
+      alert('Failed to send connection request. Please try again.');
     }
   };
 
@@ -90,23 +67,29 @@ export const NetworkingPage = () => {
   useEffect(() => {
     let filtered = people;
 
+    // AI Matches filter
     if (showAIMatches) {
-      filtered = filtered.filter((attendee) => attendee.aiMatch);
+      filtered = filtered.filter((attendee) => attendee.ai_match === true);
     }
+
+    // Search filter
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
       filtered = filtered.filter(
         (attendee) =>
-          (attendee.name && attendee.name.toLowerCase().includes(query)) ||
-          (attendee.jobTitle && attendee.jobTitle.toLowerCase().includes(query)) ||
+          (attendee.full_name && attendee.full_name.toLowerCase().includes(query)) ||
+          (attendee.title && attendee.title.toLowerCase().includes(query)) ||
           (attendee.company && attendee.company.toLowerCase().includes(query))
       );
     }
+
+    // Designation filter
     if (selectedDesignation) {
       filtered = filtered.filter((attendee) =>
-        attendee.jobTitle && attendee.jobTitle.toLowerCase().includes(selectedDesignation.toLowerCase())
+        attendee.title && attendee.title.toLowerCase().includes(selectedDesignation.toLowerCase())
       );
     }
+
     setFilteredAttendees(filtered);
   }, [searchQuery, selectedDesignation, showAIMatches, people]);
 
@@ -131,7 +114,7 @@ export const NetworkingPage = () => {
   return (
     <div className="bg-slate-950 min-h-screen text-white font-sans pb-32 overflow-y-auto">
       
-      {/* Sleek Minimalist Header with Back Button (Replaces Broken TopBar) */}
+      {/* Header with Back Button */}
       <div className="sticky top-0 z-40 bg-slate-950/80 backdrop-blur-md px-6 py-4 border-b border-white/10 flex justify-between items-center">
         <button 
           onClick={() => navigate('/home')}
@@ -149,6 +132,19 @@ export const NetworkingPage = () => {
       {/* Main Container */}
       <div className="max-w-md mx-auto px-4 pt-6 space-y-6">
         
+        {/* Error Message */}
+        {error && (
+          <div className="bg-red-900/20 border border-red-500/30 rounded-xl p-4 text-red-300 text-sm">
+            ⚠️ {error}
+            <button 
+              onClick={loadNetworkingData}
+              className="ml-2 underline hover:text-red-200"
+            >
+              Retry
+            </button>
+          </div>
+        )}
+
         {/* Search Bar */}
         <div className="relative mb-4">
           <input
@@ -188,13 +184,26 @@ export const NetworkingPage = () => {
           </button>
         </div>
 
+        {/* Results Count */}
+        <div className="text-sm text-slate-400 mb-4">
+          Found {filteredAttendees.length} attendee{filteredAttendees.length !== 1 ? 's' : ''}
+        </div>
+
         {/* Attendees List */}
         <div className="networking-grid grid gap-4">
           {filteredAttendees.length > 0 ? (
             filteredAttendees.map((attendee) => (
               <AttendeeCard
                 key={attendee.id}
-                attendee={attendee}
+                attendee={{
+                  id: attendee.id,
+                  name: attendee.full_name || 'User',
+                  jobTitle: attendee.title || 'Professional',
+                  company: attendee.company || 'Company',
+                  avatar: attendee.avatar,
+                  aiMatch: attendee.ai_match || false,
+                  badges: attendee.location === 'onground' ? ['Onground'] : ['Virtual']
+                }}
                 onConnect={() => handleConnect(attendee.id)}
               />
             ))

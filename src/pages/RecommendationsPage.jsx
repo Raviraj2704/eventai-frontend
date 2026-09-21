@@ -1,8 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import { apiGet, apiPost } from '../services/api';
 import RecommendationsList from '../components/Recommendations/RecommendationsList';
-
-const API_BASE = 'http://127.0.0.1:8000';
 
 export const RecommendationsPage = () => {
   const [profile, setProfile] = useState(null);
@@ -24,6 +22,9 @@ export const RecommendationsPage = () => {
     bio: ''
   });
 
+  // Dynamic user ID fallback
+  const currentUserId = parseInt(localStorage.getItem('user_id'), 10) || 1;
+
   useEffect(() => {
     fetchProfile();
     fetchStats();
@@ -34,7 +35,7 @@ export const RecommendationsPage = () => {
     if (profile && !showProfileForm) {
       fetchRecommendations();
     }
-  }, [profile]);
+  }, [profile, showProfileForm]);
 
   // Handle local filtering when a button is clicked
   useEffect(() => {
@@ -47,7 +48,7 @@ export const RecommendationsPage = () => {
     } else if (recommendationType === 'skill_growth') {
       // Show sessions that mention skills in the AI reason
       setDisplayedRecommendations(allRecommendations.filter(r => 
-        r.session_id && r.reason.toLowerCase().includes('skill')
+        r.session_id && r.reason?.toLowerCase().includes('skill')
       ));
     }
   }, [recommendationType, allRecommendations]);
@@ -55,13 +56,13 @@ export const RecommendationsPage = () => {
   const fetchProfile = async () => {
     try {
       setLoading(true);
-      const res = await axios.get(`${API_BASE}/api/profiles/1`, {
+      const res = await apiGet(`/api/v1/profiles/${currentUserId}`, {
         params: { event_id: 1 }
       });
-      if (!res.data.interests || res.data.interests === '[]') {
+      if (!res?.interests || res.interests === '[]') {
         setShowProfileForm(true);
       }
-      setProfile(res.data);
+      setProfile(res);
     } catch (err) {
       setShowProfileForm(true);
     } finally {
@@ -73,17 +74,20 @@ export const RecommendationsPage = () => {
     try {
       setLoading(true);
       
-      // Fetch BOTH sessions and networking at the same time
-      const [sessionRes, networkRes] = await Promise.all([
-        axios.get(`${API_BASE}/api/recommendations/sessions`, { params: { user_id: 1, event_id: 1, limit: 10, regenerate } }),
-        axios.get(`${API_BASE}/api/recommendations/network`, { params: { user_id: 1, event_id: 1, limit: 10, regenerate } })
+      // Fetch BOTH sessions and networking at the same time using Promise.allSettled
+      const [sessionRes, networkRes] = await Promise.allSettled([
+        apiGet('/api/v1/recommendations/sessions', { params: { user_id: currentUserId, event_id: 1, limit: 10, regenerate } }),
+        apiGet('/api/v1/recommendations/network', { params: { user_id: currentUserId, event_id: 1, limit: 10, regenerate } })
       ]);
       
+      const sessionRecs = (sessionRes.status === 'fulfilled' && sessionRes.value?.recommendations) ? sessionRes.value.recommendations : [];
+      const networkRecs = (networkRes.status === 'fulfilled' && networkRes.value?.recommendations) ? networkRes.value.recommendations : [];
+
       // Combine and sort them by match score
       const combined = [
-        ...sessionRes.data.recommendations,
-        ...networkRes.data.recommendations
-      ].sort((a, b) => b.match_score - a.match_score);
+        ...sessionRecs,
+        ...networkRecs
+      ].sort((a, b) => (b.match_score || 0) - (a.match_score || 0));
 
       setAllRecommendations(combined);
       fetchStats();
@@ -96,10 +100,10 @@ export const RecommendationsPage = () => {
 
   const fetchStats = async () => {
     try {
-      const res = await axios.get(`${API_BASE}/api/recommendations/stats`, {
-        params: { user_id: 1, event_id: 1 }
+      const res = await apiGet('/api/v1/recommendations/stats', {
+        params: { user_id: currentUserId, event_id: 1 }
       });
-      setStats(res.data);
+      setStats(res);
     } catch (err) {
       console.error('Error fetching stats:', err);
     }
@@ -109,7 +113,7 @@ export const RecommendationsPage = () => {
     e.preventDefault();
     try {
       const payload = {
-        user_id: 1,
+        user_id: currentUserId,
         event_id: 1,
         interests: formData.interests.split(',').map(i => i.trim()),
         skills: formData.skills.split(',').map(s => s.trim()),
@@ -118,11 +122,12 @@ export const RecommendationsPage = () => {
         bio: formData.bio
       };
       
-      await axios.post(`${API_BASE}/api/profiles/create`, payload);
+      await apiPost('/api/v1/profiles/create', payload);
       setShowProfileForm(false);
       fetchProfile();
     } catch (err) {
       console.error('Error creating profile:', err);
+      alert('Failed to save profile. Please try again.');
     }
   };
 
@@ -147,7 +152,7 @@ export const RecommendationsPage = () => {
         </div>
 
         {showProfileForm ? (
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-8 mb-8 border-t-4 border-orange-500">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-8 mb-8 border-t-4 border-orange-500 animate-fade-in">
             <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">
               📋 Tell the AI About Yourself
             </h2>
@@ -199,7 +204,7 @@ export const RecommendationsPage = () => {
                 <div>
                   <h2 className="text-xl font-bold text-gray-900 dark:text-white">Your Profile Active</h2>
                   <p className="text-sm text-gray-600 dark:text-gray-400 mt-1 capitalize">
-                    <strong>Job:</strong> {profile?.job_title} | <strong>Industry:</strong> {profile?.industry}
+                    <strong>Job:</strong> {profile?.job_title || 'N/A'} | <strong>Industry:</strong> {profile?.industry || 'N/A'}
                   </p>
                 </div>
                 <button
@@ -216,27 +221,27 @@ export const RecommendationsPage = () => {
                 <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md p-6 border-b-4 border-orange-500">
                   <p className="text-gray-600 dark:text-gray-400 text-sm font-semibold">Total Matches</p>
                   <p className="text-3xl font-bold text-gray-900 dark:text-white mt-2">
-                    {stats.total_session_recommendations + stats.total_network_recommendations}
+                    {(stats.total_session_recommendations || 0) + (stats.total_network_recommendations || 0)}
                   </p>
                 </div>
                 <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md p-6 border-b-4 border-blue-500">
                   <p className="text-gray-600 dark:text-gray-400 text-sm font-semibold">Viewed Cards</p>
-                  <p className="text-3xl font-bold text-gray-900 dark:text-white mt-2">{stats.viewed_sessions}</p>
+                  <p className="text-3xl font-bold text-gray-900 dark:text-white mt-2">{stats.viewed_sessions || 0}</p>
                 </div>
                 <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md p-6 border-b-4 border-green-500">
                   <p className="text-gray-600 dark:text-gray-400 text-sm font-semibold">Session Avg Match</p>
                   <p className="text-3xl font-bold text-gray-900 dark:text-white mt-2">
-                    {stats.avg_session_score}%
+                    {stats.avg_session_score || 0}%
                   </p>
                 </div>
                 <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md p-6 border-b-4 border-purple-500">
                   <p className="text-gray-600 dark:text-gray-400 text-sm font-semibold">Connections</p>
-                  <p className="text-3xl font-bold text-gray-900 dark:text-white mt-2">{stats.connected}</p>
+                  <p className="text-3xl font-bold text-gray-900 dark:text-white mt-2">{stats.connected || 0}</p>
                 </div>
               </div>
             )}
 
-            {/* RESTORED: The Exact 4 Filter Buttons */}
+            {/* Filter Buttons */}
             <div className="flex flex-col md:flex-row gap-4 mb-6 justify-between items-center">
               <div className="flex gap-2 flex-wrap">
                 {['all', 'interest_match', 'skill_growth', 'networking'].map((type) => (

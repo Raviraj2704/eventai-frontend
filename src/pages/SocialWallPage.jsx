@@ -1,68 +1,112 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { apiGet, apiPost } from '../services/api';
 import CreatePost from '../components/SocialWall/CreatePost';
 import PostCard from '../components/SocialWall/PostCard';
 
 export const SocialWallPage = () => {
   const navigate = useNavigate();
-  // YOUR NEW STATE:
+  
+  // STATE MANAGEMENT
   const [filterTab, setFilterTab] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [posts, setPosts] = useState([]);
+  const [userProfile, setUserProfile] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  // Added 'id' to userProfile so we can filter "My Posts"
-  const userProfile = {
-    id: "user123",
-    firstName: "Ravi",
-    lastName: "Raja",
-    avatar: null
-  };
-
-  const [posts, setPosts] = useState([
-    {
-      id: 1,
-      author: { id: "other1", name: "Sarah Jenkins", title: "AI Researcher", initials: "SJ" },
-      content: "Amazing keynote on Agentic AI today! The future of automation is here. 🚀 #EventAI #FutureOfWork",
-      likes: 12,
-      comments: [{ name: "Alex", text: "Totally agree!" }],
-      timestamp: new Date(),
-      isLikedByUser: true
-    },
-    {
-      id: 2,
-      author: { id: "other2", name: "David Chen", title: "Product Manager", initials: "DC" },
-      content: "Just grabbed a coffee at the Hub. Anyone want to meet up and discuss the Picbot architecture? #Networking",
-      likes: 4,
-      comments: [],
-      timestamp: new Date(Date.now() - 3600000), 
-      isLikedByUser: false
+  // FETCH DATA ON MOUNT
+  useEffect(() => {
+    // 1. Get real user profile from storage
+    const profile = sessionStorage.getItem('userProfile');
+    const userId = localStorage.getItem('user_id');
+    
+    if (profile && userId) {
+      const parsedProfile = JSON.parse(profile);
+      setUserProfile({
+        id: userId, // Ensure we have the raw DB ID
+        firstName: parsedProfile.first_name || parsedProfile.name?.split(' ')[0] || "User",
+        lastName: parsedProfile.last_name || parsedProfile.name?.split(' ').slice(1).join(' ') || "",
+        avatar: parsedProfile.avatar || parsedProfile.profile_photo_url || null
+      });
+    } else {
+      // Fallback if no user is found
+      setUserProfile({
+        id: "anonymous",
+        firstName: "Guest",
+        lastName: "User",
+        avatar: null
+      });
     }
-  ]);
 
-  const handleNewPost = (newPostData) => {
-    const newPost = {
-      id: Date.now(),
-      author: { id: userProfile.id, name: `${userProfile.firstName} ${userProfile.lastName}`, title: "Agentic AI Engineer", initials: "RR" },
-      content: newPostData.content,
-      image: newPostData.image,
-      likes: 0,
-      comments: [],
-      timestamp: newPostData.timestamp,
-      isLikedByUser: false
-    };
-    setPosts([newPost, ...posts]);
+    // 2. Fetch real posts
+    fetchPosts();
+  }, []);
+
+  const fetchPosts = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const data = await apiGet('/api/v1/social/posts');
+      const postsData = data?.posts || (Array.isArray(data) ? data : []);
+      
+      // Ensure timestamps are date objects for sorting
+      const formattedPosts = postsData.map(post => ({
+        ...post,
+        timestamp: new Date(post.created_at || post.timestamp || Date.now())
+      })).sort((a, b) => b.timestamp - a.timestamp);
+      
+      setPosts(formattedPosts);
+    } catch (err) {
+      console.error('Failed to load social posts:', err);
+      setError('Unable to load the social feed. Please try again.');
+    } finally {
+      setLoading(false);
+    }
   };
 
-  // YOUR HASHTAG EXTRACTOR:
-  // (I added 'Set' so it only shows unique tags instead of repeating ones!)
-  const trendingHashtags = [...new Set(posts.flatMap(p => p.content.match(/#\w+/g)).filter(Boolean))];
+  const handleNewPost = async (newPostData) => {
+    try {
+      // Create post via API
+      const newPost = await apiPost('/api/v1/social/posts', {
+        content: newPostData.content,
+        image_url: newPostData.image || null, // Map frontend 'image' to backend 'image_url' if needed
+        is_announcement: false // Default for standard users
+      });
+      
+      // Format incoming post to ensure timestamp is a Date object
+      const formattedNewPost = {
+        ...newPost,
+        timestamp: new Date(newPost.created_at || newPost.timestamp || Date.now()),
+        author: { 
+          id: userProfile.id, 
+          name: `${userProfile.firstName} ${userProfile.lastName}`, 
+          title: "Attendee", 
+          initials: `${userProfile.firstName?.[0] || ''}${userProfile.lastName?.[0] || ''}` 
+        },
+        likes: 0,
+        comments: [],
+        isLikedByUser: false
+      };
 
-  // YOUR FILTER LOGIC:
+      // Optimistically update the UI without waiting for a full re-fetch
+      setPosts(prev => [formattedNewPost, ...prev]);
+    } catch (err) {
+      console.error('Failed to create post:', err);
+      alert('Failed to post. Please try again.');
+    }
+  };
+
+  // HASHTAG EXTRACTOR
+  const trendingHashtags = [...new Set(posts.flatMap(p => p.content?.match(/#\w+/g) || []).filter(Boolean))];
+
+  // FILTER LOGIC
   const filteredPosts = posts.filter(post => {
-    const matchesSearch = post.content.toLowerCase().includes(searchQuery.toLowerCase());
+    const contentText = post.content || '';
+    const matchesSearch = contentText.toLowerCase().includes(searchQuery.toLowerCase());
     
     if (filterTab === 'liked') return matchesSearch && post.isLikedByUser;
-    // Your new 'mine' condition:
-    if (filterTab === 'mine') return matchesSearch && post.author.id === userProfile.id;
+    if (filterTab === 'mine') return matchesSearch && post.author?.id === userProfile?.id;
     
     return matchesSearch; // 'all' fallback
   });
@@ -77,13 +121,22 @@ export const SocialWallPage = () => {
       </div>
 
       <div className="max-w-md mx-auto px-4 pt-6 w-full flex-1">
+        
+        {/* Error Banner */}
+        {error && (
+          <div className="mb-4 bg-red-900/30 border border-red-500/50 text-red-200 px-4 py-3 rounded-lg flex justify-between items-center">
+            <span className="text-sm">⚠️ {error}</span>
+            <button onClick={fetchPosts} className="text-sm underline hover:text-red-100">Retry</button>
+          </div>
+        )}
+
         <CreatePost userProfile={userProfile} onPostSubmit={handleNewPost} />
 
         {/* Trending Hashtags UI */}
         {trendingHashtags.length > 0 && (
-          <div className="mb-4 flex flex-wrap gap-2">
+          <div className="mb-4 flex flex-wrap gap-2 animate-fade-in">
             <span className="text-xs text-slate-400 font-bold py-1">Trending:</span>
-            {trendingHashtags.map((tag, i) => (
+            {trendingHashtags.slice(0, 8).map((tag, i) => (
               <span key={i} className="text-xs bg-blue-900/50 text-blue-300 px-2 py-1 rounded-md border border-blue-500/30">
                 {tag}
               </span>
@@ -102,7 +155,7 @@ export const SocialWallPage = () => {
           />
         </div>
 
-        {/* Updated Filter Tabs */}
+        {/* Filter Tabs */}
         <div className="flex gap-2 mb-6 border-b border-white/10 pb-2">
           {['all', 'liked', 'mine'].map(tab => (
             <button 
@@ -115,15 +168,25 @@ export const SocialWallPage = () => {
           ))}
         </div>
         
+        {/* Posts Feed */}
         <div className="space-y-4">
-          {filteredPosts.length > 0 ? (
+          {loading ? (
+            <div className="flex justify-center items-center py-10">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+            </div>
+          ) : filteredPosts.length > 0 ? (
             filteredPosts.map(post => <PostCard key={post.id} post={post} />)
           ) : (
-            <div className="text-center py-10 text-slate-500"><p>No posts found. 😢</p></div>
+            <div className="text-center py-10 text-slate-500 animate-fade-in">
+              <div className="text-4xl mb-3">📭</div>
+              <p>No posts found.</p>
+              {filterTab === 'mine' && <p className="text-sm mt-1">Be the first to share your thoughts!</p>}
+            </div>
           )}
         </div>
       </div>
 
+      {/* Bottom Nav */}
       <div className="fixed bottom-0 left-0 right-0 bg-slate-950/95 backdrop-blur-lg border-t border-white/10 px-6 py-3 flex justify-between items-center z-50">
         <button onClick={() => navigate('/home')} className="flex flex-col items-center text-slate-400 hover:text-white"><span className="text-xl mb-1">🏠</span><span className="text-[10px]">Home</span></button>
         <button onClick={() => navigate('/hub')} className="flex flex-col items-center text-blue-500"><span className="text-xl mb-1">⚡</span><span className="text-[10px] font-bold">Hub</span></button>

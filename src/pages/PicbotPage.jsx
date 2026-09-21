@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { apiPost } from '../services/api';
 
 export const PicbotPage = () => {
   const navigate = useNavigate();
@@ -12,7 +13,7 @@ export const PicbotPage = () => {
   const [messages, setMessages] = useState([
     { 
       id: 1, 
-      text: "Hey there! 🤖 I'm Picbot, your EventAI assistant. Try asking me about your name, the agenda, or use the microphone button to speak your query!", 
+      text: "Hey there! 🤖 I'm Picbot, your EventAI assistant. Ask me anything about the event agenda, your schedule, or use the microphone button to speak your query!", 
       isUser: false, 
       timestamp: new Date() 
     }
@@ -70,31 +71,26 @@ export const PicbotPage = () => {
     }
   };
 
-  // ============= GENERATE AI RESPONSE (CUSTOM KEYWORDS) =============
-  const handleSendMessage = () => {
+  // ============= GENERATE AI RESPONSE VIA REAL API =============
+  const handleSendMessage = async () => {
     if (!inputMessage.trim() || isLoading) return;
 
-    const userText = inputMessage;
-    const lowerText = userText.toLowerCase();
+    const userText = inputMessage.trim();
     const newUserMsg = { id: Date.now(), text: userText, isUser: true, timestamp: new Date() };
     
     setMessages(prev => [...prev, newUserMsg]);
     setInputMessage('');
     setIsLoading(true);
 
-    setTimeout(() => {
-      let botReply = "That's a great question! Once the live backend is connected, I'll fetch the exact data for you.";
+    try {
+      // Connect to the real backend AI endpoint
+      // Ensure your backend has an endpoint at /api/v1/ai/chat handling this payload
+      const response = await apiPost('/api/v1/ai/chat', {
+        message: userText
+      });
 
-      // Custom Keyword Responses (Add yours here!)
-      if (lowerText.includes('my name') || lowerText.includes('who am i')) {
-        botReply = "You are Ravi Raja, an Agentic AI Engineer attending EventAI 2026!";
-      } else if (lowerText.includes('agenda') || lowerText.includes('session')) {
-        botReply = "You can view all keynotes and panel schedules under the Agenda tab.";
-      } else if (lowerText.includes('networking') || lowerText.includes('connect')) {
-        botReply = "Check out the Network tab to discover matched attendees and build professional connections.";
-      } else if (lowerText.includes('your-keyword')) {
-        botReply = "Your custom AI response here!";
-      }
+      // Safely map the backend response (handles multiple common JSON key structures)
+      const botReply = response?.reply || response?.message || response?.answer || response?.data || "I received your message, but the AI module didn't return a valid response format.";
 
       const botResponse = { 
         id: Date.now() + 1, 
@@ -102,9 +98,22 @@ export const PicbotPage = () => {
         isUser: false, 
         timestamp: new Date() 
       };
+      
       setMessages(prev => [...prev, botResponse]);
+    } catch (error) {
+      console.error('Failed to fetch AI response:', error);
+      
+      // Friendly fallback error message inside the chat
+      const errorResponse = {
+        id: Date.now() + 1,
+        text: "Oops! My AI circuits are a bit overloaded right now. Please check your connection and try asking again.",
+        isUser: false,
+        timestamp: new Date()
+      };
+      setMessages(prev => [...prev, errorResponse]);
+    } finally {
       setIsLoading(false);
-    }, 1000);
+    }
   };
 
   return (

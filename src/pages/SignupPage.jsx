@@ -1,8 +1,11 @@
 import React, { useState } from 'react';
-import { useAuth } from '../context/AuthContext';
+import { useNavigate, Link } from 'react-router-dom';
+import { apiPost } from '../services/api';
+import toast from 'react-hot-toast';
 
 export const SignupPage = () => {
-  const { register, googleLogin, linkedinLogin } = useAuth();
+  const navigate = useNavigate();
+  
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
@@ -18,6 +21,7 @@ export const SignupPage = () => {
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
+    setError(''); // Clear error on typing
 
     if (name === 'password') {
       if (value.length < 8) setPasswordStrength('weak');
@@ -44,20 +48,50 @@ export const SignupPage = () => {
     }
 
     try {
-      await register(formData.email, formData.password, formData.firstName, formData.lastName);
-      window.location.href = '/dashboard';
+      // Connect to real backend registration endpoint
+      const response = await apiPost('/api/v1/auth/register', {
+        email: formData.email.toLowerCase().trim(),
+        password: formData.password,
+        first_name: formData.firstName,
+        last_name: formData.lastName,
+        full_name: `${formData.firstName} ${formData.lastName}`.trim()
+      });
+
+      // Optionally store token if your backend logs them in immediately upon registration
+      if (response && response.access_token) {
+        localStorage.setItem('access_token', response.access_token);
+        if (response.user_id) localStorage.setItem('user_id', response.user_id);
+      }
+
+      toast.success('Account created successfully!');
+      
+      // Save email for the verification screen
+      sessionStorage.setItem('tempEmail', formData.email);
+      
+      // Navigate to email verification step
+      navigate('/auth/verify-email', { 
+        replace: true,
+        state: { email: formData.email }
+      });
+      
     } catch (err) {
-      setError(err.detail || 'Signup failed');
+      console.error('Registration error:', err);
+      setError(err.response?.data?.detail || err.message || 'Signup failed. Please try again.');
+      toast.error('Registration failed.');
     } finally {
       setLoading(false);
     }
   };
 
+  // Wired for future OAuth endpoints
   const handleGoogleSignup = async () => {
     try {
-      const mockToken = 'mock_google_token_' + Date.now();
-      await googleLogin(mockToken);
-      window.location.href = '/dashboard';
+      // In a real OAuth flow, this usually redirects to a backend URL that handles the Google prompt
+      // For now, we stub the API call that would process the OAuth token
+      toast.error('Google signup is currently being configured.');
+      // Example implementation when ready:
+      // await apiPost('/api/v1/auth/google', { token: '...' });
+      // navigate('/home');
     } catch (err) {
       setError('Google signup failed');
     }
@@ -65,9 +99,10 @@ export const SignupPage = () => {
 
   const handleLinkedInSignup = async () => {
     try {
-      const mockToken = 'mock_linkedin_token_' + Date.now();
-      await linkedinLogin(mockToken);
-      window.location.href = '/dashboard';
+      toast.error('LinkedIn signup is currently being configured.');
+      // Example implementation when ready:
+      // await apiPost('/api/v1/auth/linkedin', { token: '...' });
+      // navigate('/home');
     } catch (err) {
       setError('LinkedIn signup failed');
     }
@@ -83,8 +118,8 @@ export const SignupPage = () => {
 
         <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-8">
           {error && (
-            <div className="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-700 text-red-700 dark:text-red-300 px-4 py-3 rounded-lg mb-6">
-              ⚠️ {error}
+            <div className="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-700 text-red-700 dark:text-red-300 px-4 py-3 rounded-lg mb-6 flex justify-between items-center">
+              <span>⚠️ {error}</span>
             </div>
           )}
 
@@ -107,17 +142,17 @@ export const SignupPage = () => {
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-semibold text-gray-900 dark:text-white mb-2">First Name</label>
-                <input type="text" name="firstName" value={formData.firstName} onChange={handleChange} required placeholder="John" className="w-full px-4 py-2 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:border-blue-500 dark:bg-gray-700 dark:text-white" />
+                <input type="text" name="firstName" value={formData.firstName} onChange={handleChange} required placeholder="John" className="w-full px-4 py-2 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:border-blue-500 dark:bg-gray-700 dark:text-white transition-colors" />
               </div>
               <div>
                 <label className="block text-sm font-semibold text-gray-900 dark:text-white mb-2">Last Name</label>
-                <input type="text" name="lastName" value={formData.lastName} onChange={handleChange} required placeholder="Doe" className="w-full px-4 py-2 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:border-blue-500 dark:bg-gray-700 dark:text-white" />
+                <input type="text" name="lastName" value={formData.lastName} onChange={handleChange} required placeholder="Doe" className="w-full px-4 py-2 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:border-blue-500 dark:bg-gray-700 dark:text-white transition-colors" />
               </div>
             </div>
 
             <div>
               <label className="block text-sm font-semibold text-gray-900 dark:text-white mb-2">Email Address</label>
-              <input type="email" name="email" value={formData.email} onChange={handleChange} required placeholder="you@example.com" className="w-full px-4 py-2 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:border-blue-500 dark:bg-gray-700 dark:text-white" />
+              <input type="email" name="email" value={formData.email} onChange={handleChange} required placeholder="you@example.com" className="w-full px-4 py-2 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:border-blue-500 dark:bg-gray-700 dark:text-white transition-colors" />
             </div>
 
             <div>
@@ -129,13 +164,13 @@ export const SignupPage = () => {
                   </span>
                 )}
               </div>
-              <input type="password" name="password" value={formData.password} onChange={handleChange} required placeholder="••••••••" className="w-full px-4 py-2 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:border-blue-500 dark:bg-gray-700 dark:text-white" />
+              <input type="password" name="password" value={formData.password} onChange={handleChange} required placeholder="••••••••" className="w-full px-4 py-2 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:border-blue-500 dark:bg-gray-700 dark:text-white transition-colors" />
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Minimum 8 characters, include uppercase and numbers</p>
             </div>
 
             <div>
               <label className="block text-sm font-semibold text-gray-900 dark:text-white mb-2">Confirm Password</label>
-              <input type="password" name="confirmPassword" value={formData.confirmPassword} onChange={handleChange} required placeholder="••••••••" className="w-full px-4 py-2 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:border-blue-500 dark:bg-gray-700 dark:text-white" />
+              <input type="password" name="confirmPassword" value={formData.confirmPassword} onChange={handleChange} required placeholder="••••••••" className="w-full px-4 py-2 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:border-blue-500 dark:bg-gray-700 dark:text-white transition-colors" />
             </div>
 
             <div className="flex items-start">
@@ -143,13 +178,18 @@ export const SignupPage = () => {
               <label htmlFor="terms" className="ml-2 text-sm text-gray-600 dark:text-gray-400 cursor-pointer">I agree to the Terms of Service and Privacy Policy</label>
             </div>
 
-            <button type="submit" disabled={loading || !agreeTerms} className="w-full px-4 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white font-bold rounded-lg transition-colors">
-              {loading ? '⏳ Creating account...' : '✨ Create account'}
+            <button type="submit" disabled={loading || !agreeTerms} className="w-full px-4 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white font-bold rounded-lg transition-colors flex justify-center items-center gap-2 shadow-md">
+              {loading ? (
+                <>
+                  <div className="w-5 h-5 border-t-2 border-b-2 border-white rounded-full animate-spin"></div>
+                  Creating account...
+                </>
+              ) : '✨ Create account'}
             </button>
           </form>
 
           <p className="text-center text-gray-600 dark:text-gray-400 text-sm mt-6">
-            Already have an account? <a href="/login" className="text-blue-600 dark:text-blue-400 hover:underline font-semibold">Sign in</a>
+            Already have an account? <Link to="/login" className="text-blue-600 dark:text-blue-400 hover:underline font-semibold">Sign in</Link>
           </p>
         </div>
       </div>

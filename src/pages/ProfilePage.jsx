@@ -1,85 +1,72 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
-import { useAuth } from '../context/AuthContext';
+import { apiGet, apiPut } from '../services/api';
 import ProfileSettingsItem from '../components/ProfileSettingsItem';
 import '../styles/profile-screen.css';
-
-const API_BASE = 'http://127.0.0.1:8000';
 
 export const ProfilePage = () => {
   const navigate = useNavigate();
   
-  // FIX: Safety fallback! If AuthContext is empty/offline, it won't crash the app.
-  const authContext = useAuth() || {}; 
-  const { user, token } = authContext; 
-
   // ==========================================
-  // 1. EXISTING STATE MANAGEMENT
+  // STATE MANAGEMENT
   // ==========================================
-  const [apiProfile, setApiProfile] = useState(null);
-  const [localProfile, setLocalProfile] = useState(null);
-  const [avatar, setAvatar] = useState(null);
-
+  const [user, setUser] = useState(null);
   const [editing, setEditing] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [formData, setFormData] = useState({
-    bio: '', company: '', job_title: '', phone: '', location: '',
-    interests: '', social_twitter: '', social_linkedin: '', is_public: true
-  });
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-
-  // ==========================================
-  // 2. NEW UI STATE MANAGEMENT
-  // ==========================================
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
 
+  const [formData, setFormData] = useState({
+    full_name: '',
+    bio: '',
+    company: '',
+    title: '',
+    phone: '',
+    location: '',
+    social_twitter: '',
+    social_linkedin: '',
+    is_public: true
+  });
+
   // ==========================================
-  // 3. EXISTING LOGIC & API
+  // FETCH USER DATA
   // ==========================================
   useEffect(() => {
-    const savedProfile = localStorage.getItem('userProfile');
-    const savedAvatar = localStorage.getItem('userAvatar');
+    loadUserProfile();
+  }, []);
 
-    if (savedProfile) {
-      const parsed = JSON.parse(savedProfile);
-      setLocalProfile(parsed);
-      setFormData(prev => ({
-        ...prev,
-        bio: parsed.bio || '',
-        company: parsed.company || '',
-        job_title: parsed.jobTitle || parsed.role || '',
-        social_linkedin: parsed.linkedinUrl || '',
-        social_twitter: parsed.twitterUrl || ''
-      }));
-    }
-    if (savedAvatar) {
-      setAvatar(savedAvatar);
-    }
-
-    if (user && token) {
-      fetchProfile();
-    }
-  }, [user, token]);
-
-  const fetchProfile = async () => {
+  const loadUserProfile = async () => {
     try {
-      const res = await axios.get(`${API_BASE}/auth/me`, {
-        headers: { Authorization: `Bearer ${token}` }
+      setLoading(true);
+      setError('');
+
+      const userData = await apiGet('/api/v1/users/me');
+      setUser(userData);
+      setFormData({
+        full_name: userData.full_name || '',
+        bio: userData.bio || '',
+        company: userData.company || '',
+        title: userData.title || '',
+        phone: userData.phone || '',
+        location: userData.location || '',
+        social_twitter: userData.social_twitter || '',
+        social_linkedin: userData.social_linkedin || '',
+        is_public: userData.is_public !== false
       });
-      if (res.data.profile) {
-        setApiProfile(res.data.profile);
-        if (!localStorage.getItem('userProfile')) {
-          setFormData(res.data.profile);
-        }
-      }
     } catch (err) {
-      console.error('Error fetching API profile:', err);
+      console.error('Failed to load profile:', err);
+      setError('Unable to load profile. Please try again.');
+    } finally {
+      setLoading(false);
     }
   };
 
+  // ==========================================
+  // HANDLE FORM CHANGES
+  // ==========================================
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
     setFormData((prev) => ({
@@ -88,63 +75,53 @@ export const ProfilePage = () => {
     }));
   };
 
+  // ==========================================
+  // SAVE PROFILE
+  // ==========================================
   const handleSave = async () => {
-    setLoading(true);
+    if (!user?.id) {
+      setError('User ID not found. Please refresh and try again.');
+      return;
+    }
+
+    setSaving(true);
     setError('');
     setSuccess('');
 
     try {
-      if (user && token) {
-        const res = await axios.put(`${API_BASE}/auth/profile`, formData, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        setApiProfile(res.data.profile);
-      }
-
-      const updatedLocal = {
-        ...localProfile,
-        bio: formData.bio,
-        company: formData.company,
-        jobTitle: formData.job_title,
-        linkedinUrl: formData.social_linkedin,
-        twitterUrl: formData.social_twitter,
-        fullName: localProfile?.fullName || 'Event Attendee',
-        email: localProfile?.email || 'user@example.com'
-      };
-      localStorage.setItem('userProfile', JSON.stringify(updatedLocal));
-      setLocalProfile(updatedLocal);
-
+      const updatedUser = await apiPut(`/api/v1/users/${user.id}`, formData);
+      setUser(updatedUser);
       setSuccess('✅ Profile updated successfully');
       setEditing(false);
     } catch (err) {
-      setError(err.response?.data?.detail || 'Failed to update profile. (Backend might be offline)');
+      console.error('Failed to update profile:', err);
+      setError(err.message || 'Failed to update profile. Please try again.');
     } finally {
-      setLoading(false);
+      setSaving(false);
     }
   };
 
+  // ==========================================
+  // LOGOUT
+  // ==========================================
   const handleLogout = () => {
-    localStorage.clear();
-    sessionStorage.clear(); 
-    navigate('/auth/login');
+    localStorage.removeItem('access_token');
+    sessionStorage.clear();
+    navigate('/login');
   };
 
-  // --- SMART DATA MERGE ---
-  const displayData = {
-    fullName: localProfile?.fullName || (user ? `${user.first_name || ''} ${user.last_name || ''}`.trim() : 'Event Attendee'),
-    role: localProfile?.role || localProfile?.jobTitle || apiProfile?.job_title || user?.role || 'Guest',
-    company: localProfile?.company || apiProfile?.company || 'No Company',
-    bio: localProfile?.bio || apiProfile?.bio || 'No bio provided.',
-    linkedIn: localProfile?.linkedinUrl || apiProfile?.social_linkedin || '',
-    twitter: localProfile?.twitterUrl || apiProfile?.social_twitter || '',
-    avatarUrl: avatar || user?.profile_picture_url || null,
-    email: user?.email || localProfile?.email || 'user@example.com'
-  };
+  if (loading) {
+    return (
+      <div className="bg-slate-950 min-h-screen text-white flex items-center justify-center">
+        <div className="border-t-blue-500 border-4 rounded-full w-12 h-12 animate-spin"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="bg-slate-950 min-h-screen text-white font-sans pb-32 overflow-y-auto">
       
-      {/* Sleek Minimalist Header */}
+      {/* Header */}
       <div className="sticky top-0 z-40 bg-slate-950/80 backdrop-blur-md px-6 py-4 border-b border-white/10 flex justify-between items-center">
         <button 
           onClick={() => navigate('/home')}
@@ -160,73 +137,136 @@ export const ProfilePage = () => {
 
       <div className="max-w-md mx-auto px-4 pt-6 space-y-6">
         
-        {/* Notifications (Error/Success) */}
-        {error && <div className="bg-red-500/20 border border-red-500/50 text-red-200 px-4 py-3 rounded-xl mb-4">{error}</div>}
-        {success && <div className="bg-green-500/20 border border-green-500/50 text-green-200 px-4 py-3 rounded-xl mb-4">{success}</div>}
+        {/* Notifications */}
+        {error && (
+          <div className="bg-red-500/20 border border-red-500/50 text-red-200 px-4 py-3 rounded-xl">
+            ⚠️ {error}
+          </div>
+        )}
+        {success && (
+          <div className="bg-green-500/20 border border-green-500/50 text-green-200 px-4 py-3 rounded-xl">
+            {success}
+          </div>
+        )}
 
         {editing ? (
           // ==========================================
-          // EDIT PROFILE FORM
+          // EDIT MODE
           // ==========================================
           <div className="bg-slate-900 border border-white/10 rounded-3xl p-6 shadow-2xl">
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-xl font-bold">Edit Profile</h2>
-              <button onClick={() => setEditing(false)} className="text-slate-400 hover:text-white">✕ Cancel</button>
+              <button onClick={() => setEditing(false)} className="text-slate-400 hover:text-white">✕</button>
             </div>
             <div className="space-y-4">
               <div>
-                <label className="block text-xs font-semibold text-blue-200 uppercase tracking-wider mb-2">Bio</label>
-                <textarea name="bio" value={formData.bio || ''} onChange={handleChange} rows="3" className="w-full bg-slate-800 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-blue-500 text-white" />
+                <label className="block text-xs font-semibold text-blue-200 uppercase tracking-wider mb-2">Full Name</label>
+                <input
+                  type="text"
+                  name="full_name"
+                  value={formData.full_name}
+                  onChange={handleChange}
+                  className="w-full bg-slate-800 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-blue-500 text-white"
+                />
               </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-blue-200 uppercase tracking-wider mb-2">Bio</label>
+                <textarea
+                  name="bio"
+                  value={formData.bio}
+                  onChange={handleChange}
+                  rows="3"
+                  className="w-full bg-slate-800 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-blue-500 text-white"
+                />
+              </div>
+
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-semibold text-blue-200 uppercase tracking-wider mb-2">Company</label>
-                  <input type="text" name="company" value={formData.company || ''} onChange={handleChange} className="w-full bg-slate-800 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-blue-500 text-white" />
+                  <input
+                    type="text"
+                    name="company"
+                    value={formData.company}
+                    onChange={handleChange}
+                    className="w-full bg-slate-800 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-blue-500 text-white"
+                  />
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-blue-200 uppercase tracking-wider mb-2">Job Title</label>
-                  <input type="text" name="job_title" value={formData.job_title || ''} onChange={handleChange} className="w-full bg-slate-800 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-blue-500 text-white" />
+                  <input
+                    type="text"
+                    name="title"
+                    value={formData.title}
+                    onChange={handleChange}
+                    className="w-full bg-slate-800 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-blue-500 text-white"
+                  />
                 </div>
               </div>
+
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-semibold text-blue-200 uppercase tracking-wider mb-2">Twitter</label>
-                  <input type="text" name="social_twitter" value={formData.social_twitter || ''} onChange={handleChange} className="w-full bg-slate-800 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-blue-500 text-white" />
+                  <input
+                    type="text"
+                    name="social_twitter"
+                    value={formData.social_twitter}
+                    onChange={handleChange}
+                    className="w-full bg-slate-800 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-blue-500 text-white"
+                  />
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-blue-200 uppercase tracking-wider mb-2">LinkedIn</label>
-                  <input type="text" name="social_linkedin" value={formData.social_linkedin || ''} onChange={handleChange} className="w-full bg-slate-800 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-blue-500 text-white" />
+                  <input
+                    type="text"
+                    name="social_linkedin"
+                    value={formData.social_linkedin}
+                    onChange={handleChange}
+                    className="w-full bg-slate-800 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-blue-500 text-white"
+                  />
                 </div>
               </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-blue-200 uppercase tracking-wider mb-2">Location</label>
+                <input
+                  type="text"
+                  name="location"
+                  value={formData.location}
+                  onChange={handleChange}
+                  className="w-full bg-slate-800 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-blue-500 text-white"
+                />
+              </div>
+
               <button 
                 onClick={handleSave} 
-                disabled={loading} 
-                className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-4 mt-6 rounded-xl transition-all"
+                disabled={saving}
+                className="w-full bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white font-bold py-4 mt-6 rounded-xl transition-all"
               >
-                {loading ? 'Saving...' : 'Save Changes'}
+                {saving ? 'Saving...' : 'Save Changes'}
               </button>
             </div>
           </div>
         ) : (
           // ==========================================
-          // VIEW MODE (Fixed Email Variable!)
+          // VIEW MODE
           // ==========================================
           <div className="space-y-6">
             
-            {/* Profile Header Card */}
+            {/* Profile Header */}
             <div className="bg-slate-900 border border-white/10 rounded-2xl p-6 flex items-center justify-between gap-4">
               <div className="flex items-center gap-4">
                 <div className="w-16 h-16 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-xl font-bold overflow-hidden border-2 border-slate-950">
-                  {displayData.avatarUrl ? (
-                    <img src={displayData.avatarUrl} alt="Profile" className="w-full h-full object-cover" />
+                  {user?.avatar ? (
+                    <img src={user.avatar} alt="Profile" className="w-full h-full object-cover" />
                   ) : (
-                    <span>{displayData.fullName.charAt(0) || 'U'}</span>
+                    <span>{user?.full_name?.charAt(0) || 'U'}</span>
                   )}
                 </div>
                 <div>
-                  <h2 className="text-lg font-bold leading-tight">{displayData.fullName}</h2>
-                  <p className="text-blue-400 text-xs mt-1">{displayData.role}</p>
-                  <p className="text-slate-400 text-xs">{displayData.company}</p>
+                  <h2 className="text-lg font-bold leading-tight">{user?.full_name || 'User'}</h2>
+                  <p className="text-blue-400 text-xs mt-1">{user?.title || 'Professional'}</p>
+                  <p className="text-slate-400 text-xs">{user?.company || 'Company'}</p>
                 </div>
               </div>
               <button 
@@ -241,13 +281,23 @@ export const ProfilePage = () => {
             <div>
               <h3 className="text-slate-500 text-xs font-bold uppercase tracking-wider mb-3 px-2">Account</h3>
               <div className="space-y-2">
-                <ProfileSettingsItem icon="👤" label="Edit Profile" description="Update your profile information" onClick={() => setEditing(true)} />
-                {/* FIX APPLIED HERE: Changed userProfile.email to displayData.email */}
-                <ProfileSettingsItem icon="📧" label="Email Address" value={displayData.email} showArrow={true} onClick={() => alert("Email editing feature coming soon!")} />
+                <ProfileSettingsItem 
+                  icon="👤" 
+                  label="Edit Profile" 
+                  description="Update your profile information" 
+                  onClick={() => setEditing(true)} 
+                />
+                <ProfileSettingsItem 
+                  icon="📧" 
+                  label="Email Address" 
+                  value={user?.email || 'N/A'} 
+                  showArrow={true} 
+                  onClick={() => alert("Email editing coming soon!")} 
+                />
               </div>
             </div>
 
-            {/* Notifications Toggle UI */}
+            {/* Notifications */}
             <div>
               <h3 className="text-slate-500 text-xs font-bold uppercase tracking-wider mb-3 px-2 mt-6">Notifications</h3>
               <div className="bg-slate-900 border border-white/10 rounded-xl p-4 flex items-center justify-between">
@@ -285,8 +335,18 @@ export const ProfilePage = () => {
             <h2 className="text-xl font-bold mb-2 text-white">Confirm Logout</h2>
             <p className="text-slate-400 mb-6">Are you sure you want to sign out?</p>
             <div className="flex gap-4">
-              <button className="flex-1 py-3 bg-slate-800 text-white rounded-xl font-medium hover:bg-slate-700" onClick={() => setShowLogoutConfirm(false)}>Cancel</button>
-              <button className="flex-1 py-3 bg-red-600 text-white rounded-xl font-medium hover:bg-red-500" onClick={handleLogout}>Logout</button>
+              <button 
+                className="flex-1 py-3 bg-slate-800 text-white rounded-xl font-medium hover:bg-slate-700" 
+                onClick={() => setShowLogoutConfirm(false)}
+              >
+                Cancel
+              </button>
+              <button 
+                className="flex-1 py-3 bg-red-600 text-white rounded-xl font-medium hover:bg-red-500" 
+                onClick={handleLogout}
+              >
+                Logout
+              </button>
             </div>
           </div>
         </div>

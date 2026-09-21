@@ -7,6 +7,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { apiGet } from '../services/api';
 import AdminStatCard from '../components/AdminStatCard';
 import AdminUserManagement from '../components/AdminUserManagement';
 import AdminContentModeration from '../components/AdminContentModeration';
@@ -18,185 +19,90 @@ export const AdminDashboardScreen = () => {
   // ============= STATE MANAGEMENT =============
   const [userProfile, setUserProfile] = useState(null);
   const [activeTab, setActiveTab] = useState('overview');
+  
+  // Data States
+  const [adminStats, setAdminStats] = useState([]);
+  const [users, setUsers] = useState([]);
+  const [content, setContent] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  // ============= MOCK ADMIN DATA =============
-  const adminStats = [
-    {
-      id: 'total-users',
-      title: 'Total Users',
-      value: '2,847',
-      icon: '👥',
-      trend: '+12% this week',
-      trendDirection: 'up',
-      color: '#0066ff',
-    },
-    {
-      id: 'event-attendance',
-      title: 'Event Attendance',
-      value: '1,923',
-      icon: '🎤',
-      trend: '+8% from target',
-      trendDirection: 'up',
-      color: '#10b981',
-    },
-    {
-      id: 'engagement-score',
-      title: 'Avg Engagement',
-      value: '78%',
-      icon: '⭐',
-      trend: '+5% last month',
-      trendDirection: 'up',
-      color: '#f59e0b',
-    },
-    {
-      id: 'revenue',
-      title: 'Revenue',
-      value: '$45,230',
-      icon: '💰',
-      trend: '+22% YoY',
-      trendDirection: 'up',
-      color: '#8b5cf6',
-    },
-    {
-      id: 'sessions',
-      title: 'Sessions Created',
-      value: '156',
-      icon: '📚',
-      trend: '+3 this week',
-      trendDirection: 'up',
-      color: '#06b6d4',
-    },
-    {
-      id: 'speakers',
-      title: 'Active Speakers',
-      value: '42',
-      icon: '🎤',
-      trend: 'stable',
-      trendDirection: 'neutral',
-      color: '#ec4899',
-    },
-  ];
-
-  const mockUsers = [
-    {
-      id: 'user-1',
-      name: 'Sarah Johnson',
-      email: 'sarah@example.com',
-      avatar: 'https://i.pravatar.cc/150?img=5',
-      status: 'active',
-      engagementScore: 92,
-      joinedDate: '2026-08-15',
-    },
-    {
-      id: 'user-2',
-      name: 'Mike Chen',
-      email: 'mike@example.com',
-      avatar: 'https://i.pravatar.cc/150?img=11',
-      status: 'active',
-      engagementScore: 85,
-      joinedDate: '2026-08-18',
-    },
-    {
-      id: 'user-3',
-      name: 'Patricia White',
-      email: 'patricia@example.com',
-      avatar: 'https://i.pravatar.cc/150?img=9',
-      status: 'active',
-      engagementScore: 78,
-      joinedDate: '2026-08-20',
-    },
-    {
-      id: 'user-4',
-      name: 'Jennifer Lee',
-      email: 'jennifer@example.com',
-      avatar: 'https://i.pravatar.cc/150?img=1',
-      status: 'inactive',
-      engagementScore: 45,
-      joinedDate: '2026-08-22',
-    },
-    {
-      id: 'user-5',
-      name: 'Robert Davis',
-      email: 'robert@example.com',
-      avatar: 'https://i.pravatar.cc/150?img=8',
-      status: 'active',
-      engagementScore: 88,
-      joinedDate: '2026-08-25',
-    },
-  ];
-
-  const mockContent = [
-    {
-      id: 'content-1',
-      type: 'post',
-      userName: 'Sarah Johnson',
-      userAvatar: 'https://i.pravatar.cc/150?img=5',
-      content:
-        'Great insights from today\'s session on AI in HR. Looking forward to implementing these strategies!',
-      date: '2 hours ago',
-      status: 'approved',
-      flags: [],
-    },
-    {
-      id: 'content-2',
-      type: 'comment',
-      userName: 'Mike Chen',
-      userAvatar: 'https://i.pravatar.cc/150?img=11',
-      content:
-        'This is exactly what our team needed. Thanks for sharing!',
-      date: '1 hour ago',
-      status: 'pending',
-      flags: [],
-    },
-    {
-      id: 'content-3',
-      type: 'post',
-      userName: 'Patricia White',
-      userAvatar: 'https://i.pravatar.cc/150?img=9',
-      content:
-        'Networking event was fantastic! Met some amazing professionals.',
-      date: '30 minutes ago',
-      status: 'pending',
-      flags: [],
-    },
-    {
-      id: 'content-4',
-      type: 'image',
-      userName: 'Jennifer Lee',
-      userAvatar: 'https://i.pravatar.cc/150?img=1',
-      content: 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=200&h=150&fit=crop',
-      date: '15 minutes ago',
-      status: 'pending',
-      flags: ['Potential copyright issue'],
-    },
-    {
-      id: 'content-5',
-      type: 'comment',
-      userName: 'Robert Davis',
-      userAvatar: 'https://i.pravatar.cc/150?img=8',
-      content:
-        'Spam message with links and promotional content',
-      date: '5 minutes ago',
-      status: 'rejected',
-      flags: ['Spam', 'Promotional content'],
-    },
-  ];
-
-  // ============= GET USER PROFILE =============
+  // ============= GET USER PROFILE & DASHBOARD DATA =============
   useEffect(() => {
+    // 1. Authenticate Admin (Developer Bypass preserved)
     const profile = sessionStorage.getItem('userProfile');
-    
-    // 🚧 DEVELOPER BYPASS: Forces an admin profile so you can build the UI without logging in
     if (!profile) {
       setUserProfile({ name: "Admin User", role: "admin", isAdmin: true });
-      return;
+    } else {
+      const parsedProfile = JSON.parse(profile);
+      parsedProfile.isAdmin = true; 
+      setUserProfile(parsedProfile);
     }
-    
-    const parsedProfile = JSON.parse(profile);
-    // Force admin rights for developer testing
-    parsedProfile.isAdmin = true; 
-    setUserProfile(parsedProfile);
+
+    // 2. Fetch Real API Data
+    loadDashboardData();
   }, [navigate]);
+
+  const loadDashboardData = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      // Fetch all required admin data in parallel safely
+      // Promise.allSettled prevents one missing endpoint from crashing the whole dashboard
+      const [statsData, usersData, contentData] = await Promise.allSettled([
+        apiGet('/api/v1/admin/stats'),
+        apiGet('/api/v1/users'),
+        apiGet('/api/v1/admin/moderation')
+      ]);
+
+      // Process Stats (Fallback to safe defaults if endpoint doesn't exist/fails)
+      if (statsData.status === 'fulfilled' && statsData.value) {
+        const data = statsData.value;
+        const formattedStats = Array.isArray(data) ? data : [
+          { id: 'total-users', title: 'Total Users', value: data.total_users || '0', icon: '👥', trend: 'Real-time', trendDirection: 'neutral', color: '#0066ff' },
+          { id: 'event-attendance', title: 'Event Attendance', value: data.attendance || '0', icon: '🎤', trend: 'Real-time', trendDirection: 'neutral', color: '#10b981' },
+          { id: 'engagement-score', title: 'Avg Engagement', value: data.engagement || '0%', icon: '⭐', trend: 'Real-time', trendDirection: 'neutral', color: '#f59e0b' },
+          { id: 'revenue', title: 'Revenue', value: data.revenue ? `$${data.revenue}` : '$0', icon: '💰', trend: 'Real-time', trendDirection: 'neutral', color: '#8b5cf6' },
+          { id: 'sessions', title: 'Sessions Created', value: data.total_sessions || '0', icon: '📚', trend: 'Real-time', trendDirection: 'neutral', color: '#06b6d4' },
+          { id: 'speakers', title: 'Active Speakers', value: data.total_speakers || '0', icon: '🎤', trend: 'Real-time', trendDirection: 'neutral', color: '#ec4899' },
+        ];
+        setAdminStats(formattedStats);
+      } else {
+        setAdminStats(getDefaultStats());
+      }
+
+      // Process Users
+      if (usersData.status === 'fulfilled' && usersData.value) {
+        setUsers(Array.isArray(usersData.value) ? usersData.value : []);
+      } else {
+        setUsers([]);
+      }
+
+      // Process Content Moderation
+      if (contentData.status === 'fulfilled' && contentData.value) {
+        setContent(Array.isArray(contentData.value) ? contentData.value : []);
+      } else {
+        setContent([]);
+      }
+
+    } catch (err) {
+      console.error('Failed to load dashboard data:', err);
+      setError('Unable to load some dashboard metrics. Please refresh.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Safe fallback for stats if backend route is WIP
+  const getDefaultStats = () => [
+    { id: 'total-users', title: 'Total Users', value: '0', icon: '👥', trend: 'Waiting for data', trendDirection: 'neutral', color: '#0066ff' },
+    { id: 'event-attendance', title: 'Event Attendance', value: '0', icon: '🎤', trend: 'Waiting for data', trendDirection: 'neutral', color: '#10b981' },
+    { id: 'engagement-score', title: 'Avg Engagement', value: '0%', icon: '⭐', trend: 'Waiting for data', trendDirection: 'neutral', color: '#f59e0b' },
+    { id: 'revenue', title: 'Revenue', value: '$0', icon: '💰', trend: 'Waiting for data', trendDirection: 'neutral', color: '#8b5cf6' },
+    { id: 'sessions', title: 'Sessions Created', value: '0', icon: '📚', trend: 'Waiting for data', trendDirection: 'neutral', color: '#06b6d4' },
+    { id: 'speakers', title: 'Active Speakers', value: '0', icon: '🎤', trend: 'Waiting for data', trendDirection: 'neutral', color: '#ec4899' },
+  ];
 
   // ============= HANDLE BACK =============
   const handleBack = () => {
@@ -208,7 +114,7 @@ export const AdminDashboardScreen = () => {
     setActiveTab(tab);
   };
 
-  if (!userProfile) {
+  if (loading || !userProfile) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-900">
         <div className="border-t-blue-500 border-4 border-solid rounded-full w-12 h-12 animate-spin"></div>
@@ -222,6 +128,14 @@ export const AdminDashboardScreen = () => {
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         
+        {/* Error Banner */}
+        {error && (
+          <div className="mb-6 bg-red-900/40 border border-red-500/50 text-red-200 px-4 py-3 rounded-lg flex justify-between items-center">
+            <span>⚠️ {error}</span>
+            <button onClick={loadDashboardData} className="underline hover:no-underline">Retry</button>
+          </div>
+        )}
+
         {/* Header */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
           <div className="flex items-center gap-4">
@@ -298,10 +212,10 @@ export const AdminDashboardScreen = () => {
                 <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">📋 Recent Activity</h3>
                 <div className="space-y-4">
                   {[
-                    { icon: '👥', text: '42 new users registered', time: '2 hours ago' },
-                    { icon: '📊', text: 'Event attendance at 92%', time: '1 hour ago' },
-                    { icon: '🚀', text: '3 new sessions published', time: '30 minutes ago' },
-                    { icon: '🔔', text: 'Content moderation alert', time: '15 minutes ago' }
+                    { icon: '👥', text: 'New users registered', time: 'Recently' },
+                    { icon: '📊', text: 'System metrics updated', time: 'Recently' },
+                    { icon: '🚀', text: 'Sessions overview synced', time: 'Recently' },
+                    { icon: '🔔', text: 'Moderation queue checked', time: 'Recently' }
                   ].map((activity, i) => (
                     <div key={i} className="flex items-start gap-4 p-3 hover:bg-slate-750 rounded-lg transition-colors bg-slate-900/50">
                       <span className="text-xl">{activity.icon}</span>
@@ -330,7 +244,7 @@ export const AdminDashboardScreen = () => {
                     </div>
                     <div className="flex justify-between items-center">
                       <span className="text-slate-400 text-sm">API Response</span>
-                      <span className="text-green-400 text-sm font-bold bg-green-400/10 px-2 py-1 rounded">🟢 125ms avg</span>
+                      <span className="text-green-400 text-sm font-bold bg-green-400/10 px-2 py-1 rounded">🟢 Normal</span>
                     </div>
                   </div>
                 </div>
@@ -339,13 +253,20 @@ export const AdminDashboardScreen = () => {
                 <div className="bg-slate-800 rounded-xl p-6 border border-slate-700">
                   <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">⚠️ Alerts</h3>
                   <div className="space-y-3">
-                    <div className="flex items-center gap-3 p-3 bg-yellow-500/10 border border-yellow-500/20 rounded-lg">
-                      <span>⚠️</span>
-                      <p className="text-yellow-200 text-sm">5 pending content reviews</p>
-                    </div>
+                    {content.length > 0 ? (
+                      <div className="flex items-center gap-3 p-3 bg-yellow-500/10 border border-yellow-500/20 rounded-lg">
+                        <span>⚠️</span>
+                        <p className="text-yellow-200 text-sm">{content.length} items need moderation</p>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-3 p-3 bg-green-500/10 border border-green-500/20 rounded-lg">
+                        <span>✅</span>
+                        <p className="text-green-200 text-sm">No pending content reviews</p>
+                      </div>
+                    )}
                     <div className="flex items-center gap-3 p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg">
                       <span>ℹ️</span>
-                      <p className="text-blue-200 text-sm">Maintenance: Sept 5</p>
+                      <p className="text-blue-200 text-sm">All systems running smoothly</p>
                     </div>
                   </div>
                 </div>
@@ -355,11 +276,11 @@ export const AdminDashboardScreen = () => {
           )}
 
           {activeTab === 'users' && (
-            <AdminUserManagement users={mockUsers} />
+            <AdminUserManagement users={users} />
           )}
 
           {activeTab === 'content' && (
-            <AdminContentModeration content={mockContent} />
+            <AdminContentModeration content={content} />
           )}
 
           {activeTab === 'settings' && (
@@ -376,10 +297,10 @@ export const AdminDashboardScreen = () => {
               </div>
               <div className="space-y-3">
                 {[
-                  { name: 'User Activity Report', date: 'Aug 26, 2026' },
-                  { name: 'System Performance Log', date: 'Aug 26, 2026' },
-                  { name: 'Security Audit Trail', date: 'Aug 25, 2026' },
-                  { name: 'Error Logs', date: 'Aug 26, 2026' }
+                  { name: 'User Activity Report', date: new Date().toLocaleDateString() },
+                  { name: 'System Performance Log', date: new Date().toLocaleDateString() },
+                  { name: 'Security Audit Trail', date: new Date().toLocaleDateString() },
+                  { name: 'Error Logs', date: new Date().toLocaleDateString() }
                 ].map((report, idx) => (
                   <div key={idx} className="flex justify-between items-center p-4 bg-slate-900/50 rounded-lg border border-slate-700/50">
                     <div>

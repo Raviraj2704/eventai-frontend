@@ -1,83 +1,100 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import { apiGet, apiPut, apiDelete } from '../services/api';
 import { NotificationCard } from '../components/Notifications/NotificationCard';
 import { NotificationSettings } from '../components/Notifications/NotificationSettings';
-
-const API_BASE = 'http://127.0.0.1:8000';
 
 const NotificationsPage = () => {
   const [notifications, setNotifications] = useState([]);
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [filterType, setFilterType] = useState('all');
   const [showSettings, setShowSettings] = useState(false);
 
   useEffect(() => {
-    fetchNotifications();
-    fetchStats();
+    loadNotificationsData();
   }, [filterType]);
 
-  const fetchNotifications = async () => {
+  const loadNotificationsData = async () => {
     try {
       setLoading(true);
-      const res = await axios.get(`${API_BASE}/api/notifications`, {
-        params: { user_id: 1, event_id: 1, filter_type: filterType, limit: 50 }
+      setError(null);
+
+      // Fetch notifications
+      const notificationsData = await apiGet('/api/v1/notifications');
+      let filtered = Array.isArray(notificationsData) ? notificationsData : [];
+
+      // Apply filter
+      if (filterType === 'unread') {
+        filtered = filtered.filter(n => !n.is_read);
+      } else if (filterType === 'session_reminder') {
+        filtered = filtered.filter(n => n.type === 'session');
+      }
+
+      setNotifications(filtered);
+
+      // Calculate stats
+      const allNotifications = Array.isArray(notificationsData) ? notificationsData : [];
+      const unreadCount = allNotifications.filter(n => !n.is_read).length;
+      const messageCount = allNotifications.filter(n => n.type === 'message').length;
+
+      setStats({
+        total: allNotifications.length,
+        unread: unreadCount,
+        by_type: {
+          message: messageCount,
+          session: allNotifications.filter(n => n.type === 'session').length,
+          announcement: allNotifications.filter(n => n.type === 'announcement').length
+        }
       });
-      setNotifications(res.data.notifications);
     } catch (err) {
-      console.error('Error fetching notifications:', err);
+      console.error('Failed to load notifications:', err);
+      setError('Unable to load notifications. Please try again.');
+      setNotifications([]);
     } finally {
       setLoading(false);
     }
   };
 
-  const fetchStats = async () => {
-    try {
-      const res = await axios.get(`${API_BASE}/api/notifications/stats`, {
-        params: { user_id: 1, event_id: 1 }
-      });
-      setStats(res.data);
-    } catch (err) {
-      console.error('Error fetching stats:', err);
-    }
-  };
-
   const handleMarkRead = async (notificationId) => {
     try {
-      await axios.put(`${API_BASE}/api/notifications/${notificationId}/read`, null, { params: { user_id: 1 } });
-      fetchNotifications();
-      fetchStats();
+      await apiPut(`/api/v1/notifications/${notificationId}/read`, {});
+      await loadNotificationsData();
     } catch (err) {
-      console.error('Error marking read:', err);
+      console.error('Error marking as read:', err);
+      setError('Failed to mark notification as read');
     }
   };
 
   const handleMarkAllRead = async () => {
     try {
-      await axios.put(`${API_BASE}/api/notifications/read-all`, null, { params: { user_id: 1, event_id: 1 } });
-      fetchNotifications();
-      fetchStats();
+      // Mark all unread notifications as read
+      const unreadNotifications = notifications.filter(n => !n.is_read);
+      await Promise.all(
+        unreadNotifications.map(n => apiPut(`/api/v1/notifications/${n.id}/read`, {}))
+      );
+      await loadNotificationsData();
     } catch (err) {
-      console.error('Error marking all read:', err);
+      console.error('Error marking all as read:', err);
+      setError('Failed to mark all as read');
     }
   };
 
   const handleDelete = async (notificationId) => {
     try {
-      // Fixed: Fully explicit URL structure preventing any parameter clipping
-      await axios.delete(`${API_BASE}/api/notifications/${notificationId}`, { 
-        params: { user_id: 1, event_id: 1 } 
-      });
-      fetchNotifications();
-      fetchStats();
+      await apiDelete(`/api/v1/notifications/${notificationId}`);
+      await loadNotificationsData();
     } catch (err) {
       console.error('Error deleting notification:', err);
+      setError('Failed to delete notification');
     }
   };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 py-12">
       <div className="max-w-4xl mx-auto px-6">
+        
+        {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div>
             <h1 className="text-4xl font-bold text-gray-900 dark:text-white mb-2">🔔 Notifications</h1>
@@ -91,15 +108,30 @@ const NotificationsPage = () => {
           </button>
         </div>
 
+        {/* Settings Modal */}
         {showSettings && (
           <div className="mb-8 relative">
             <div className="fixed inset-0 bg-black bg-opacity-50 z-40" onClick={() => setShowSettings(false)} />
             <div className="relative z-50">
-              <NotificationSettings onSave={() => { fetchNotifications(); fetchStats(); }} />
+              <NotificationSettings onSave={() => { loadNotificationsData(); }} />
             </div>
           </div>
         )}
 
+        {/* Error Banner */}
+        {error && (
+          <div className="mb-6 bg-red-100 dark:bg-red-900/30 border border-red-400 dark:border-red-600 text-red-700 dark:text-red-300 px-4 py-3 rounded-lg">
+            ⚠️ {error}
+            <button 
+              onClick={loadNotificationsData}
+              className="ml-2 underline hover:no-underline"
+            >
+              Retry
+            </button>
+          </div>
+        )}
+
+        {/* Stats Cards */}
         {stats && (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
             <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md p-6">
@@ -117,13 +149,18 @@ const NotificationsPage = () => {
           </div>
         )}
 
+        {/* Filter & Actions */}
         <div className="mb-6 flex items-center justify-between gap-4">
           <div className="flex gap-3">
             {['all', 'unread', 'session_reminder'].map((type) => (
               <button
                 key={type}
                 onClick={() => setFilterType(type)}
-                className={`px-4 py-2 rounded-lg font-semibold transition-all ${filterType === type ? 'bg-orange-600 text-white shadow-lg' : 'bg-white dark:bg-gray-800 text-gray-900 dark:text-white border border-gray-200 dark:border-gray-700'}`}
+                className={`px-4 py-2 rounded-lg font-semibold transition-all ${
+                  filterType === type
+                    ? 'bg-orange-600 text-white shadow-lg'
+                    : 'bg-white dark:bg-gray-800 text-gray-900 dark:text-white border border-gray-200 dark:border-gray-700'
+                }`}
               >
                 {type === 'all' && '📋 All'}
                 {type === 'unread' && '🔴 Unread'}
@@ -133,16 +170,22 @@ const NotificationsPage = () => {
           </div>
 
           {stats && stats.unread > 0 && (
-            <button onClick={handleMarkAllRead} className="px-4 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold transition-colors">
+            <button
+              onClick={handleMarkAllRead}
+              className="px-4 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold transition-colors"
+            >
               Mark all as read
             </button>
           )}
         </div>
 
+        {/* Notifications List */}
         <div>
           {loading ? (
             <div className="space-y-3">
-              {[1, 2, 3].map((i) => <div key={i} className="h-24 bg-gray-200 dark:bg-gray-700 rounded-xl animate-pulse" />)}
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="h-24 bg-gray-200 dark:bg-gray-700 rounded-xl animate-pulse" />
+              ))}
             </div>
           ) : notifications.length === 0 ? (
             <div className="text-center py-12 bg-white dark:bg-gray-800 rounded-xl">
@@ -151,7 +194,20 @@ const NotificationsPage = () => {
           ) : (
             <div>
               {notifications.map((notif) => (
-                <NotificationCard key={notif.id} notification={notif} onMarkRead={handleMarkRead} onDelete={handleDelete} />
+                <NotificationCard
+                  key={notif.id}
+                  notification={{
+                    id: notif.id,
+                    title: notif.title || 'Notification',
+                    message: notif.message || notif.content || '',
+                    type: notif.type || 'notification',
+                    is_read: notif.is_read || false,
+                    created_at: notif.created_at,
+                    updated_at: notif.updated_at
+                  }}
+                  onMarkRead={() => handleMarkRead(notif.id)}
+                  onDelete={() => handleDelete(notif.id)}
+                />
               ))}
             </div>
           )}

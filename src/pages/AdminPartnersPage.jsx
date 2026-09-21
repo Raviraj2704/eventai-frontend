@@ -1,21 +1,27 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import { apiGet, apiDelete } from '../services/api';
 import CreatePartnerModal from '../components/Partners/CreatePartnerModal';
-
-const API_BASE = 'http://127.0.0.1:8000';
 
 export const AdminPartnersPage = () => {
   const [partners, setPartners] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   const fetchPartners = async () => {
     try {
       setLoading(true);
-      const res = await axios.get(`${API_BASE}/api/partners`, { params: { event_id: 1 } });
-      setPartners(res.data.partners);
+      setError(null);
+      // Removed hardcoded axios and API_BASE, using modular apiGet
+      const res = await apiGet('/api/v1/partners');
+      
+      // Handle response dynamically, checking if it's nested or direct
+      const partnersData = res?.partners || (Array.isArray(res) ? res : []);
+      setPartners(partnersData);
     } catch (err) {
       console.error('Error fetching partners:', err);
+      setError('Failed to load partners from database.');
+      setPartners([]);
     } finally {
       setLoading(false);
     }
@@ -28,10 +34,12 @@ export const AdminPartnersPage = () => {
   const handleDelete = async (id) => {
     if (window.confirm('Are you sure you want to deactivate this sponsor?')) {
       try {
-        await axios.delete(`${API_BASE}/api/partners/${id}`);
+        // Switched to apiDelete
+        await apiDelete(`/api/v1/partners/${id}`);
         fetchPartners(); // Refresh list after deleting
       } catch (err) {
         console.error('Error deleting partner:', err);
+        alert('Failed to remove sponsor.');
       }
     }
   };
@@ -54,61 +62,87 @@ export const AdminPartnersPage = () => {
           </button>
         </div>
 
+        {/* Error Banner */}
+        {error && (
+          <div className="mb-6 p-4 bg-red-100 text-red-700 rounded-lg flex justify-between items-center">
+            <span>⚠️ {error}</span>
+            <button onClick={fetchPartners} className="underline hover:no-underline font-semibold">Retry</button>
+          </div>
+        )}
+
         {/* Management Table */}
         <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg overflow-hidden">
           {loading ? (
-            <p className="p-8 text-center text-gray-500">Loading database...</p>
+            <div className="flex justify-center items-center p-12">
+              <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-orange-600"></div>
+            </div>
+          ) : partners.length === 0 ? (
+            <div className="p-12 text-center text-gray-500">
+              <div className="text-4xl mb-3">🤝</div>
+              <p>No sponsors found in the database.</p>
+            </div>
           ) : (
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="bg-gray-100 dark:bg-gray-700 border-b border-gray-200 dark:border-gray-600">
-                  <th className="p-4 font-semibold text-gray-700 dark:text-gray-300">Company</th>
-                  <th className="p-4 font-semibold text-gray-700 dark:text-gray-300">Tier</th>
-                  <th className="p-4 font-semibold text-gray-700 dark:text-gray-300">Booth</th>
-                  <th className="p-4 font-semibold text-gray-700 dark:text-gray-300">Status</th>
-                  <th className="p-4 font-semibold text-gray-700 dark:text-gray-300 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {partners.map(partner => (
-                  <tr key={partner.id} className="border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-750 transition-colors">
-                    <td className="p-4">
-                      <div className="font-bold text-gray-900 dark:text-white">{partner.name}</div>
-                      <a href={partner.website_url} className="text-xs text-blue-500 hover:underline">{partner.website_url}</a>
-                    </td>
-                    <td className="p-4">
-                      <span className="px-2.5 py-1 text-xs font-bold uppercase rounded-full bg-gray-200 dark:bg-gray-600 text-gray-800 dark:text-gray-200">
-                        {partner.partner_type}
-                      </span>
-                    </td>
-                    <td className="p-4 text-gray-600 dark:text-gray-400">{partner.booth_number || 'N/A'}</td>
-                    <td className="p-4">
-                      {partner.is_featured ? (
-                        <span className="text-orange-600 font-bold text-xs">⭐ Featured</span>
-                      ) : (
-                        <span className="text-green-600 font-bold text-xs">✓ Active</span>
-                      )}
-                    </td>
-                    <td className="p-4 text-right">
-                      <button 
-                        onClick={() => handleDelete(partner.id)}
-                        className="text-red-500 hover:text-red-700 font-bold text-sm px-3 py-1 bg-red-50 dark:bg-red-900/20 rounded-md"
-                      >
-                        Remove
-                      </button>
-                    </td>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="bg-gray-100 dark:bg-gray-700 border-b border-gray-200 dark:border-gray-600">
+                    <th className="p-4 font-semibold text-gray-700 dark:text-gray-300">Company</th>
+                    <th className="p-4 font-semibold text-gray-700 dark:text-gray-300">Tier</th>
+                    <th className="p-4 font-semibold text-gray-700 dark:text-gray-300">Booth</th>
+                    <th className="p-4 font-semibold text-gray-700 dark:text-gray-300">Status</th>
+                    <th className="p-4 font-semibold text-gray-700 dark:text-gray-300 text-right">Actions</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {partners.map(partner => (
+                    <tr key={partner.id} className="border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-750 transition-colors">
+                      <td className="p-4">
+                        <div className="font-bold text-gray-900 dark:text-white">{partner.name || 'Unnamed Partner'}</div>
+                        {partner.website_url && (
+                          <a href={partner.website_url} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-500 hover:underline">
+                            {partner.website_url}
+                          </a>
+                        )}
+                      </td>
+                      <td className="p-4">
+                        <span className="px-2.5 py-1 text-xs font-bold uppercase rounded-full bg-gray-200 dark:bg-gray-600 text-gray-800 dark:text-gray-200">
+                          {partner.partner_type || partner.tier || 'partner'}
+                        </span>
+                      </td>
+                      <td className="p-4 text-gray-600 dark:text-gray-400">{partner.booth_number || partner.booth_location || 'N/A'}</td>
+                      <td className="p-4">
+                        {partner.is_featured ? (
+                          <span className="text-orange-600 font-bold text-xs">⭐ Featured</span>
+                        ) : (
+                          <span className="text-green-600 font-bold text-xs">✓ Active</span>
+                        )}
+                      </td>
+                      <td className="p-4 text-right">
+                        <button 
+                          onClick={() => handleDelete(partner.id)}
+                          className="text-red-500 hover:text-red-700 font-bold text-sm px-3 py-1 bg-red-50 dark:bg-red-900/20 rounded-md transition-colors"
+                        >
+                          Remove
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
         </div>
 
-        <CreatePartnerModal 
-          isOpen={isModalOpen} 
-          onClose={() => setIsModalOpen(false)} 
-          onPartnerCreated={fetchPartners} 
-        />
+        {isModalOpen && (
+          <CreatePartnerModal 
+            isOpen={isModalOpen} 
+            onClose={() => setIsModalOpen(false)} 
+            onPartnerCreated={() => {
+              setIsModalOpen(false);
+              fetchPartners();
+            }} 
+          />
+        )}
         
       </div>
     </div>

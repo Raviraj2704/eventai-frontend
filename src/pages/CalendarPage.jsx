@@ -1,16 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import { apiGet, apiPost, apiDelete } from '../services/api';
 import CalendarView from '../components/Calendar/CalendarView';
 import CreateEventModal from '../components/Calendar/CreateEventModal';
-
-const API_BASE = 'http://127.0.0.1:8000';
 
 export const CalendarPage = () => {
   const [events, setEvents] = useState([]);
   const [userCalendar, setUserCalendar] = useState([]);
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+
+  // Dynamic user ID fallback
+  const currentUserId = parseInt(localStorage.getItem('user_id'), 10) || 1;
 
   useEffect(() => {
     fetchAllData();
@@ -19,23 +21,41 @@ export const CalendarPage = () => {
   const fetchAllData = async () => {
     try {
       setLoading(true);
+      setError(null);
 
-      const eventsRes = await axios.get(`${API_BASE}/api/calendar/events`, {
-        params: { event_id: 1 }
-      });
-      setEvents(eventsRes.data.events);
+      // Fetch events, user calendar, and stats in parallel safely
+      const [eventsRes, userRes, statsRes] = await Promise.allSettled([
+        apiGet('/api/v1/calendar/events', { params: { event_id: 1 } }),
+        apiGet('/api/v1/calendar/user', { params: { user_id: currentUserId, event_id: 1, include_past: false } }),
+        apiGet('/api/v1/calendar/stats', { params: { event_id: 1 } })
+      ]);
 
-      const userRes = await axios.get(`${API_BASE}/api/calendar/user`, {
-        params: { user_id: 1, event_id: 1, include_past: false }
-      });
-      setUserCalendar(userRes.data.calendars);
+      // Set Events
+      if (eventsRes.status === 'fulfilled' && eventsRes.value) {
+        const eventsData = eventsRes.value?.events || (Array.isArray(eventsRes.value) ? eventsRes.value : []);
+        setEvents(eventsData);
+      } else {
+        setEvents([]);
+      }
 
-      const statsRes = await axios.get(`${API_BASE}/api/calendar/stats`, {
-        params: { event_id: 1 }
-      });
-      setStats(statsRes.data);
+      // Set User Calendar
+      if (userRes.status === 'fulfilled' && userRes.value) {
+        const userData = userRes.value?.calendars || (Array.isArray(userRes.value) ? userRes.value : []);
+        setUserCalendar(userData);
+      } else {
+        setUserCalendar([]);
+      }
+
+      // Set Stats
+      if (statsRes.status === 'fulfilled' && statsRes.value) {
+        setStats(statsRes.value);
+      } else {
+        setStats(null);
+      }
+
     } catch (err) {
       console.error('Error fetching calendar data:', err);
+      setError('Unable to load calendar data. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -43,23 +63,28 @@ export const CalendarPage = () => {
 
   const handleRegister = async (eventId) => {
     try {
-      await axios.post(`${API_BASE}/api/calendar/register`, null, {
-        params: { user_id: 1, calendar_event_id: eventId, event_id: 1, reminder_minutes: 15 }
+      await apiPost('/api/v1/calendar/register', {
+        user_id: currentUserId,
+        calendar_event_id: eventId,
+        event_id: 1,
+        reminder_minutes: 15
       });
       fetchAllData();
     } catch (err) {
       console.error('Error registering:', err);
+      alert('Failed to register for event.');
     }
   };
 
   const handleUnregister = async (eventId) => {
     try {
-      await axios.delete(`${API_BASE}/api/calendar/unregister`, {
-        params: { user_id: 1, calendar_event_id: eventId }
+      await apiDelete(`/api/v1/calendar/unregister`, {
+        params: { user_id: currentUserId, calendar_event_id: eventId }
       });
       fetchAllData();
     } catch (err) {
       console.error('Error unregistering:', err);
+      alert('Failed to unregister from event.');
     }
   };
 
@@ -67,6 +92,7 @@ export const CalendarPage = () => {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 py-12">
         <div className="max-w-6xl mx-auto px-6 text-center py-20">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-600 mx-auto mb-4"></div>
           <p className="text-gray-600 dark:text-gray-400">Loading calendar...</p>
         </div>
       </div>
@@ -95,23 +121,31 @@ export const CalendarPage = () => {
           </button>
         </div>
 
+        {/* Error Banner */}
+        {error && (
+          <div className="mb-6 p-4 bg-red-100 text-red-700 rounded-lg flex justify-between items-center">
+            <span>⚠️ {error}</span>
+            <button onClick={fetchAllData} className="underline hover:no-underline font-semibold">Retry</button>
+          </div>
+        )}
+
         {/* Statistics */}
         {stats && (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 text-center">
-              <p className="text-3xl font-bold text-blue-600">{stats.total_events}</p>
+              <p className="text-3xl font-bold text-blue-600">{stats.total_events || 0}</p>
               <p className="text-sm text-gray-600 dark:text-gray-400 mt-2">Total Events</p>
             </div>
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 text-center">
-              <p className="text-3xl font-bold text-green-600">{stats.total_registrations}</p>
+              <p className="text-3xl font-bold text-green-600">{stats.total_registrations || 0}</p>
               <p className="text-sm text-gray-600 dark:text-gray-400 mt-2">Registrations</p>
             </div>
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 text-center">
-              <p className="text-3xl font-bold text-purple-600">{stats.total_attended}</p>
+              <p className="text-3xl font-bold text-purple-600">{stats.total_attended || 0}</p>
               <p className="text-sm text-gray-600 dark:text-gray-400 mt-2">Attended</p>
             </div>
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 text-center">
-              <p className="text-3xl font-bold text-orange-600">{stats.attendance_rate}%</p>
+              <p className="text-3xl font-bold text-orange-600">{stats.attendance_rate || 0}%</p>
               <p className="text-sm text-gray-600 dark:text-gray-400 mt-2">Attendance Rate</p>
             </div>
           </div>

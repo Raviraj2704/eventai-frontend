@@ -1,7 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import axios from 'axios';
-
-const API_BASE = 'http://127.0.0.1:8000';
+import { apiGet, apiPost } from '../services/api';
 
 // ============= COLOR SCHEME & DESIGN TOKENS =============
 const colors = {
@@ -144,8 +142,8 @@ export const NetworkingGrid = ({ people, onConnect, connections }) => {
 
   useEffect(() => {
     const filtered = people.filter(person =>
-      person.full_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      person.headline.toLowerCase().includes(searchQuery.toLowerCase())
+      person.full_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      person.headline?.toLowerCase().includes(searchQuery.toLowerCase())
     );
     setFilteredPeople(filtered);
   }, [searchQuery, people]);
@@ -251,7 +249,7 @@ const MessageBubble = ({ message, isOwn, sender }) => {
         {!isOwn && (
           <img
             src={sender?.profile_photo_url || 'https://via.placeholder.com/32'}
-            alt={sender?.full_name}
+            alt={sender?.full_name || 'User'}
             className="w-8 h-8 rounded-full object-cover"
           />
         )}
@@ -267,7 +265,7 @@ const MessageBubble = ({ message, isOwn, sender }) => {
             <p className="text-sm break-words">{message.content}</p>
           </div>
           <p className={`text-xs ${isOwn ? 'text-right' : 'text-left'} text-gray-500 mt-1`}>
-            {new Date(message.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+            {message.created_at ? new Date(message.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
           </p>
         </div>
       </div>
@@ -322,7 +320,7 @@ export const ChatInterface = ({ conversation, messages, currentUserId, onSendMes
       <div className="flex-1 overflow-y-auto p-6 bg-gradient-to-b from-gray-50 to-white">
         {messages.map((message) => (
           <MessageBubble
-            key={message.id}
+            key={message.id || Math.random()}
             message={message}
             isOwn={message.sender_id === currentUserId}
             sender={{ full_name: 'Other User', profile_photo_url: null }}
@@ -392,42 +390,48 @@ export const ConversationsList = ({ conversations, onSelectConversation, selecte
 
       {/* Conversations */}
       <div className="flex-1 overflow-y-auto">
-        {conversations.map((conv) => (
-          <div
-            key={conv.id}
-            onClick={() => onSelectConversation(conv.id)}
-            className={`p-4 border-b border-gray-100 cursor-pointer hover:bg-blue-50 transition-colors ${
-              selectedId === conv.id ? 'bg-blue-50 border-l-4 border-l-blue-600' : ''
-            }`}
-          >
-            <div className="flex items-center space-x-4">
-              <div className="relative">
-                <img
-                  src="https://via.placeholder.com/48"
-                  alt="User"
-                  className="w-12 h-12 rounded-full object-cover"
-                />
-                <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-white"></div>
-              </div>
-              
-              <div className="flex-1 min-w-0">
-                <div className="flex justify-between items-baseline">
-                  <h3 className="font-semibold text-gray-900">User #{conv.participant_2_id}</h3>
-                  <span className="text-xs text-gray-500">
-                    {conv.last_message_at ? new Date(conv.last_message_at).toLocaleTimeString() : ''}
-                  </span>
+        {conversations.length > 0 ? (
+          conversations.map((conv) => (
+            <div
+              key={conv.id}
+              onClick={() => onSelectConversation(conv.id)}
+              className={`p-4 border-b border-gray-100 cursor-pointer hover:bg-blue-50 transition-colors ${
+                selectedId === conv.id ? 'bg-blue-50 border-l-4 border-l-blue-600' : ''
+              }`}
+            >
+              <div className="flex items-center space-x-4">
+                <div className="relative">
+                  <img
+                    src="https://via.placeholder.com/48"
+                    alt="User"
+                    className="w-12 h-12 rounded-full object-cover"
+                  />
+                  <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-white"></div>
                 </div>
-                <p className="text-sm text-gray-600 truncate">{conv.last_message}</p>
-              </div>
-              
-              {conv.unread_count > 0 && (
-                <div className="w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-bold">
-                  {conv.unread_count}
+                
+                <div className="flex-1 min-w-0">
+                  <div className="flex justify-between items-baseline">
+                    <h3 className="font-semibold text-gray-900">User #{conv.participant_2_id}</h3>
+                    <span className="text-xs text-gray-500">
+                      {conv.last_message_at ? new Date(conv.last_message_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
+                    </span>
+                  </div>
+                  <p className="text-sm text-gray-600 truncate">{conv.last_message}</p>
                 </div>
-              )}
+                
+                {conv.unread_count > 0 && (
+                  <div className="w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-bold">
+                    {conv.unread_count}
+                  </div>
+                )}
+              </div>
             </div>
+          ))
+        ) : (
+          <div className="text-center py-10 text-gray-500 text-sm">
+            No conversations found.
           </div>
-        ))}
+        )}
       </div>
     </div>
   );
@@ -439,39 +443,82 @@ export const MessagingPage = () => {
   const [selectedConversationId, setSelectedConversationId] = useState(null);
   const [conversations, setConversations] = useState([]);
   const [messages, setMessages] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  // Dynamic user ID fallback
+  const currentUserId = parseInt(localStorage.getItem('user_id')) || 1;
 
   useEffect(() => {
-    // Fetch conversations
-    axios.get(`${API_BASE}/api/conversations?user_id=1&event_id=1`)
-      .then(res => setConversations(res.data.conversations))
-      .catch(err => console.error(err));
+    loadConversations();
   }, []);
+
+  const loadConversations = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const data = await apiGet('/api/v1/conversations');
+      const convData = data?.conversations || (Array.isArray(data) ? data : []);
+      
+      setConversations(convData);
+    } catch (err) {
+      console.error('Failed to load conversations:', err);
+      setError('Unable to load conversations. Please try again.');
+      setConversations([]);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
     if (selectedConversationId) {
-      // Fetch messages for selected conversation
-      axios.get(`${API_BASE}/api/conversations/${selectedConversationId}/messages`)
-        .then(res => setMessages(res.data.messages))
-        .catch(err => console.error(err));
+      loadMessages(selectedConversationId);
     }
   }, [selectedConversationId]);
 
-  const handleSendMessage = (content) => {
-    axios.post(`${API_BASE}/api/conversations/${selectedConversationId}/messages`, {
-      conversation_id: selectedConversationId,
-      content,
-      message_type: 'text'
-    })
-      .then(res => {
-        setMessages([...messages, res.data]);
-      })
-      .catch(err => console.error(err));
+  const loadMessages = async (conversationId) => {
+    try {
+      const data = await apiGet(`/api/v1/conversations/${conversationId}/messages`);
+      const msgData = data?.messages || (Array.isArray(data) ? data : []);
+      
+      setMessages(msgData);
+    } catch (err) {
+      console.error('Failed to load messages:', err);
+    }
   };
+
+  const handleSendMessage = async (content) => {
+    try {
+      const newMessage = await apiPost(`/api/v1/conversations/${selectedConversationId}/messages`, {
+        content,
+        message_type: 'text'
+      });
+      setMessages([...messages, newMessage]);
+    } catch (err) {
+      console.error('Failed to send message:', err);
+      alert('Failed to send message. Please try again.');
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-screen bg-gray-100">
+        <div className="border-t-blue-600 border-4 rounded-full w-12 h-12 animate-spin"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-screen bg-gray-100">
       {/* Left Sidebar - Conversations */}
-      <div className="w-80 border-r border-gray-200">
+      <div className="w-80 border-r border-gray-200 flex flex-col relative">
+        {error && (
+          <div className="absolute top-0 left-0 right-0 bg-red-100 text-red-700 p-3 text-sm z-10 shadow flex justify-between items-center">
+            <span>⚠️ {error}</span>
+            <button onClick={loadConversations} className="underline hover:no-underline">Retry</button>
+          </div>
+        )}
         <ConversationsList
           conversations={conversations}
           onSelectConversation={setSelectedConversationId}
@@ -485,11 +532,11 @@ export const MessagingPage = () => {
           <ChatInterface
             conversation={conversations.find(c => c.id === selectedConversationId)}
             messages={messages}
-            currentUserId={1}
+            currentUserId={currentUserId}
             onSendMessage={handleSendMessage}
           />
         ) : (
-          <div className="flex items-center justify-center h-full">
+          <div className="flex items-center justify-center h-full bg-white rounded-2xl shadow-lg">
             <div className="text-center">
               <div className="text-6xl mb-4">💬</div>
               <h2 className="text-2xl font-bold text-gray-900">Select a conversation</h2>

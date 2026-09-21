@@ -1,8 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import { apiGet } from '../services/api';
 import { FavoriteCard } from '../components/Favorites/FavoriteCard';
-
-const API_BASE = "http://127.0.0.1:8000";
 
 export const FavoritesPage = () => {
   const [favorites, setFavorites] = useState([]);
@@ -10,44 +8,72 @@ export const FavoritesPage = () => {
   const [filterType, setFilterType] = useState('all');
   const [sortBy, setSortBy] = useState('recent');
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  const userId = 1;
-  const eventId = 1;
+  useEffect(() => {
+    loadFavoritesData();
+  }, [filterType, sortBy]);
 
-  const fetchFavoritesAndStats = async () => {
+  const loadFavoritesData = async () => {
     try {
       setLoading(true);
-      const favRes = await axios.get(`${API_BASE}/api/favorites`, {
-        params: {
-          user_id: userId,
-          event_id: eventId,
-          ...(filterType !== 'all' && { favorite_type: filterType }),
-          sort_by: sortBy,
-          limit: 50
+      setError(null);
+
+      // Fetch favorites
+      const favoritesData = await apiGet('/api/v1/favorites');
+      let filtered = Array.isArray(favoritesData) ? favoritesData : [];
+
+      // Apply filter
+      if (filterType !== 'all') {
+        filtered = filtered.filter(f => f.type === filterType || f.favorite_type === filterType);
+      }
+
+      // Apply sort
+      if (sortBy === 'pinned') {
+        filtered.sort((a, b) => (b.is_pinned ? 1 : 0) - (a.is_pinned ? 1 : 0));
+      } else if (sortBy === 'az') {
+        filtered.sort((a, b) => (a.title || a.name || '').localeCompare(b.title || b.name || ''));
+      } else {
+        filtered.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
+      }
+
+      setFavorites(filtered);
+
+      // Calculate stats
+      setStats({
+        total_favorites: filtered.length,
+        pinned_count: filtered.filter(f => f.is_pinned).length,
+        by_type: {
+          session: filtered.filter(f => f.type === 'session').length,
+          speaker: filtered.filter(f => f.type === 'speaker').length,
+          person: filtered.filter(f => f.type === 'person').length
         }
       });
-      setFavorites(Array.isArray(favRes.data) ? favRes.data : favRes.data.favorites || []);
-
-      const statsRes = await axios.get(`${API_BASE}/api/favorites/stats`, {
-        params: { user_id: userId, event_id: eventId }
-      });
-      setStats(statsRes.data);
     } catch (err) {
-      console.error("Error fetching favorites or stats:", err);
+      console.error('Failed to load favorites:', err);
+      setError('Unable to load favorites. Please try again.');
     } finally {
       setLoading(false);
     }
   };
-
-  useEffect(() => {
-    fetchFavoritesAndStats();
-  }, [filterType, sortBy]);
 
   return (
     <div className="min-h-screen bg-gray-900 text-white p-6">
       <div className="max-w-4xl mx-auto">
         <h1 className="text-3xl font-bold mb-2">My Bookmarks & Favorites</h1>
         <p className="text-gray-400 mb-6">Access your saved sessions, speakers, and event highlights in one place.</p>
+
+        {error && (
+          <div className="mb-6 bg-red-900/30 border border-red-600 text-red-300 px-4 py-3 rounded-lg">
+            ⚠️ {error}
+            <button 
+              onClick={loadFavoritesData}
+              className="ml-2 underline hover:no-underline"
+            >
+              Retry
+            </button>
+          </div>
+        )}
 
         {stats && (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
@@ -65,7 +91,7 @@ export const FavoritesPage = () => {
             </div>
             <div className="bg-gray-800 p-4 rounded-lg border border-gray-700">
               <p className="text-gray-400 text-sm">People / Speakers</p>
-              <p className="text-2xl font-bold text-green-400">{stats.by_type?.person || stats.by_type?.speaker || 0}</p>
+              <p className="text-2xl font-bold text-green-400">{stats.by_type?.speaker || stats.by_type?.person || 0}</p>
             </div>
           </div>
         )}
@@ -85,10 +111,10 @@ export const FavoritesPage = () => {
               Sessions
             </button>
             <button
-              onClick={() => setFilterType('person')}
-              className={`px-4 py-2 rounded text-sm font-semibold ${filterType === 'person' ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-300 hover:bg-gray-700'}`}
+              onClick={() => setFilterType('speaker')}
+              className={`px-4 py-2 rounded text-sm font-semibold ${filterType === 'speaker' ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-300 hover:bg-gray-700'}`}
             >
-              Persons
+              Speakers
             </button>
           </div>
 
@@ -107,7 +133,10 @@ export const FavoritesPage = () => {
         </div>
 
         {loading ? (
-          <p className="text-gray-400 text-center py-10">Loading favorites...</p>
+          <div className="text-center py-10">
+            <div className="border-t-blue-500 border-4 rounded-full w-8 h-8 animate-spin mx-auto"></div>
+            <p className="text-gray-400 mt-4">Loading favorites...</p>
+          </div>
         ) : favorites.length === 0 ? (
           <div className="text-center py-16 bg-gray-800 rounded-lg border border-gray-700">
             <p className="text-gray-400 text-lg mb-2">No favorites found.</p>
@@ -117,9 +146,17 @@ export const FavoritesPage = () => {
           <div className="space-y-4">
             {favorites.map((fav) => (
               <FavoriteCard
-                key={fav.id || fav.session_id || fav.item_id}
-                favorite={fav}
-                onUpdate={fetchFavoritesAndStats}
+                key={fav.id}
+                favorite={{
+                  id: fav.id,
+                  type: fav.type || fav.favorite_type,
+                  title: fav.title || fav.name,
+                  description: fav.description || '',
+                  image: fav.image || fav.avatar,
+                  isPinned: fav.is_pinned || false,
+                  createdAt: fav.created_at
+                }}
+                onUpdate={loadFavoritesData}
               />
             ))}
           </div>
@@ -128,3 +165,5 @@ export const FavoritesPage = () => {
     </div>
   );
 };
+
+export default FavoritesPage;

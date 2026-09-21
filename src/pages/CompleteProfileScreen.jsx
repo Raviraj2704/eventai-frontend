@@ -1,175 +1,201 @@
 // ============================================================================
-// Complete Profile Screen - CRASH FREE VERSION
+// Complete Profile Screen - REAL API VERSION
 // ============================================================================
 // File: src/pages/CompleteProfileScreen.jsx
 
-import React, { useState, useRef } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { User, Mail, Building2, Briefcase, Camera, ArrowRight, Loader } from 'lucide-react'
-import toast from 'react-hot-toast'
-
-// TODO: Uncomment these when you create the store and config folders later!
-// import { useAuthStore } from '../store/authStore'
-// import apiClient from '../config/apiClient'
+import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { User, Mail, Building2, Briefcase, Camera, ArrowRight, Loader } from 'lucide-react';
+import toast from 'react-hot-toast';
+import { apiGet, apiPut, apiPost } from '../services/api';
 
 const CompleteProfileScreen = () => {
-  const navigate = useNavigate()
-  const fileInputRef = useRef(null)
+  const navigate = useNavigate();
+  const fileInputRef = useRef(null);
 
-  // TODO: Uncomment this when you create the authStore later!
-  // const { user, updateProfile, loading } = useAuthStore()
-
-  // TEMPORARY VARIABLES (To prevent app crash until store is built)
-  const user = null
-  const loading = false
-
+  const [loading, setLoading] = useState(true);
   const [formData, setFormData] = useState({
-    firstName: user?.first_name || '',
-    lastName: user?.last_name || '',
-    company: user?.company || '',
-    jobTitle: user?.job_title || '',
-    bio: user?.bio || ''
-  })
-  const [avatar, setAvatar] = useState(user?.avatar_url || null)
-  const [avatarFile, setAvatarFile] = useState(null)
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const [formErrors, setFormErrors] = useState({})
+    firstName: '',
+    lastName: '',
+    company: '',
+    jobTitle: '',
+    bio: ''
+  });
+  
+  const [avatar, setAvatar] = useState(null);
+  const [avatarFile, setAvatarFile] = useState(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [formErrors, setFormErrors] = useState({});
+
+  const userId = localStorage.getItem('user_id');
+
+  // Fetch existing user data on mount
+  useEffect(() => {
+    const fetchUserData = async () => {
+      if (!userId) {
+        setLoading(false);
+        return;
+      }
+      
+      try {
+        const userData = await apiGet(`/api/v1/users/${userId}`);
+        if (userData) {
+          setFormData({
+            firstName: userData.first_name || userData.name?.split(' ')[0] || '',
+            lastName: userData.last_name || userData.name?.split(' ').slice(1).join(' ') || '',
+            company: userData.company || '',
+            jobTitle: userData.title || userData.job_title || '',
+            bio: userData.bio || ''
+          });
+          if (userData.avatar || userData.profile_photo_url) {
+            setAvatar(userData.avatar || userData.profile_photo_url);
+          }
+        }
+      } catch (err) {
+        console.error('Failed to load user profile:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchUserData();
+  }, [userId]);
 
   const validateForm = () => {
-    const errors = {}
+    const errors = {};
 
     if (!formData.firstName.trim()) {
-      errors.firstName = 'First name is required'
+      errors.firstName = 'First name is required';
     }
 
     if (!formData.lastName.trim()) {
-      errors.lastName = 'Last name is required'
+      errors.lastName = 'Last name is required';
     }
 
     if (!formData.jobTitle.trim()) {
-      errors.jobTitle = 'Job title is required'
+      errors.jobTitle = 'Job title is required';
     }
 
-    setFormErrors(errors)
-    return Object.keys(errors).length === 0
-  }
+    setFormErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
 
   const handleChange = (e) => {
-    const { name, value } = e.target
+    const { name, value } = e.target;
     setFormData(prev => ({
       ...prev,
       [name]: value
-    }))
+    }));
     // Clear error
     if (formErrors[name]) {
       setFormErrors(prev => ({
         ...prev,
         [name]: ''
-      }))
+      }));
     }
-  }
+  };
 
   const handleAvatarClick = () => {
-    fileInputRef.current?.click()
-  }
+    fileInputRef.current?.click();
+  };
 
   const handleAvatarChange = (e) => {
-    const file = e.target.files?.[0]
+    const file = e.target.files?.[0];
     
-    if (!file) return
+    if (!file) return;
 
     // Validate file type
     if (!file.type.startsWith('image/')) {
-      toast.error('Please select an image file')
-      return
+      toast.error('Please select an image file');
+      return;
     }
 
     // Validate file size (5MB max)
     if (file.size > 5 * 1024 * 1024) {
-      toast.error('Image size must be less than 5MB')
-      return
+      toast.error('Image size must be less than 5MB');
+      return;
     }
 
     // Create preview
-    const reader = new FileReader()
+    const reader = new FileReader();
     reader.onloadend = () => {
-      setAvatar(reader.result)
-      setAvatarFile(file)
-    }
-    reader.readAsDataURL(file)
-  }
+      setAvatar(reader.result);
+      setAvatarFile(file);
+    };
+    reader.readAsDataURL(file);
+  };
 
   const uploadAvatar = async () => {
-    if (!avatarFile) return null
+    if (!avatarFile || !userId) return null;
 
     try {
-      // TEMPORARY: Simulate upload delay
-      await new Promise(resolve => setTimeout(resolve, 1000))
-      return avatar // return local preview URL for now
-
-      // TODO: When apiClient is ready, replace mock above with:
-      /*
-      const formDataForUpload = new FormData()
-      formDataForUpload.append('file', avatarFile)
-      const response = await apiClient.post('/users/me/avatar', formDataForUpload, {
+      const formDataForUpload = new FormData();
+      formDataForUpload.append('file', avatarFile);
+      
+      const response = await apiPost(`/api/v1/users/${userId}/avatar`, formDataForUpload, {
         headers: { 'Content-Type': 'multipart/form-data' }
-      })
-      return response.data.avatar_url
-      */
+      });
+      return response?.avatar_url || response?.profile_photo_url;
     } catch (err) {
-      console.error('Avatar upload failed:', err)
-      toast.error('Failed to upload avatar')
-      return null
+      console.error('Avatar upload failed:', err);
+      toast.error('Failed to upload avatar');
+      return null;
     }
-  }
+  };
 
   const handleSubmit = async (e) => {
-    e.preventDefault()
+    e.preventDefault();
 
     if (!validateForm()) {
-      toast.error('Please fill in all required fields')
-      return
+      toast.error('Please fill in all required fields');
+      return;
     }
 
-    setIsSubmitting(true)
+    if (!userId) {
+      toast.error('Session expired. Please log in again.');
+      navigate('/');
+      return;
+    }
+
+    setIsSubmitting(true);
 
     try {
       // Upload avatar if changed
       if (avatarFile) {
-        await uploadAvatar()
+        await uploadAvatar();
       }
 
-      // TEMPORARY: Simulate API update profile
-      await new Promise(resolve => setTimeout(resolve, 1500))
-      toast.success('Profile completed successfully!')
-      navigate('/home', { replace: true })
-
-      // TODO: When authStore is ready, replace the mock code above with this:
-      /*
-      const result = await updateProfile({
+      // Update profile details
+      await apiPut(`/api/v1/users/${userId}`, {
         first_name: formData.firstName,
         last_name: formData.lastName,
+        full_name: `${formData.firstName} ${formData.lastName}`.trim(),
         company: formData.company,
+        title: formData.jobTitle,
         job_title: formData.jobTitle,
         bio: formData.bio
-      })
+      });
 
-      if (result.success) {
-        toast.success('Profile completed successfully!')
-        navigate('/home', { replace: true })
-      } else {
-        toast.error(result.error || 'Profile update failed')
-      }
-      */
+      toast.success('Profile completed successfully!');
+      navigate('/home', { replace: true });
     } catch (err) {
-      toast.error('An error occurred. Please try again.')
+      console.error('Profile update failed:', err);
+      toast.error('An error occurred while updating your profile. Please try again.');
     } finally {
-      setIsSubmitting(false)
+      setIsSubmitting(false);
     }
-  }
+  };
 
   const handleSkip = () => {
-    navigate('/home', { replace: true })
+    navigate('/home', { replace: true });
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-neutral-50 to-neutral-100 flex items-center justify-center">
+        <Loader className="w-10 h-10 animate-spin text-primary-600" />
+      </div>
+    );
   }
 
   return (
@@ -241,12 +267,12 @@ const CompleteProfileScreen = () => {
               onChange={handleChange}
               placeholder="Enter your first name"
               className={`w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 ${
-                formErrors.firstName ? 'border-error' : 'border-neutral-300'
+                formErrors.firstName ? 'border-red-500' : 'border-neutral-300'
               }`}
               disabled={isSubmitting}
             />
             {formErrors.firstName && (
-              <p className="mt-1 text-sm text-error" style={{color: 'red'}}>{formErrors.firstName}</p>
+              <p className="mt-1 text-sm text-red-500">{formErrors.firstName}</p>
             )}
           </div>
 
@@ -262,12 +288,12 @@ const CompleteProfileScreen = () => {
               onChange={handleChange}
               placeholder="Enter your last name"
               className={`w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 ${
-                formErrors.lastName ? 'border-error' : 'border-neutral-300'
+                formErrors.lastName ? 'border-red-500' : 'border-neutral-300'
               }`}
               disabled={isSubmitting}
             />
             {formErrors.lastName && (
-              <p className="mt-1 text-sm text-error" style={{color: 'red'}}>{formErrors.lastName}</p>
+              <p className="mt-1 text-sm text-red-500">{formErrors.lastName}</p>
             )}
           </div>
 
@@ -304,13 +330,13 @@ const CompleteProfileScreen = () => {
                 onChange={handleChange}
                 placeholder="Enter your job title"
                 className={`pl-12 w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 ${
-                  formErrors.jobTitle ? 'border-error' : 'border-neutral-300'
+                  formErrors.jobTitle ? 'border-red-500' : 'border-neutral-300'
                 }`}
                 disabled={isSubmitting}
               />
             </div>
             {formErrors.jobTitle && (
-              <p className="mt-1 text-sm text-error" style={{color: 'red'}}>{formErrors.jobTitle}</p>
+              <p className="mt-1 text-sm text-red-500">{formErrors.jobTitle}</p>
             )}
           </div>
 
@@ -337,10 +363,10 @@ const CompleteProfileScreen = () => {
           {/* Submit Button */}
           <button
             type="submit"
-            disabled={isSubmitting || loading}
-            className="w-full bg-primary-600 text-white font-semibold py-3 px-4 rounded-lg hover:bg-primary-700 transition duration-200 mt-8 flex items-center justify-center gap-2"
+            disabled={isSubmitting}
+            className="w-full bg-blue-600 text-white font-semibold py-3 px-4 rounded-lg hover:bg-blue-700 transition duration-200 mt-8 flex items-center justify-center gap-2"
           >
-            {isSubmitting || loading ? (
+            {isSubmitting ? (
               <>
                 <Loader className="w-5 h-5 animate-spin" />
                 Completing...
@@ -366,7 +392,7 @@ const CompleteProfileScreen = () => {
         </div>
       </div>
     </div>
-  )
-}
+  );
+};
 
-export default CompleteProfileScreen
+export default CompleteProfileScreen;
