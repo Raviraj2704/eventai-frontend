@@ -79,7 +79,7 @@ const HomeScreen = () => {
         <section className="bg-gradient-to-r from-primary-600 to-secondary-600 text-white">
           <div className="container-max py-12">
             <h1 className="text-3xl md:text-4xl font-bold mb-3">
-              Welcome back, {user?.first_name}! 👋
+              Welcome back, {user?.raviraja_panthulu}! 👋
             </h1>
             <p className="text-lg text-white/80 max-w-2xl">
               Discover amazing sessions, connect with professionals, and level up your skills.

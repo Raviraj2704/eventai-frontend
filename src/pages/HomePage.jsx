@@ -6,8 +6,6 @@ export const HomePage = async () => {
   const navigate = useNavigate();
   const [currentSlide, setCurrentSlide] = useState(0);
   const [activeTab, setActiveTab] = useState('home');
-  const response = await fetch('http://localhost:8000/api/v1/events/1');
-  const event = await response.json();
   
   // Real API data
   const [user, setUser] = useState(null);
@@ -17,6 +15,7 @@ export const HomePage = async () => {
   const [error, setError] = useState(null);
 
   // Carousel slides from announcements or fallback
+  const [eventData, setEventData] = useState(null);
   const carouselSlides = announcements.length > 0 
     ? announcements.map((ann, idx) => ({
         id: idx,
@@ -50,6 +49,10 @@ export const HomePage = async () => {
       // Fetch announcements for carousel
       const announcementsData = await apiGet('/api/v1/announcements');
       setAnnouncements(Array.isArray(announcementsData) ? announcementsData : []);
+
+      // Fetch event data
+      const eventData = await apiGet('/api/v1/events/1');
+      setEventData(eventData);
     } catch (err) {
       console.error('Failed to load home data:', err);
       setError('Unable to load page data');
@@ -91,6 +94,9 @@ export const HomePage = async () => {
         navigate('/hub'); 
         break;
       default:
+        break;
+      case  'sessions':
+        navigate('/sessions');
         break;
     }
   };
