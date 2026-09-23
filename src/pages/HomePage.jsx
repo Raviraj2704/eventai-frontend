@@ -2,10 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { apiGet } from '../services/api';
 
-export const HomePage = () => {
+export const HomePage = async () => {
   const navigate = useNavigate();
   const [currentSlide, setCurrentSlide] = useState(0);
   const [activeTab, setActiveTab] = useState('home');
+  const response = await fetch('http://localhost:8000/api/v1/events/1');
+  const event = await response.json();
   
   // Real API data
   const [user, setUser] = useState(null);

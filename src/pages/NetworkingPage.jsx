@@ -32,23 +32,30 @@ export const NetworkingPage = () => {
   }, []);
 
   const loadNetworkingData = async () => {
-    try {
-      setLoading(true);
-      setError(null);
+  try {
+    setLoading(true);
+    setError(null);
 
-      // Fetch all users (attendees)
-      const usersData = await apiGet('/api/v1/users');
-      const attendees = Array.isArray(usersData) ? usersData : [];
-      
-      setPeople(attendees);
-    } catch (err) {
-      console.error('Failed to load attendees:', err);
-      setError('Unable to load attendees. Please try again.');
-      setPeople([]);
-    } finally {
-      setLoading(false);
-    }
-  };
+    // Get all users
+    const usersData = await apiGet('/api/v1/users');
+    const attendees = Array.isArray(usersData) ? usersData : [];
+    setPeople(attendees);
+    
+    // Set initial filtered list to show everyone
+    setFilteredAttendees(attendees);
+
+    // Get designations for dropdown
+    const desigData = await apiGet('/api/v1/designations');
+    setDesignations(Array.isArray(desigData) ? desigData : []);
+
+  } catch (err) {
+    console.error('Failed to load attendees:', err);
+    setError('Unable to load attendees. Please try again.');
+    setPeople([]);
+  } finally {
+    setLoading(false);
+  }
+};
 
   const handleConnect = async (recipientId) => {
     try {
@@ -63,35 +70,36 @@ export const NetworkingPage = () => {
     }
   };
 
-  // ============= FILTER LOGIC =============
-  useEffect(() => {
-    let filtered = people;
+  // =========== FILTER LOGIC ===========
+useEffect(() => {
+  const applyFilters = async () => {
+    try {
+      // If no filters are active, show everyone
+      if (!searchQuery && !selectedDesignation) {
+        setFilteredAttendees(people);
+        return;
+      }
 
-    // AI Matches filter
-    if (showAIMatches) {
-      filtered = filtered.filter((attendee) => attendee.ai_match === true);
+      let results;
+      if (searchQuery) {
+        // Search users via API
+        results = await apiGet(`/api/v1/users/search?q=${searchQuery}`);
+      } else if (selectedDesignation) {
+        // Filter by designation via API
+        results = await apiGet(`/api/v1/users?designation=${selectedDesignation}`);
+      }
+      
+      setFilteredAttendees(Array.isArray(results) ? results : []);
+    } catch (error) {
+      console.error("Filter request failed:", error);
     }
-
-    // Search filter
-    if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(
-        (attendee) =>
-          (attendee.full_name && attendee.full_name.toLowerCase().includes(query)) ||
-          (attendee.title && attendee.title.toLowerCase().includes(query)) ||
-          (attendee.company && attendee.company.toLowerCase().includes(query))
-      );
-    }
-
-    // Designation filter
-    if (selectedDesignation) {
-      filtered = filtered.filter((attendee) =>
-        attendee.title && attendee.title.toLowerCase().includes(selectedDesignation.toLowerCase())
-      );
-    }
-
-    setFilteredAttendees(filtered);
-  }, [searchQuery, selectedDesignation, showAIMatches, people]);
+  };
+  
+  // Only run if the initial people data has been loaded
+  if (people.length > 0) {
+    applyFilters();
+  }
+}, [searchQuery, selectedDesignation, people]);
 
   // ============= NAVIGATION HANDLER =============
   const handleTabChange = (tab) => {

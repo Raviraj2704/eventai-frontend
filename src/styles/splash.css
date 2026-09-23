@@ -5,39 +5,11 @@
    Status: Production-Ready | Zero Errors ✅
 */
 
+@import 'variables.css';
+
 /* ============= ROOT VARIABLES ============= */
 :root {
-  /* Colors */
-  --color-bg-dark: #1f2937;
-  --color-bg-darker: #111827;
-  --color-blue-dark: #001f5c;
-  --color-blue-bright: #0066ff;
-  --color-cyan: #00d9ff;
-  --color-white: #ffffff;
-  --color-gray-light: #d1d5db;
-  --color-gray-medium: #9ca3af;
-
-  /* Spacing */
-  --spacing-xs: 4px;
-  --spacing-sm: 8px;
-  --spacing-md: 12px;
-  --spacing-lg: 16px;
-  --spacing-xl: 20px;
-  --spacing-2xl: 24px;
-  --spacing-3xl: 40px;
-  --spacing-4xl: 60px;
-  --spacing-5xl: 80px;
-  --spacing-6xl: 100px;
-
-  /* Typography */
-  --font-family-primary: 'Space Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  --font-family-secondary: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  --font-size-title: 48px;
-  --font-size-subtitle: 16px;
-  --font-size-sub-subtitle: 14px;
-  --font-size-countdown: 14px;
-
-  /* Animations */
+/* Animations */
   --duration-rotation: 4s;
   --duration-pulse: 1.6s;
   --duration-fade: 1s;

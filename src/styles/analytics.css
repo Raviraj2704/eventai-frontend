@@ -5,56 +5,8 @@
    Status: Production-Ready | Zero Errors ✅
 */
 
-/* ============= ROOT VARIABLES ============= */
-:root {
-  /* Colors */
-  --color-bg-light: #f9fafb;
-  --color-bg-white: #ffffff;
-  --color-blue-bright: #0066ff;
-  --color-blue-dark: #001f5c;
-  --color-cyan: #00d9ff;
-  --color-green-success: #10b981;
-  --color-red-error: #ef4444;
-  --color-yellow-warn: #fbbf24;
-  --color-purple: #8b5cf6;
-  --color-orange: #f59e0b;
-  --color-gray-dark: #1f2937;
-  --color-gray-medium: #6b7280;
-  --color-gray-light: #e5e7eb;
-  --color-gray-lighter: #f3f4f6;
+@import 'variables.css';
 
-  /* Spacing */
-  --spacing-xs: 4px;
-  --spacing-sm: 8px;
-  --spacing-md: 12px;
-  --spacing-lg: 16px;
-  --spacing-xl: 20px;
-  --spacing-2xl: 24px;
-  --spacing-3xl: 32px;
-
-  /* Typography */
-  --font-family-primary: 'Space Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  --font-family-secondary: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  --font-size-title: 28px;
-  --font-size-body: 16px;
-  --font-size-small: 14px;
-  --font-size-tiny: 12px;
-
-  /* Border Radius */
-  --radius-sm: 8px;
-  --radius-md: 12px;
-  --radius-lg: 16px;
-  --radius-full: 50%;
-
-  /* Shadows */
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
-  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.1);
-  --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1);
-
-  /* Transitions */
-  --transition-fast: 0.15s ease;
-  --transition-normal: 0.3s ease;
-}
 
 /* ============= BASE STYLES ============= */
 * {

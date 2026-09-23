@@ -4,6 +4,7 @@
 /* File: src/styles/globals.css */
 /* Purpose: Global CSS and Tailwind imports */
 /* Status: Production-Ready ✅ */
+@import 'variables.css';
 
 @tailwind base;
 @tailwind components;
@@ -23,7 +24,7 @@ body {
   @apply antialiased;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-}
+} 
 
 #root {
   @apply min-h-screen;

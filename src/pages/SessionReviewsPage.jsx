@@ -10,15 +10,13 @@ export default function SessionReviewsPage() {
   const [error, setError] = useState(null);
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [ratingFormSessionId, setRatingFormSessionId] = useState(null);
-
-  useEffect(() => {
-    fetchSessions();
-  }, []);
+  // New - with date filtering
+  const [selectedDay, setSelectedDay] = useState('2026-05-21'); // or get from user selection
 
   const fetchSessions = async () => {
     try {
       setLoading(true);
-      const data = await apiGet('/api/v1/sessions');
+      const data = await apiGet(`/api/v1/sessions?day=${selectedDay}`);
       setSessions(Array.isArray(data) ? data : []);
     } catch (err) {
       setError(err.message);
@@ -27,6 +25,10 @@ export default function SessionReviewsPage() {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    fetchSessions();
+  }, [selectedDay]);
 
   const handleSessionCreated = (newSession) => {
     setSessions([...sessions, newSession]);
