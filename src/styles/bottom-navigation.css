@@ -1,0 +1,367 @@
+/* ============================================================================
+   BOTTOM-NAVIGATION.CSS - Navigation Styling
+   ============================================================================
+   Purpose: Mobile bottom nav + Desktop top nav responsive styles
+   Status: Production-Ready ✅
+*/
+
+/* ============================================================================
+   MOBILE BOTTOM NAVIGATION (Default - Mobile First)
+   ============================================================================ */
+
+.bottom-navigation {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: white;
+  border-top: 1px solid #e5e7eb;
+  box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.08);
+  z-index: 1000;
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.bottom-navigation.mobile .nav-container {
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  height: 60px;
+  width: 100%;
+  padding: 8px 0;
+}
+
+.bottom-navigation .nav-tab {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 8px 12px;
+  flex: 1;
+  height: 100%;
+  color: #6b7280;
+  transition: all 0.3s ease;
+  border-radius: 8px;
+  font-size: 12px;
+  gap: 4px;
+}
+
+.bottom-navigation .nav-icon {
+  font-size: 24px;
+  display: block;
+}
+
+.bottom-navigation .nav-label {
+  font-size: 11px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+/* Active Tab State */
+.bottom-navigation .nav-tab.active {
+  color: #0066ff;
+  background: rgba(0, 102, 255, 0.08);
+}
+
+.bottom-navigation .nav-tab.active .nav-icon {
+  animation: bounce 0.4s ease;
+}
+
+/* Tap/Hover Effect */
+.bottom-navigation .nav-tab:active {
+  background: rgba(0, 102, 255, 0.12);
+}
+
+/* Add padding to body for fixed bottom nav */
+body.has-bottom-nav {
+  padding-bottom: 76px;
+}
+
+/* ============================================================================
+   DESKTOP TOP NAVIGATION (Desktop - >768px)
+   ============================================================================ */
+
+@media (min-width: 768px) {
+  .bottom-navigation {
+    display: none;
+  }
+
+  .top-navigation {
+    position: sticky;
+    top: 0;
+    background: white;
+    border-bottom: 1px solid #e5e7eb;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+    z-index: 999;
+  }
+
+  .top-navigation.desktop .nav-container {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    height: 72px;
+    padding: 0 32px;
+    max-width: 1400px;
+    margin: 0 auto;
+    width: 100%;
+  }
+
+  /* ========== Brand Section ========== */
+  .nav-brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    cursor: pointer;
+    transition: opacity 0.2s ease;
+  }
+
+  .nav-brand:hover {
+    opacity: 0.8;
+  }
+
+  .brand-icon {
+    font-size: 28px;
+  }
+
+  .brand-name {
+    font-size: 24px;
+    font-weight: 700;
+    color: #0066ff;
+    font-family: 'Space Grotesk', sans-serif;
+    letter-spacing: -0.5px;
+  }
+
+  /* ========== Tabs Section ========== */
+  .nav-tabs {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex: 1;
+    justify-content: center;
+    margin: 0 32px;
+  }
+
+  .top-navigation .nav-tab {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 8px 16px;
+    color: #6b7280;
+    font-size: 14px;
+    font-weight: 500;
+    transition: all 0.3s ease;
+    border-radius: 8px;
+    white-space: nowrap;
+  }
+
+  .top-navigation .nav-icon {
+    font-size: 18px;
+  }
+
+  .top-navigation .nav-label {
+    font-size: 14px;
+  }
+
+  /* Hover Effect */
+  .top-navigation .nav-tab:hover {
+    color: #0066ff;
+    background: rgba(0, 102, 255, 0.08);
+  }
+
+  /* Active Tab State */
+  .top-navigation .nav-tab.active {
+    color: #0066ff;
+    background: rgba(0, 102, 255, 0.1);
+    border-bottom: 3px solid #0066ff;
+    padding-bottom: 5px;
+  }
+
+  /* ========== Actions Section ========== */
+  .nav-actions {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+
+  .nav-search,
+  .nav-notifications,
+  .nav-profile {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 20px;
+    padding: 8px;
+    border-radius: 8px;
+    transition: all 0.2s ease;
+  }
+
+  .nav-search:hover,
+  .nav-notifications:hover,
+  .nav-profile:hover {
+    background: #f3f4f6;
+  }
+
+  .nav-notifications {
+    position: relative;
+  }
+
+  .nav-notifications::after {
+    content: '';
+    position: absolute;
+    width: 8px;
+    height: 8px;
+    background: #ff6b6b;
+    border-radius: 50%;
+    top: 6px;
+    right: 6px;
+  }
+}
+
+/* ============================================================================
+   TABLET (641px - 768px) - Transition State
+   ============================================================================ */
+
+@media (min-width: 641px) and (max-width: 767px) {
+  .bottom-navigation {
+    height: 56px;
+  }
+
+  .bottom-navigation.mobile .nav-container {
+    height: 56px;
+  }
+
+  .bottom-navigation .nav-tab {
+    padding: 6px 10px;
+    height: 56px;
+  }
+
+  .bottom-navigation .nav-icon {
+    font-size: 22px;
+  }
+
+  .bottom-navigation .nav-label {
+    font-size: 10px;
+  }
+}
+
+/* ============================================================================
+   SMALL MOBILE (320px - 640px) - Optimized
+   ============================================================================ */
+
+@media (max-width: 640px) {
+  .bottom-navigation {
+    height: 56px;
+    border-top-width: 1px;
+  }
+
+  .bottom-navigation.mobile .nav-container {
+    height: 56px;
+    padding: 4px 0;
+  }
+
+  .bottom-navigation .nav-tab {
+    padding: 4px 8px;
+    height: 56px;
+    gap: 3px;
+  }
+
+  .bottom-navigation .nav-icon {
+    font-size: 22px;
+  }
+
+  .bottom-navigation .nav-label {
+    font-size: 10px;
+    font-weight: 500;
+  }
+
+  .bottom-navigation .nav-tab.active {
+    background: rgba(0, 102, 255, 0.1);
+  }
+}
+
+/* ============================================================================
+   ANIMATIONS
+   ============================================================================ */
+
+@keyframes bounce {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.1);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+/* ============================================================================
+   ACCESSIBILITY
+   ============================================================================ */
+
+.nav-tab:focus-visible {
+  outline: 2px solid #0066ff;
+  outline-offset: 2px;
+}
+
+/* High contrast mode */
+@media (prefers-contrast: more) {
+  .nav-tab {
+    border-width: 2px;
+  }
+
+  .nav-tab.active {
+    border-color: #0066ff;
+  }
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .nav-tab,
+  .nav-brand,
+  .nav-search,
+  .nav-notifications,
+  .nav-profile {
+    transition: none;
+  }
+
+  .nav-tab.active .nav-icon {
+    animation: none;
+  }
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+  .bottom-navigation,
+  .top-navigation {
+    background: #1f2937;
+    border-color: #374151;
+  }
+
+  .bottom-navigation .nav-tab,
+  .top-navigation .nav-tab {
+    color: #9ca3af;
+  }
+
+  .bottom-navigation .nav-tab.active,
+  .top-navigation .nav-tab.active {
+    color: #0099ff;
+    background: rgba(0, 153, 255, 0.1);
+  }
+
+  .brand-name {
+    color: #0099ff;
+  }
+
+  .nav-search:hover,
+  .nav-notifications:hover,
+  .nav-profile:hover {
+    background: #374151;
+  }
+}

@@ -5,6 +5,7 @@
 /* Purpose: Global CSS and Tailwind imports */
 /* Status: Production-Ready ✅ */
 @import 'variables.css';
+@import './bottom-navigation.css';
 
 @tailwind base;
 @tailwind components;

@@ -1,63 +1,166 @@
 // ============================================================================
-// File: frontend/src/components/BottomNavigation.jsx
-// Purpose: Fixed bottom navigation with main tabs
-// Status: Production-Ready | Zero Errors ✅
+// BottomNavigation.jsx - Responsive Navigation Component
 // ============================================================================
+// Purpose: Bottom nav on mobile, top nav on desktop
+// 5 Tabs: Home, Hub, Networking, Engage, Profile
+// Status: Production-Ready ✅
+// Last Updated: Sep 24, 2026
 
-import React from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Sparkles } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
+import '../styles/bottom-navigation.css';
 
-export const BottomNavigation = ({ activeTab, onTabChange, userProfile }) => {
+export default function BottomNavigation() {
+  const location = useLocation();
   const navigate = useNavigate();
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
 
-  const tabs = [
-    { id: 'home', label: 'Home', icon: '🏠' },
-    // Integrated your Discover tab with Sparkles icon
-    { id: 'discover', label: 'Discover', icon: <Sparkles size={18} className="mx-auto" /> },
-    { id: 'sessions', label: 'Sessions', icon: '📅' },
-    { id: 'hub', label: 'Hub', icon: '💬' },
-    { id: 'networking', label: 'Networking', icon: '🤝' },
-    { id: 'profile', label: 'Profile', icon: '👤' },
+  // ============================================================================
+  // Navigation Tabs Configuration
+  // ============================================================================
+  const navTabs = [
+    {
+      id: 1,
+      label: 'Home',
+      icon: '🏠',
+      path: '/home',
+      description: 'Home'
+    },
+    {
+      id: 2,
+      label: 'Hub',
+      icon: '⚡',
+      path: '/hub',
+      description: 'Features'
+    },
+    {
+      id: 3,
+      label: 'Network',
+      icon: '👥',
+      path: '/networking',
+      description: 'Networking'
+    },
+    {
+      id: 4,
+      label: 'Engage',
+      icon: '🎯',
+      path: '/activity-hub',
+      description: 'Engagement'
+    },
+    {
+      id: 5,
+      label: 'Profile',
+      icon: '👤',
+      path: '/profile',
+      description: 'Profile'
+    }
   ];
 
-  if (userProfile?.is_admin) {
-    tabs.push({ id: 'admin', label: 'Admin', icon: '⚙️' });
+  // ============================================================================
+  // Handle Window Resize for Responsive Design
+  // ============================================================================
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  // ============================================================================
+  // Check Active Tab
+  // ============================================================================
+  const getActiveTab = (path) => {
+    // Exact match
+    if (location.pathname === path) return true;
+    
+    // For pages under hub
+    if (path === '/hub' && location.pathname.startsWith('/hub')) return true;
+    
+    // For networking-related pages
+    if (path === '/networking' && location.pathname.includes('networking')) return true;
+    
+    // For engagement/activity pages
+    if (path === '/activity-hub' && 
+        (location.pathname.includes('activity') || 
+         location.pathname.includes('engagement') ||
+         location.pathname.includes('social') ||
+         location.pathname.includes('ai-matches'))) {
+      return true;
+    }
+
+    return false;
+  };
+
+  // ============================================================================
+  // Handle Tab Click
+  // ============================================================================
+  const handleTabClick = (path) => {
+    navigate(path);
+  };
+
+  // ============================================================================
+  // Render - Mobile Bottom Navigation
+  // ============================================================================
+  if (isMobile) {
+    return (
+      <nav className="bottom-navigation mobile">
+        <div className="nav-container">
+          {navTabs.map(tab => (
+            <button
+              key={tab.id}
+              className={`nav-tab ${getActiveTab(tab.path) ? 'active' : ''}`}
+              onClick={() => handleTabClick(tab.path)}
+              title={tab.description}
+              aria-label={tab.description}
+            >
+              <span className="nav-icon">{tab.icon}</span>
+              <span className="nav-label">{tab.label}</span>
+            </button>
+          ))}
+        </div>
+      </nav>
+    );
   }
 
+  // ============================================================================
+  // Render - Desktop Top Navigation
+  // ============================================================================
   return (
-    <div className="bottom-nav">
-      <div className="bottom-nav-content">
-        {tabs.map((tab) => (
-          <button
-            key={tab.id}
-            // Blended your requested hover classes for the discover tab with existing logic
-            className={`bottom-nav-tab flex flex-col items-center gap-1 ${
-              activeTab === tab.id ? 'bottom-nav-tab-active' : ''
-            } ${
-              tab.id === 'discover' ? 'hover:bg-purple-100 dark:hover:bg-purple-900/20 rounded-lg' : ''
-            }`}
-            onClick={() => {
-              // Trigger your requested navigate function specifically for Discover
-              if (tab.id === 'discover') {
-                navigate('/discover');
-              }
-              if (tab.id === 'admin') {
-                navigate('/admin');
-              }
-              // Maintain existing active tab logic
-              if (onTabChange) {
-                onTabChange(tab.id);
-              }
-            }}
-            aria-label={tab.label}
-            aria-current={activeTab === tab.id ? 'page' : undefined}
-          >
-            <span className="bottom-nav-icon">{tab.icon}</span>
-            <span className="bottom-nav-label">{tab.label}</span>
+    <nav className="top-navigation desktop">
+      <div className="nav-container">
+        <div className="nav-brand">
+          <span className="brand-icon">⚡</span>
+          <span className="brand-name">EventAI</span>
+        </div>
+
+        <div className="nav-tabs">
+          {navTabs.map(tab => (
+            <button
+              key={tab.id}
+              className={`nav-tab ${getActiveTab(tab.path) ? 'active' : ''}`}
+              onClick={() => handleTabClick(tab.path)}
+              title={tab.description}
+            >
+              <span className="nav-icon">{tab.icon}</span>
+              <span className="nav-label">{tab.label}</span>
+            </button>
+          ))}
+        </div>
+
+        <div className="nav-actions">
+          <button className="nav-search" title="Search">
+            🔍
           </button>
-        ))}
+          <button className="nav-notifications" title="Notifications">
+            🔔
+          </button>
+          <button className="nav-profile" title="Profile">
+            👤
+          </button>
+        </div>
       </div>
-    </div>
+    </nav>
   );
-};
+}

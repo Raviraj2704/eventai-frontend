@@ -1,53 +1,166 @@
- // ============================================================================
-// Bottom Navigation Component
 // ============================================================================
-// File: src/components/layout/BottomNavigation.jsx
-// Purpose: Mobile bottom navigation bar
+// BottomNavigation.jsx - Responsive Navigation Component
+// ============================================================================
+// Purpose: Bottom nav on mobile, top nav on desktop
+// 5 Tabs: Home, Hub, Networking, Engage, Profile
 // Status: Production-Ready ✅
+// Last Updated: Sep 24, 2026
 
-import React from 'react'
-import { useNavigate, useLocation } from 'react-router-dom'
-import { Home, Compass, Users, Trophy, User } from 'lucide-react'
+import { useState, useEffect } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
+import '../styles/bottom-navigation.css';
 
-const BottomNavigation = () => {
-  const navigate = useNavigate()
-  const location = useLocation()
+export default function BottomNavigation() {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
 
-  const navItems = [
-    { icon: Home, label: 'Home', path: '/home' },
-    { icon: Compass, label: 'Explore', path: '/sessions' },
-    { icon: Users, label: 'Network', path: '/networking' },
-    { icon: Trophy, label: 'Engage', path: '/activity-hub' },
-    { icon: User, label: 'Profile', path: '/profile' }
-  ]
+  // ============================================================================
+  // Navigation Tabs Configuration
+  // ============================================================================
+  const navTabs = [
+    {
+      id: 1,
+      label: 'Home',
+      icon: '🏠',
+      path: '/home',
+      description: 'Home'
+    },
+    {
+      id: 2,
+      label: 'Hub',
+      icon: '⚡',
+      path: '/hub',
+      description: 'Features'
+    },
+    {
+      id: 3,
+      label: 'Network',
+      icon: '👥',
+      path: '/networking',
+      description: 'Networking'
+    },
+    {
+      id: 4,
+      label: 'Engage',
+      icon: '🎯',
+      path: '/activity-hub',
+      description: 'Engagement'
+    },
+    {
+      id: 5,
+      label: 'Profile',
+      icon: '👤',
+      path: '/profile',
+      description: 'Profile'
+    }
+  ];
 
-  const isActive = (path) => location.pathname === path
+  // ============================================================================
+  // Handle Window Resize for Responsive Design
+  // ============================================================================
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
 
-  return (
-    <nav className="fixed bottom-0 left-0 right-0 md:hidden bg-white border-t border-neutral-200 z-40">
-      <div className="flex items-center justify-around">
-        {navItems.map((item) => {
-          const Icon = item.icon
-          const active = isActive(item.path)
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
-          return (
+  // ============================================================================
+  // Check Active Tab
+  // ============================================================================
+  const getActiveTab = (path) => {
+    // Exact match
+    if (location.pathname === path) return true;
+    
+    // For pages under hub
+    if (path === '/hub' && location.pathname.startsWith('/hub')) return true;
+    
+    // For networking-related pages
+    if (path === '/networking' && location.pathname.includes('networking')) return true;
+    
+    // For engagement/activity pages
+    if (path === '/activity-hub' && 
+        (location.pathname.includes('activity') || 
+         location.pathname.includes('engagement') ||
+         location.pathname.includes('social') ||
+         location.pathname.includes('ai-matches'))) {
+      return true;
+    }
+
+    return false;
+  };
+
+  // ============================================================================
+  // Handle Tab Click
+  // ============================================================================
+  const handleTabClick = (path) => {
+    navigate(path);
+  };
+
+  // ============================================================================
+  // Render - Mobile Bottom Navigation
+  // ============================================================================
+  if (isMobile) {
+    return (
+      <nav className="bottom-navigation mobile">
+        <div className="nav-container">
+          {navTabs.map(tab => (
             <button
-              key={item.path}
-              onClick={() => navigate(item.path)}
-              className={`flex-1 flex flex-col items-center justify-center py-3 transition-colors ${
-                active
-                  ? 'text-primary-600 border-t-2 border-primary-600'
-                  : 'text-neutral-600 hover:text-neutral-900'
-              }`}
+              key={tab.id}
+              className={`nav-tab ${getActiveTab(tab.path) ? 'active' : ''}`}
+              onClick={() => handleTabClick(tab.path)}
+              title={tab.description}
+              aria-label={tab.description}
             >
-              <Icon className="w-6 h-6 mb-1" />
-              <span className="text-xs font-medium">{item.label}</span>
+              <span className="nav-icon">{tab.icon}</span>
+              <span className="nav-label">{tab.label}</span>
             </button>
-          )
-        })}
+          ))}
+        </div>
+      </nav>
+    );
+  }
+
+  // ============================================================================
+  // Render - Desktop Top Navigation
+  // ============================================================================
+  return (
+    <nav className="top-navigation desktop">
+      <div className="nav-container">
+        <div className="nav-brand">
+          <span className="brand-icon">⚡</span>
+          <span className="brand-name">EventAI</span>
+        </div>
+
+        <div className="nav-tabs">
+          {navTabs.map(tab => (
+            <button
+              key={tab.id}
+              className={`nav-tab ${getActiveTab(tab.path) ? 'active' : ''}`}
+              onClick={() => handleTabClick(tab.path)}
+              title={tab.description}
+            >
+              <span className="nav-icon">{tab.icon}</span>
+              <span className="nav-label">{tab.label}</span>
+            </button>
+          ))}
+        </div>
+
+        <div className="nav-actions">
+          <button className="nav-search" title="Search">
+            🔍
+          </button>
+          <button className="nav-notifications" title="Notifications">
+            🔔
+          </button>
+          <button className="nav-profile" title="Profile">
+            👤
+          </button>
+        </div>
       </div>
     </nav>
-  )
+  );
 }
-
-export default BottomNavigation

@@ -48,6 +48,7 @@ import AdminRBACDashboard from './pages/admin/AdminRBACDashboard.jsx'
 
 // Components
 import PrivateRoute from './components/Auth/PrivateRoute'
+import BottomNavigation from './components/layout/BottomNavigation'
 
 // AI Features
 import AIAssistant from './components/ai/AIAssistant'
@@ -363,6 +364,7 @@ const App = () => {
             }
           />
         </Routes>
+        <BottomNavigation />
       </Router>
 
       {/* AI Assistant Floating Widget - REMOVED the userProfile condition */}
