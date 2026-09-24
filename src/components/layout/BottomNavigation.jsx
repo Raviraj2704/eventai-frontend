@@ -8,7 +8,6 @@
 
 import { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import '../styles/bottom-navigation.css';
 
 export default function BottomNavigation() {
   const location = useLocation();
