@@ -8,7 +8,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { apiGet } from '../services/api';
-import '../styles/hub.css';
+import '../../styles/hub.css';
 
 export default function HubPage() {
   const navigate = useNavigate();
