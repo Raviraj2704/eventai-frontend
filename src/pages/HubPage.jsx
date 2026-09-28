@@ -1,14 +1,7 @@
-// ============================================================================
-// HubPage.jsx - Feature Discovery Hub
-// ============================================================================
-// Purpose: Central hub showing all 12 features in 2-column grid layout
-// Status: Production-Ready ✅
-// Last Updated: Sep 24, 2026
-
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { apiGet } from '../services/api';
-import '../styles/hub.css';
+import { apiGet } from '../../services/api';
+import '../../styles/hub.css';
 
 export default function HubPage() {
   const navigate = useNavigate();
@@ -16,9 +9,6 @@ export default function HubPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // ============================================================================
-  // 12 Feature Cards Configuration - EXACTLY like your 7 pictures
-  // ============================================================================
   const featureCards = [
     {
       id: 1,
@@ -26,7 +16,7 @@ export default function HubPage() {
       icon: '📢',
       description: 'Stay updated with latest news',
       path: '/announcements',
-      apiEndpoint: '/api/v1/announcements',
+      apiEndpoint: '/announcements',
       color: '#4a9eff'
     },
     {
@@ -35,7 +25,7 @@ export default function HubPage() {
       icon: '🎤',
       description: 'Meet the experts',
       path: '/speakers',
-      apiEndpoint: '/api/v1/speakers',
+      apiEndpoint: '/speakers',
       color: '#4a9eff'
     },
     {
@@ -44,7 +34,7 @@ export default function HubPage() {
       icon: '📅',
       description: 'View all sessions and events',
       path: '/sessions',
-      apiEndpoint: '/api/v1/sessions',
+      apiEndpoint: '/sessions',
       color: '#5ab1ff'
     },
     {
@@ -53,7 +43,7 @@ export default function HubPage() {
       icon: '📚',
       description: 'Boost your skills',
       path: '/learning-paths',
-      apiEndpoint: '/api/v1/learning_paths',
+      apiEndpoint: '/learning_paths',
       color: '#9575ff'
     },
     {
@@ -62,7 +52,7 @@ export default function HubPage() {
       icon: '👥',
       description: 'Participate in polls and quizzes',
       path: '/engagement-center',
-      apiEndpoint: '/api/v1/engagement/polls',
+      apiEndpoint: '/engagement/polls',
       color: '#5ab1ff'
     },
     {
@@ -71,7 +61,7 @@ export default function HubPage() {
       icon: '🤝',
       description: 'Discover our partners',
       path: '/partners',
-      apiEndpoint: '/api/v1/partners',
+      apiEndpoint: '/partners',
       color: '#4a9eff'
     },
     {
@@ -80,7 +70,7 @@ export default function HubPage() {
       icon: '💼',
       description: 'Your saved resources',
       path: '/briefcase',
-      apiEndpoint: '/api/v1/resources',
+      apiEndpoint: '/resources',
       color: '#5ab1ff'
     },
     {
@@ -89,7 +79,7 @@ export default function HubPage() {
       icon: '⭐',
       description: 'View session ratings',
       path: '/ratings',
-      apiEndpoint: '/api/v1/ratings',
+      apiEndpoint: '/ratings',
       color: '#4a9eff'
     },
     {
@@ -98,7 +88,7 @@ export default function HubPage() {
       icon: '📊',
       description: 'Your performance stats',
       path: '/analytics',
-      apiEndpoint: '/api/v1/analytics/dashboard',
+      apiEndpoint: '/analytics/dashboard',
       color: '#5ab1ff'
     },
     {
@@ -107,7 +97,7 @@ export default function HubPage() {
       icon: '⚙️',
       description: 'Admin controls',
       path: '/admin',
-      apiEndpoint: '/api/v1/admin/users',
+      apiEndpoint: '/admin/users',
       color: '#4a9eff'
     },
     {
@@ -116,7 +106,7 @@ export default function HubPage() {
       icon: '🤖',
       description: 'AI assistant',
       path: '/picbot',
-      apiEndpoint: '/api/v1/ai/chat',
+      apiEndpoint: null,
       color: '#9575ff'
     },
     {
@@ -125,14 +115,11 @@ export default function HubPage() {
       icon: '🎯',
       description: 'Perfect networking matches',
       path: '/ai-matches',
-      apiEndpoint: '/api/v1/ai/networking/matches',
+      apiEndpoint: '/ai/networking/matches',
       color: '#5ab1ff'
     }
   ];
 
-  // ============================================================================
-  // Load Hub Data on Mount
-  // ============================================================================
   useEffect(() => {
     loadHubData();
   }, []);
@@ -141,126 +128,133 @@ export default function HubPage() {
     try {
       setLoading(true);
       setError(null);
-
-      // Fetch event/hub info
-      const eventData = await apiGet('/events');
-      if (Array.isArray(eventData) && eventData.length > 0) {
-        setHubData(eventData[0]);
-      } else {
-        setHubData({
-          name: 'NextGen AI Expo 2026',
-          description: 'Innovation Hub'
-        });
-      }
-    } catch (err) {
-      console.error('Failed to load hub data:', err);
-      // Set default data on error (don't block UI)
       setHubData({
         name: 'NextGen AI Expo 2026',
-        description: 'Innovation Hub'
+        description: 'Innovation Hub',
+        location: 'Online'
       });
-      setError('Some features may not be available');
+    } catch (err) {
+      console.error('Failed to load hub data:', err);
+      setHubData({
+        name: 'NextGen AI Expo 2026',
+        description: 'Innovation Hub',
+        location: 'Online'
+      });
     } finally {
       setLoading(false);
     }
   };
 
-  // ============================================================================
-  // Handle Feature Card Click
-  // ============================================================================
   const handleFeatureClick = async (feature) => {
+    if (!feature.apiEndpoint || feature.path === '/admin') {
+      navigate(feature.path);
+      return;
+    }
     try {
-      // Validate API endpoint exists before navigating
-      const response = await apiGet(feature.apiEndpoint);
-      
-      // If we got data (success), navigate to the feature
-      if (response) {
-        navigate(feature.path);
-      }
+      await apiGet(feature.apiEndpoint);
+      navigate(feature.path);
     } catch (err) {
-      console.warn(`API endpoint ${feature.apiEndpoint} not available:`, err);
-      // Still navigate, component will handle no data gracefully
+      console.warn('API endpoint warning:', err);
       navigate(feature.path);
     }
   };
 
-  // ============================================================================
-  // Render
-  // ============================================================================
   if (loading) {
-    return (
-      <div className="hub-container">
-        <div className="loading-spinner">
-          <p>Loading hub features...</p>
-        </div>
-      </div>
+    return React.createElement(
+      'div',
+      { className: 'hub-container' },
+      React.createElement(
+        'div',
+        { className: 'loading-spinner' },
+        React.createElement('p', null, 'Loading hub features...')
+      )
     );
   }
 
-  return (
-    <div className="hub-container">
-      {/* ========== Hero Section ========== */}
-      <div className="hub-hero">
-        <h1>{hubData?.name || 'NextGen AI Expo 2026'}</h1>
-        <p>{hubData?.description || 'Innovation Hub'}</p>
-      </div>
-
-      {/* ========== Error Banner ========== */}
-      {error && (
-        <div className="error-banner">
-          <p>⚠️ {error}</p>
-          <button onClick={loadHubData} className="btn-retry">Retry</button>
-        </div>
-      )}
-
-      {/* ========== Hub Features Grid - 12 Cards in 2 Columns ========== */}
-      <section className="hub-features-section">
-        <h2>Hub Features</h2>
-        <div className="hub-features-grid">
-          {featureCards.map(feature => (
-            <div
-              key={feature.id}
-              className="hub-feature-card"
-              onClick={() => handleFeatureClick(feature)}
-              style={{ backgroundColor: feature.color }}
-            >
-              <div className="feature-card-content">
-                <div className="feature-icon">{feature.icon}</div>
-                <h3>{feature.title}</h3>
-                <p>{feature.description}</p>
-              </div>
-              <div className="feature-arrow">→</div>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* ========== Quick Stats Section ========== */}
-      <section className="hub-stats">
-        <h2>Event Overview</h2>
-        <div className="stats-grid">
-          <div className="stat-card">
-            <span className="stat-icon">📋</span>
-            <h4>Total Features</h4>
-            <p className="stat-value">12</p>
-          </div>
-          <div className="stat-card">
-            <span className="stat-icon">📅</span>
-            <h4>Event</h4>
-            <p className="stat-value">{hubData?.name || 'AI Expo'}</p>
-          </div>
-          <div className="stat-card">
-            <span className="stat-icon">📍</span>
-            <h4>Location</h4>
-            <p className="stat-value">{hubData?.location || 'Online'}</p>
-          </div>
-          <div className="stat-card">
-            <span className="stat-icon">📞</span>
-            <h4>Support</h4>
-            <p className="stat-value">24/7</p>
-          </div>
-        </div>
-      </section>
-    </div>
+  return React.createElement(
+    'div',
+    { className: 'hub-container' },
+    React.createElement(
+      'div',
+      { className: 'hub-hero' },
+      React.createElement('h1', null, hubData?.name || 'NextGen AI Expo 2026'),
+      React.createElement('p', null, hubData?.description || 'Innovation Hub')
+    ),
+    error &&
+      React.createElement(
+        'div',
+        { className: 'error-banner' },
+        React.createElement('p', null, '⚠️ ' + error),
+        React.createElement(
+          'button',
+          { onClick: loadHubData, className: 'btn-retry' },
+          'Retry'
+        )
+      ),
+    React.createElement(
+      'section',
+      { className: 'hub-features-section' },
+      React.createElement('h2', null, 'Hub Features'),
+      React.createElement(
+        'div',
+        { className: 'hub-features-grid' },
+        featureCards.map((feature) =>
+          React.createElement(
+            'div',
+            {
+              key: feature.id,
+              className: 'hub-feature-card',
+              onClick: () => handleFeatureClick(feature),
+              style: { backgroundColor: feature.color }
+            },
+            React.createElement(
+              'div',
+              { className: 'feature-card-content' },
+              React.createElement('div', { className: 'feature-icon' }, feature.icon),
+              React.createElement('h3', null, feature.title),
+              React.createElement('p', null, feature.description)
+            ),
+            React.createElement('div', { className: 'feature-arrow' }, '→')
+          )
+        )
+      )
+    ),
+    React.createElement(
+      'section',
+      { className: 'hub-stats' },
+      React.createElement('h2', null, 'Event Overview'),
+      React.createElement(
+        'div',
+        { className: 'stats-grid' },
+        React.createElement(
+          'div',
+          { className: 'stat-card' },
+          React.createElement('span', { className: 'stat-icon' }, '📋'),
+          React.createElement('h4', null, 'Total Features'),
+          React.createElement('p', { className: 'stat-value' }, '12')
+        ),
+        React.createElement(
+          'div',
+          { className: 'stat-card' },
+          React.createElement('span', { className: 'stat-icon' }, '📅'),
+          React.createElement('h4', null, 'Event'),
+          React.createElement('p', { className: 'stat-value' }, hubData?.name || 'AI Expo')
+        ),
+        React.createElement(
+          'div',
+          { className: 'stat-card' },
+          React.createElement('span', { className: 'stat-icon' }, '📍'),
+          React.createElement('h4', null, 'Location'),
+          React.createElement('p', { className: 'stat-value' }, hubData?.location || 'Online')
+        ),
+        React.createElement(
+          'div',
+          { className: 'stat-card' },
+          React.createElement('span', { className: 'stat-icon' }, '📞'),
+          React.createElement('h4', null, 'Support'),
+          React.createElement('p', { className: 'stat-value' }, '24/7')
+        )
+      )
+    )
   );
 }
