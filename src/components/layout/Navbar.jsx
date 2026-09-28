@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { NotificationBell } from '../components/Notifications/NotificationBell';
-import { NotificationDropdown } from '../components/Notifications/NotificationDropdown';
-import { useAuth } from '../context/AuthContext';
+import { NotificationBell } from '../Notifications/NotificationBell';
+import { NotificationDropdown } from '../Notifications/NotificationDropdown';
+import { useAuth } from '../../context/AuthContext';
 
 const API_BASE = 'http://127.0.0.1:8000';
 

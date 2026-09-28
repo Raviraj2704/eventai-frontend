@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import SessionCard from '../components/SessionCard';
+import SessionCard from '../SessionCard';
 
 const API_URL = 'http://localhost:8000';
 
