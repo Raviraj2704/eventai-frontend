@@ -143,7 +143,7 @@ export default function HubPage() {
       setError(null);
 
       // Fetch event/hub info
-      const eventData = await apiGet('/api/v1/events');
+      const eventData = await apiGet('/events');
       if (Array.isArray(eventData) && eventData.length > 0) {
         setHubData(eventData[0]);
       } else {
