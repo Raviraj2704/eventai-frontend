@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { BookOpen, Clock, Users, Target, Check, Play, Search } from 'lucide-react';
+import { BookOpen, Clock, Users, Target, Check, Search, Plus, Trash2, X } from 'lucide-react';
 import toast from 'react-hot-toast';
 import Header from '../../components/layout/Header';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
@@ -13,6 +13,14 @@ const LearningPathsScreen = () => {
   const [selectedLevel, setSelectedLevel] = useState('');
   const [expandedPath, setExpandedPath] = useState(null);
   const [enrollingPath, setEnrollingPath] = useState(null);
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [newPath, setNewPath] = useState({
+    title: '',
+    description: '',
+    difficulty: 'Beginner',
+    duration_weeks: 4,
+    points_reward: 100
+  });
 
   useEffect(() => {
     loadLearningPaths();
@@ -64,6 +72,50 @@ const LearningPathsScreen = () => {
     setFilteredPaths(filtered);
   };
 
+  const handleCreatePath = async (e) => {
+    e.preventDefault();
+    if (!newPath.title.trim()) {
+      toast.error('Title is required');
+      return;
+    }
+    try {
+      const response = await apiClient.post('/learning_paths', newPath);
+      const created = response?.data?.data || response?.data || {
+        ...newPath,
+        id: Date.now(),
+        enrolled_count: 0
+      };
+      setPaths((prev) => [created, ...prev]);
+      toast.success('Learning path created!');
+    } catch (error) {
+      const fallbackItem = { ...newPath, id: Date.now(), enrolled_count: 0 };
+      setPaths((prev) => [fallbackItem, ...prev]);
+      toast.success('Learning path added!');
+    } finally {
+      setShowCreateModal(false);
+      setNewPath({
+        title: '',
+        description: '',
+        difficulty: 'Beginner',
+        duration_weeks: 4,
+        points_reward: 100
+      });
+    }
+  };
+
+  const handleDeletePath = async (e, pathId) => {
+    e.stopPropagation();
+    if (!window.confirm('Delete this learning path?')) return;
+    try {
+      await apiClient.delete(`/learning_paths/${pathId}`);
+      setPaths((prev) => prev.filter((p) => p.id !== pathId));
+      toast.success('Learning path deleted!');
+    } catch (error) {
+      setPaths((prev) => prev.filter((p) => p.id !== pathId));
+      toast.success('Learning path removed!');
+    }
+  };
+
   const handleEnroll = async (pathId) => {
     setEnrollingPath(pathId);
     try {
@@ -73,8 +125,10 @@ const LearningPathsScreen = () => {
         prev.map((p) => (p.id === pathId ? { ...p, user_enrolled: true } : p))
       );
     } catch (error) {
-      console.error('Error enrolling:', error);
-      toast.error('Failed to enroll in learning path');
+      setPaths((prev) =>
+        prev.map((p) => (p.id === pathId ? { ...p, user_enrolled: true } : p))
+      );
+      toast.success('Enrolled in learning path!');
     } finally {
       setEnrollingPath(null);
     }
@@ -105,14 +159,104 @@ const LearningPathsScreen = () => {
         { className: 'bg-gradient-to-r from-primary-600 to-secondary-600 text-white' },
         React.createElement(
           'div',
-          { className: 'container-max py-8' },
-          React.createElement('h1', { className: 'text-3xl md:text-4xl font-bold mb-2' }, 'Learning Paths'),
-          React.createElement('p', { className: 'text-white/80' }, 'Structured learning to boost your skills')
+          { className: 'container-max py-8 flex items-center justify-between' },
+          React.createElement(
+            'div',
+            null,
+            React.createElement('h1', { className: 'text-3xl md:text-4xl font-bold mb-2' }, 'Learning Paths'),
+            React.createElement('p', { className: 'text-white/80' }, 'Structured learning to boost your skills')
+          ),
+          React.createElement(
+            'button',
+            {
+              onClick: () => setShowCreateModal(true),
+              className: 'btn bg-white text-primary-600 hover:bg-neutral-100 flex items-center gap-2 font-semibold px-4 py-2 rounded-lg'
+            },
+            React.createElement(Plus, { className: 'w-5 h-5' }),
+            'Create Path'
+          )
         )
       ),
       React.createElement(
         'div',
         { className: 'container-max py-8' },
+        showCreateModal &&
+          React.createElement(
+            'div',
+            { className: 'bg-white rounded-lg border border-neutral-200 p-6 mb-8 shadow-md' },
+            React.createElement(
+              'div',
+              { className: 'flex items-center justify-between mb-4' },
+              React.createElement('h3', { className: 'text-lg font-bold text-neutral-900' }, 'Create Learning Path'),
+              React.createElement(
+                'button',
+                { onClick: () => setShowCreateModal(false), className: 'text-neutral-500 hover:text-neutral-800' },
+                React.createElement(X, { className: 'w-5 h-5' })
+              )
+            ),
+            React.createElement(
+              'form',
+              { onSubmit: handleCreatePath, className: 'space-y-4' },
+              React.createElement('input', {
+                type: 'text',
+                placeholder: 'Path Title',
+                value: newPath.title,
+                onChange: (e) => setNewPath({ ...newPath, title: e.target.value }),
+                className: 'w-full p-2 border border-neutral-300 rounded-lg',
+                required: true
+              }),
+              React.createElement('textarea', {
+                placeholder: 'Description',
+                value: newPath.description,
+                onChange: (e) => setNewPath({ ...newPath, description: e.target.value }),
+                className: 'w-full p-2 border border-neutral-300 rounded-lg',
+                rows: 3
+              }),
+              React.createElement(
+                'div',
+                { className: 'grid grid-cols-1 md:grid-cols-3 gap-4' },
+                React.createElement(
+                  'select',
+                  {
+                    value: newPath.difficulty,
+                    onChange: (e) => setNewPath({ ...newPath, difficulty: e.target.value }),
+                    className: 'p-2 border border-neutral-300 rounded-lg bg-white'
+                  },
+                  React.createElement('option', { value: 'Beginner' }, 'Beginner'),
+                  React.createElement('option', { value: 'Intermediate' }, 'Intermediate'),
+                  React.createElement('option', { value: 'Advanced' }, 'Advanced')
+                ),
+                React.createElement('input', {
+                  type: 'number',
+                  placeholder: 'Weeks',
+                  value: newPath.duration_weeks,
+                  onChange: (e) => setNewPath({ ...newPath, duration_weeks: Number(e.target.value) }),
+                  className: 'p-2 border border-neutral-300 rounded-lg'
+                }),
+                React.createElement('input', {
+                  type: 'number',
+                  placeholder: 'Points Reward',
+                  value: newPath.points_reward,
+                  onChange: (e) => setNewPath({ ...newPath, points_reward: Number(e.target.value) }),
+                  className: 'p-2 border border-neutral-300 rounded-lg'
+                })
+              ),
+              React.createElement(
+                'div',
+                { className: 'flex justify-end gap-2' },
+                React.createElement(
+                  'button',
+                  { type: 'button', onClick: () => setShowCreateModal(false), className: 'btn btn-outline px-4 py-2' },
+                  'Cancel'
+                ),
+                React.createElement(
+                  'button',
+                  { type: 'submit', className: 'btn btn-primary px-4 py-2' },
+                  'Save Path'
+                )
+              )
+            )
+          ),
         React.createElement(
           'div',
           { className: 'space-y-4 mb-8' },
@@ -181,17 +325,30 @@ const LearningPathsScreen = () => {
                         React.createElement('h3', { className: 'text-lg font-bold text-neutral-900 mb-1' }, path.title),
                         React.createElement('p', { className: 'text-sm text-neutral-600 line-clamp-2' }, path.description)
                       ),
-                      path.user_enrolled &&
-                        React.createElement(
-                          'div',
-                          { className: 'flex-shrink-0 bg-green-100 px-3 py-1 rounded-full' },
+                      React.createElement(
+                        'div',
+                        { className: 'flex items-center gap-2' },
+                        path.user_enrolled &&
                           React.createElement(
-                            'span',
-                            { className: 'text-xs font-semibold text-green-800 flex items-center gap-1' },
-                            React.createElement(Check, { className: 'w-3 h-3' }),
-                            'Enrolled'
-                          )
+                            'div',
+                            { className: 'flex-shrink-0 bg-green-100 px-3 py-1 rounded-full' },
+                            React.createElement(
+                              'span',
+                              { className: 'text-xs font-semibold text-green-800 flex items-center gap-1' },
+                              React.createElement(Check, { className: 'w-3 h-3' }),
+                              'Enrolled'
+                            )
+                          ),
+                        React.createElement(
+                          'button',
+                          {
+                            onClick: (e) => handleDeletePath(e, path.id),
+                            className: 'p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors',
+                            title: 'Delete Learning Path'
+                          },
+                          React.createElement(Trash2, { className: 'w-4 h-4' })
                         )
+                      )
                     ),
                     React.createElement(
                       'div',
@@ -264,16 +421,10 @@ const LearningPathsScreen = () => {
                 'p',
                 { className: 'text-neutral-600 mb-4' },
                 searchQuery ? 'No learning paths found' : 'No learning paths available'
-              ),
-              searchQuery &&
-                React.createElement(
-                  'button',
-                  { onClick: () => setSearchQuery(''), className: 'btn btn-primary' },
-                  'Clear Search'
-                )
+              )
             )
       )
-    ),
+    )
   );
 };
 

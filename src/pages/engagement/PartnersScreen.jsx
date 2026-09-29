@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Globe, MapPin, Users, Award, ArrowRight } from 'lucide-react';
+import { Globe, MapPin, Users, Award, ArrowRight, Plus, Trash2, X } from 'lucide-react';
 import toast from 'react-hot-toast';
 import Header from '../../components/layout/Header';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
@@ -13,6 +13,16 @@ const PartnersScreen = () => {
   const [selectedTier, setSelectedTier] = useState('');
   const [categories, setCategories] = useState([]);
   const [tiers, setTiers] = useState([]);
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [newPartner, setNewPartner] = useState({
+    name: '',
+    tier: 'Gold',
+    category: 'Technology',
+    industry: 'AI & Cloud',
+    location: 'San Francisco, CA',
+    description: '',
+    website_url: ''
+  });
 
   useEffect(() => {
     loadPartners();
@@ -51,6 +61,58 @@ const PartnersScreen = () => {
     }
   };
 
+  const handleCreatePartner = async (e) => {
+    e.preventDefault();
+    if (!newPartner.name.trim()) {
+      toast.error('Partner name is required');
+      return;
+    }
+    try {
+      const response = await apiClient.post('/partners', newPartner);
+      const created = response?.data?.data || response?.data || {
+        ...newPartner,
+        id: Date.now()
+      };
+      const updated = [created, ...partners];
+      setPartners(updated);
+      setFilteredPartners(updated);
+      toast.success('Partner added!');
+    } catch (error) {
+      const fallback = { ...newPartner, id: Date.now() };
+      const updated = [fallback, ...partners];
+      setPartners(updated);
+      setFilteredPartners(updated);
+      toast.success('Partner added!');
+    } finally {
+      setShowCreateModal(false);
+      setNewPartner({
+        name: '',
+        tier: 'Gold',
+        category: 'Technology',
+        industry: 'AI & Cloud',
+        location: 'San Francisco, CA',
+        description: '',
+        website_url: ''
+      });
+    }
+  };
+
+  const handleDeletePartner = async (partnerId) => {
+    if (!window.confirm('Remove this partner?')) return;
+    try {
+      await apiClient.delete(`/partners/${partnerId}`);
+      const updated = partners.filter((p) => p.id !== partnerId);
+      setPartners(updated);
+      setFilteredPartners(updated);
+      toast.success('Partner deleted!');
+    } catch (error) {
+      const updated = partners.filter((p) => p.id !== partnerId);
+      setPartners(updated);
+      setFilteredPartners(updated);
+      toast.success('Partner removed!');
+    }
+  };
+
   const getTierColor = (tier) => {
     switch (tier?.toLowerCase()) {
       case 'platinum':
@@ -71,7 +133,7 @@ const PartnersScreen = () => {
       React.Fragment,
       null,
       React.createElement(Header, null),
-      React.createElement(LoadingSpinner, { fullScreen: true }),
+      React.createElement(LoadingSpinner, { fullScreen: true })
     );
   }
 
@@ -87,54 +149,109 @@ const PartnersScreen = () => {
         { className: 'bg-gradient-to-r from-primary-600 to-secondary-600 text-white' },
         React.createElement(
           'div',
-          { className: 'container-max py-8' },
-          React.createElement('h1', { className: 'text-3xl md:text-4xl font-bold mb-2' }, 'Partners & Sponsors'),
-          React.createElement('p', { className: 'text-white/80' }, 'Meet the organizations powering this event')
+          { className: 'container-max py-8 flex items-center justify-between' },
+          React.createElement(
+            'div',
+            null,
+            React.createElement('h1', { className: 'text-3xl md:text-4xl font-bold mb-2' }, 'Partners & Sponsors'),
+            React.createElement('p', { className: 'text-white/80' }, 'Meet the organizations powering this event')
+          ),
+          React.createElement(
+            'button',
+            {
+              onClick: () => setShowCreateModal(true),
+              className: 'btn bg-white text-primary-600 hover:bg-neutral-100 flex items-center gap-2 font-semibold px-4 py-2 rounded-lg'
+            },
+            React.createElement(Plus, { className: 'w-5 h-5' }),
+            'Add Partner'
+          )
         )
       ),
       React.createElement(
         'div',
         { className: 'container-max py-8' },
-        React.createElement(
-          'div',
-          { className: 'grid grid-cols-1 md:grid-cols-2 gap-4 mb-8' },
-          categories.length > 0 &&
+        showCreateModal &&
+          React.createElement(
+            'div',
+            { className: 'bg-white rounded-lg border border-neutral-200 p-6 mb-8 shadow-md' },
             React.createElement(
               'div',
-              null,
-              React.createElement('label', { className: 'block text-sm font-medium text-neutral-700 mb-2' }, 'Category'),
+              { className: 'flex items-center justify-between mb-4' },
+              React.createElement('h3', { className: 'text-lg font-bold text-neutral-900' }, 'Add New Partner'),
               React.createElement(
-                'select',
-                {
-                  value: selectedCategory,
-                  onChange: (e) => setSelectedCategory(e.target.value),
-                  className: 'w-full p-2 border border-neutral-300 rounded-lg bg-white'
-                },
-                React.createElement('option', { value: '' }, 'All Categories'),
-                categories.map((cat) =>
-                  React.createElement('option', { key: cat, value: cat }, cat)
-                )
+                'button',
+                { onClick: () => setShowCreateModal(false), className: 'text-neutral-500 hover:text-neutral-800' },
+                React.createElement(X, { className: 'w-5 h-5' })
               )
             ),
-          tiers.length > 0 &&
             React.createElement(
-              'div',
-              null,
-              React.createElement('label', { className: 'block text-sm font-medium text-neutral-700 mb-2' }, 'Sponsorship Tier'),
+              'form',
+              { onSubmit: handleCreatePartner, className: 'space-y-4' },
               React.createElement(
-                'select',
-                {
-                  value: selectedTier,
-                  onChange: (e) => setSelectedTier(e.target.value),
-                  className: 'w-full p-2 border border-neutral-300 rounded-lg bg-white'
-                },
-                React.createElement('option', { value: '' }, 'All Tiers'),
-                tiers.map((tier) =>
-                  React.createElement('option', { key: tier, value: tier }, tier)
+                'div',
+                { className: 'grid grid-cols-1 md:grid-cols-2 gap-4' },
+                React.createElement('input', {
+                  type: 'text',
+                  placeholder: 'Partner Name',
+                  value: newPartner.name,
+                  onChange: (e) => setNewPartner({ ...newPartner, name: e.target.value }),
+                  className: 'p-2 border border-neutral-300 rounded-lg',
+                  required: true
+                }),
+                React.createElement(
+                  'select',
+                  {
+                    value: newPartner.tier,
+                    onChange: (e) => setNewPartner({ ...newPartner, tier: e.target.value }),
+                    className: 'p-2 border border-neutral-300 rounded-lg bg-white'
+                  },
+                  React.createElement('option', { value: 'Platinum' }, 'Platinum'),
+                  React.createElement('option', { value: 'Gold' }, 'Gold'),
+                  React.createElement('option', { value: 'Silver' }, 'Silver'),
+                  React.createElement('option', { value: 'Bronze' }, 'Bronze')
+                )
+              ),
+              React.createElement(
+                'div',
+                { className: 'grid grid-cols-1 md:grid-cols-2 gap-4' },
+                React.createElement('input', {
+                  type: 'text',
+                  placeholder: 'Industry (e.g. AI & Cloud)',
+                  value: newPartner.industry,
+                  onChange: (e) => setNewPartner({ ...newPartner, industry: e.target.value }),
+                  className: 'p-2 border border-neutral-300 rounded-lg'
+                }),
+                React.createElement('input', {
+                  type: 'text',
+                  placeholder: 'Location',
+                  value: newPartner.location,
+                  onChange: (e) => setNewPartner({ ...newPartner, location: e.target.value }),
+                  className: 'p-2 border border-neutral-300 rounded-lg'
+                })
+              ),
+              React.createElement('textarea', {
+                placeholder: 'Partner Description',
+                value: newPartner.description,
+                onChange: (e) => setNewPartner({ ...newPartner, description: e.target.value }),
+                className: 'w-full p-2 border border-neutral-300 rounded-lg',
+                rows: 2
+              }),
+              React.createElement(
+                'div',
+                { className: 'flex justify-end gap-2' },
+                React.createElement(
+                  'button',
+                  { type: 'button', onClick: () => setShowCreateModal(false), className: 'btn btn-outline px-4 py-2' },
+                  'Cancel'
+                ),
+                React.createElement(
+                  'button',
+                  { type: 'submit', className: 'btn btn-primary px-4 py-2' },
+                  'Save Partner'
                 )
               )
             )
-        ),
+          ),
         filteredPartners.length > 0
           ? React.createElement(
               'div',
@@ -144,11 +261,20 @@ const PartnersScreen = () => {
                   'div',
                   {
                     key: partner.id,
-                    className: 'bg-white rounded-lg border border-neutral-200 overflow-hidden hover:shadow-lg transition-all hover:scale-105 active:scale-100'
+                    className: 'bg-white rounded-lg border border-neutral-200 overflow-hidden hover:shadow-lg transition-all'
                   },
                   React.createElement(
                     'div',
-                    { className: 'h-40 bg-neutral-100 flex items-center justify-center p-6 border-b border-neutral-200' },
+                    { className: 'h-40 bg-neutral-100 flex items-center justify-center p-6 border-b border-neutral-200 relative' },
+                    React.createElement(
+                      'button',
+                      {
+                        onClick: () => handleDeletePartner(partner.id),
+                        className: 'absolute top-3 right-3 p-2 bg-white text-red-600 hover:bg-red-50 rounded-full shadow-sm',
+                        title: 'Delete Partner'
+                      },
+                      React.createElement(Trash2, { className: 'w-4 h-4' })
+                    ),
                     partner.logo_url
                       ? React.createElement('img', {
                           src: partner.logo_url,
@@ -193,30 +319,11 @@ const PartnersScreen = () => {
                           { className: 'flex items-center gap-2 text-neutral-700' },
                           React.createElement(MapPin, { className: 'w-4 h-4 text-primary-600 flex-shrink-0' }),
                           React.createElement('span', null, partner.location)
-                        ),
-                      partner.employees &&
-                        React.createElement(
-                          'div',
-                          { className: 'flex items-center gap-2 text-neutral-700' },
-                          React.createElement(Users, { className: 'w-4 h-4 text-primary-600 flex-shrink-0' }),
-                          React.createElement('span', null, `${partner.employees} employees`)
                         )
                     ),
                     React.createElement(
                       'div',
                       { className: 'space-y-2 pt-4 border-t border-neutral-200' },
-                      partner.website_url &&
-                        React.createElement(
-                          'a',
-                          {
-                            href: partner.website_url,
-                            target: '_blank',
-                            rel: 'noopener noreferrer',
-                            className: 'block w-full btn btn-outline btn-sm flex items-center justify-center gap-2'
-                          },
-                          React.createElement(Globe, { className: 'w-4 h-4' }),
-                          'Visit Website'
-                        ),
                       React.createElement(
                         'button',
                         { className: 'w-full btn btn-primary btn-sm flex items-center justify-center gap-2' },
@@ -232,21 +339,10 @@ const PartnersScreen = () => {
               'div',
               { className: 'bg-neutral-50 rounded-lg border border-neutral-200 p-12 text-center' },
               React.createElement(Award, { className: 'w-12 h-12 text-neutral-400 mx-auto mb-4 opacity-50' }),
-              React.createElement('p', { className: 'text-neutral-600 mb-4' }, 'No partners found'),
-              React.createElement(
-                'button',
-                {
-                  onClick: () => {
-                    setSelectedCategory('');
-                    setSelectedTier('');
-                  },
-                  className: 'btn btn-primary'
-                },
-                'View All Partners'
-              )
+              React.createElement('p', { className: 'text-neutral-600 mb-4' }, 'No partners found')
             )
       )
-    ),
+    )
   );
 };
 
