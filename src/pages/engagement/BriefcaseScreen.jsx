@@ -2,7 +2,6 @@ import React, { useEffect, useState } from 'react';
 import { Briefcase, Download, Trash2, Share2, Search } from 'lucide-react';
 import toast from 'react-hot-toast';
 import Header from '../../components/layout/Header';
-import BottomNavigation from '../../components/layout/BottomNavigation';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 import apiClient from '../../config/apiClient';
 
@@ -320,7 +319,6 @@ const BriefcaseScreen = () => {
             )
       )
     ),
-    React.createElement(BottomNavigation, null)
   );
 };
 

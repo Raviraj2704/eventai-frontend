@@ -9,7 +9,6 @@ import React, { useEffect, useState } from 'react'
 import { Users, MessageSquare, Trash2, Check, X, Search, Filter, Settings } from 'lucide-react'
 import toast from 'react-hot-toast'
 import Header from '../../components/layout/Header'
-import BottomNavigation from '../../components/layout/BottomNavigation'
 import LoadingSpinner from '../../components/common/LoadingSpinner'
 import apiClient from '../../config/apiClient'
 
@@ -422,7 +421,6 @@ const AdminDashboardScreen = () => {
         </div>
       </main>
 
-      <BottomNavigation />
     </>
   )
 }

@@ -9,7 +9,6 @@ import React, { useEffect, useState, useRef } from 'react'
 import { Heart, MessageCircle, Share2, MoreVertical, Loader, X } from 'lucide-react'
 import toast from 'react-hot-toast'
 import Header from '../../components/layout/Header'
-import BottomNavigation from '../../components/layout/BottomNavigation'
 import LoadingSpinner from '../../components/common/LoadingSpinner'
 import { useAuthStore } from '../../store/authStore'
 import apiClient from '../../config/apiClient'
@@ -376,7 +375,6 @@ const SocialWallScreen = () => {
         </div>
       </main>
 
-      <BottomNavigation />
     </>
   )
 }

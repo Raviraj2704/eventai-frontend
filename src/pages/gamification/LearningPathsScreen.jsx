@@ -2,7 +2,6 @@ import React, { useEffect, useState } from 'react';
 import { BookOpen, Clock, Users, Target, Check, Play, Search } from 'lucide-react';
 import toast from 'react-hot-toast';
 import Header from '../../components/layout/Header';
-import BottomNavigation from '../../components/layout/BottomNavigation';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 import apiClient from '../../config/apiClient';
 
@@ -275,7 +274,6 @@ const LearningPathsScreen = () => {
             )
       )
     ),
-    React.createElement(BottomNavigation, null)
   );
 };
 

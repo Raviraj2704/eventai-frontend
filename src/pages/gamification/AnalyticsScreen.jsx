@@ -10,7 +10,6 @@ import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, Cart
 import { TrendingUp, Users, Target, Award, Clock } from 'lucide-react'
 import toast from 'react-hot-toast'
 import Header from '../../components/layout/Header'
-import BottomNavigation from '../../components/layout/BottomNavigation'
 import LoadingSpinner from '../../components/common/LoadingSpinner'
 import apiClient from '../../config/apiClient'
 
@@ -69,7 +68,6 @@ const AnalyticsScreen = () => {
       <>
         <Header />
         <LoadingSpinner fullScreen />
-        <BottomNavigation />
       </>
     )
   }
@@ -263,7 +261,6 @@ const AnalyticsScreen = () => {
         </div>
       </main>
 
-      <BottomNavigation />
     </>
   )
 }

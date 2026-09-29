@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { apiGet } from '../../services/api';
 import '../../styles/hub.css';
@@ -9,7 +9,10 @@ export default function HubPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  const featureCards = [
+  // ============================================================================
+  // Memoize feature cards - DO NOT recreate on every render
+  // ============================================================================
+  const featureCards = useMemo(() => [
     {
       id: 1,
       title: 'Announcements',
@@ -118,143 +121,131 @@ export default function HubPage() {
       apiEndpoint: '/ai/networking/matches',
       color: '#5ab1ff'
     }
-  ];
+  ], []);
 
+  // ============================================================================
+  // Load Hub Data - ONLY on component mount (empty dependency array)
+  // ============================================================================
   useEffect(() => {
     loadHubData();
-  }, []);
+  }, []); // ✅ CRITICAL: Empty array means this runs ONCE on mount only
 
-  const loadHubData = async () => {
+  const loadHubData = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
+      
+      // Static data - no need for API call in MVP
       setHubData({
         name: 'NextGen AI Expo 2026',
         description: 'Innovation Hub',
-        location: 'Online'
+        location: 'HITECH City, Hyderabad'
       });
     } catch (err) {
       console.error('Failed to load hub data:', err);
+      // Set fallback data on error
       setHubData({
         name: 'NextGen AI Expo 2026',
         description: 'Innovation Hub',
-        location: 'Online'
+        location: 'HITECH City, Hyderabad'
       });
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const handleFeatureClick = async (feature) => {
-    if (!feature.apiEndpoint || feature.path === '/admin') {
-      navigate(feature.path);
-      return;
-    }
-    try {
-      await apiGet(feature.apiEndpoint);
-      navigate(feature.path);
-    } catch (err) {
-      console.warn('API endpoint warning:', err);
-      navigate(feature.path);
-    }
-  };
+  // ============================================================================
+  // Handle Feature Click - DO NOT call API here, just navigate
+  // ============================================================================
+  const handleFeatureClick = useCallback((feature) => {
+    // Don't make API calls on click - user will see data when page loads
+    navigate(feature.path);
+  }, [navigate]);
 
+  // ============================================================================
+  // Loading State
+  // ============================================================================
   if (loading) {
-    return React.createElement(
-      'div',
-      { className: 'hub-container' },
-      React.createElement(
-        'div',
-        { className: 'loading-spinner' },
-        React.createElement('p', null, 'Loading hub features...')
-      )
+    return (
+      <div className="hub-container">
+        <div className="loading-spinner">
+          <p>Loading hub features...</p>
+        </div>
+      </div>
     );
   }
 
-  return React.createElement(
-    'div',
-    { className: 'hub-container' },
-    React.createElement(
-      'div',
-      { className: 'hub-hero' },
-      React.createElement('h1', null, hubData?.name || 'NextGen AI Expo 2026'),
-      React.createElement('p', null, hubData?.description || 'Innovation Hub')
-    ),
-    error &&
-      React.createElement(
-        'div',
-        { className: 'error-banner' },
-        React.createElement('p', null, '⚠️ ' + error),
-        React.createElement(
-          'button',
-          { onClick: loadHubData, className: 'btn-retry' },
-          'Retry'
-        )
-      ),
-    React.createElement(
-      'section',
-      { className: 'hub-features-section' },
-      React.createElement('h2', null, 'Hub Features'),
-      React.createElement(
-        'div',
-        { className: 'hub-features-grid' },
-        featureCards.map((feature) =>
-          React.createElement(
-            'div',
-            {
-              key: feature.id,
-              className: 'hub-feature-card',
-              onClick: () => handleFeatureClick(feature),
-              style: { backgroundColor: feature.color }
-            },
-            React.createElement(
-              'div',
-              { className: 'feature-card-content' },
-              React.createElement('div', { className: 'feature-icon' }, feature.icon),
-              React.createElement('h3', null, feature.title),
-              React.createElement('p', null, feature.description)
-            ),
-            React.createElement('div', { className: 'feature-arrow' }, '→')
-          )
-        )
-      )
-    ),
-    React.createElement(
-      'section',
-      { className: 'hub-stats' },
-      React.createElement('h2', null, 'Event Overview'),
-      React.createElement(
-        'div',
-        { className: 'stats-grid' },
-        React.createElement(
-          'div',
-          { className: 'stat-card' },
-          React.createElement('span', { className: 'stat-icon' }, '📋'),
-          React.createElement('h4', null, 'Total Features'),
-          React.createElement('p', { className: 'stat-value' }, '12')
-        ),
-        React.createElement(
-          'div',
-          { className: 'stat-card' },
-          React.createElement('span', { className: 'stat-icon' }, '📅'),
-          React.createElement('h4', null, 'Event'),
-          React.createElement('p', { className: 'stat-value' }, hubData?.name || 'AI Expo')
-        ),
-        React.createElement(
-          'div',
-          { className: 'stat-card' },
-          React.createElement('span', { className: 'stat-icon' }, '📍'),
-          React.createElement('h4', null, 'Location'),
-          React.createElement('p', { className: 'stat-value' }, hubData?.location || 'Online')
-        ),
-        React.createElement(
-          'div',
-          { className: 'stat-card' },
-          React.createElement('span', { className: 'stat-icon' }, '📞'),
-          React.createElement('h4', null, 'Support'),
-          React.createElement('p', { className: 'stat-value' }, '24/7')
-        )
-      )
-    )
+  // ============================================================================
+  // Main Render
+  // ============================================================================
+  return (
+    <div className="hub-container">
+      {/* Hero Section */}
+      <div className="hub-hero">
+        <h1>{hubData?.name || 'NextGen AI Expo 2026'}</h1>
+        <p>{hubData?.description || 'Innovation Hub'}</p>
+      </div>
+
+      {/* Error Banner */}
+      {error && (
+        <div className="error-banner">
+          <p>⚠️ {error}</p>
+          <button onClick={loadHubData} className="btn-retry">
+            Retry
+          </button>
+        </div>
+      )}
+
+      {/* Features Grid */}
+      <section className="hub-features-section">
+        <h2>Hub Features</h2>
+        <div className="hub-features-grid">
+          {featureCards.map((feature) => (
+            <div
+              key={feature.id}
+              className="hub-feature-card"
+              onClick={() => handleFeatureClick(feature)}
+              style={{ backgroundColor: feature.color }}
+              role="button"
+              tabIndex={0}
+            >
+              <div className="feature-card-content">
+                <div className="feature-icon">{feature.icon}</div>
+                <h3>{feature.title}</h3>
+                <p>{feature.description}</p>
+              </div>
+              <div className="feature-arrow">→</div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* Stats Section */}
+      <section className="hub-stats">
+        <h2>Event Overview</h2>
+        <div className="stats-grid">
+          <div className="stat-card">
+            <span className="stat-icon">📋</span>
+            <h4>Total Features</h4>
+            <p className="stat-value">12</p>
+          </div>
+          <div className="stat-card">
+            <span className="stat-icon">📅</span>
+            <h4>Event</h4>
+            <p className="stat-value">{hubData?.name || 'AI Expo'}</p>
+          </div>
+          <div className="stat-card">
+            <span className="stat-icon">📍</span>
+            <h4>Location</h4>
+            <p className="stat-value">{hubData?.location || 'Online'}</p>
+          </div>
+          <div className="stat-card">
+            <span className="stat-icon">📞</span>
+            <h4>Support</h4>
+            <p className="stat-value">24/7</p>
+          </div>
+        </div>
+      </section>
+    </div>
   );
 }

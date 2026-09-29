@@ -10,7 +10,6 @@ import { useNavigate } from 'react-router-dom'
 import { ArrowRight, Zap, Users, Trophy, Target } from 'lucide-react'
 import toast from 'react-hot-toast'
 import Header from '../../components/layout/Header'
-import BottomNavigation from '../../components/layout/BottomNavigation'
 import LoadingSpinner from '../../components/common/LoadingSpinner'
 import SessionCard from '../../components/cards/SessionCard'
 import { useAuthStore } from '../../store/authStore'
@@ -65,7 +64,6 @@ const HomeScreen = () => {
       <>
         <Header />
         <LoadingSpinner fullScreen />
-        <BottomNavigation />
       </>
     )
   }
@@ -202,7 +200,6 @@ const HomeScreen = () => {
         </section>
       </main>
 
-      <BottomNavigation />
     </>
   )
 }

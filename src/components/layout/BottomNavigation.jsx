@@ -1,12 +1,11 @@
 // ============================================================================
-// BottomNavigation.jsx - Responsive Navigation Component
+// BottomNavigation.jsx - FIXED VERSION
 // ============================================================================
-// Purpose: Bottom nav on mobile, top nav on desktop
-// 5 Tabs: Home, Hub, Networking, Engage, Profile
-// Status: Production-Ready ✅
-// Last Updated: Sep 24, 2026
+// Purpose: Mobile bottom nav with app name, desktop top nav
+// Status: No infinite loops, no duplicates ✅
+// Last Updated: Sep 29, 2026
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 
 export default function BottomNavigation() {
@@ -15,9 +14,9 @@ export default function BottomNavigation() {
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
 
   // ============================================================================
-  // Navigation Tabs Configuration
+  // Navigation Tabs - MEMOIZED to prevent recreation on every render
   // ============================================================================
-  const navTabs = [
+  const navTabs = useMemo(() => [
     {
       id: 1,
       label: 'Home',
@@ -53,10 +52,10 @@ export default function BottomNavigation() {
       path: '/profile',
       description: 'Profile'
     }
-  ];
+  ], []);
 
   // ============================================================================
-  // Handle Window Resize for Responsive Design
+  // Handle Window Resize - ONLY update on actual resize, not on every render
   // ============================================================================
   useEffect(() => {
     const handleResize = () => {
@@ -65,61 +64,80 @@ export default function BottomNavigation() {
 
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
-  }, []);
+  }, []); // Empty dependency array - runs only once on mount
 
   // ============================================================================
-  // Check Active Tab
+  // Check Active Tab - MEMOIZED to prevent recalculation
   // ============================================================================
-  const getActiveTab = (path) => {
-    // Exact match
-    if (location.pathname === path) return true;
-    
-    // For pages under hub
-    if (path === '/hub' && location.pathname.startsWith('/hub')) return true;
-    
-    // For networking-related pages
-    if (path === '/networking' && location.pathname.includes('networking')) return true;
-    
-    // For engagement/activity pages
-    if (path === '/activity-hub' && 
-        (location.pathname.includes('activity') || 
-         location.pathname.includes('engagement') ||
-         location.pathname.includes('social') ||
-         location.pathname.includes('ai-matches'))) {
-      return true;
-    }
+  const getActiveTab = useMemo(() => {
+    return (path) => {
+      // Exact match
+      if (location.pathname === path) return true;
 
-    return false;
-  };
+      // For pages under hub
+      if (path === '/hub' && location.pathname.startsWith('/hub')) return true;
+
+      // For networking-related pages
+      if (path === '/networking' && location.pathname.includes('networking')) return true;
+
+      // For engagement/activity pages
+      if (path === '/activity-hub' && 
+          (location.pathname.includes('activity') || 
+           location.pathname.includes('engagement') ||
+           location.pathname.includes('social') ||
+           location.pathname.includes('ai-matches'))) {
+        return true;
+      }
+
+      return false;
+    };
+  }, [location.pathname]);
 
   // ============================================================================
-  // Handle Tab Click
+  // Handle Tab Click - NO unnecessary re-renders
   // ============================================================================
   const handleTabClick = (path) => {
-    navigate(path);
+    if (location.pathname !== path) {
+      navigate(path);
+    }
   };
 
   // ============================================================================
-  // Render - Mobile Bottom Navigation
+  // Render - Mobile Bottom Navigation WITH APP NAME
   // ============================================================================
   if (isMobile) {
     return (
-      <nav className="bottom-navigation mobile">
-        <div className="nav-container">
-          {navTabs.map(tab => (
-            <button
-              key={tab.id}
-              className={`nav-tab ${getActiveTab(tab.path) ? 'active' : ''}`}
-              onClick={() => handleTabClick(tab.path)}
-              title={tab.description}
-              aria-label={tab.description}
-            >
-              <span className="nav-icon">{tab.icon}</span>
-              <span className="nav-label">{tab.label}</span>
-            </button>
-          ))}
+      <>
+        {/* Mobile Header with App Name */}
+        <div className="mobile-header">
+          <div className="mobile-header-content">
+            <span className="mobile-header-icon">⚡</span>
+            <span className="mobile-header-title">EventAI</span>
+          </div>
+          <div className="mobile-header-actions">
+            <button className="mobile-header-btn" title="Search">🔍</button>
+            <button className="mobile-header-btn" title="Notifications">🔔</button>
+          </div>
         </div>
-      </nav>
+
+        {/* Mobile Bottom Navigation */}
+        <nav className="bottom-navigation mobile">
+          <div className="nav-container">
+            {navTabs.map(tab => (
+              <button
+                key={tab.id}
+                className={`nav-tab ${getActiveTab(tab.path) ? 'active' : ''}`}
+                onClick={() => handleTabClick(tab.path)}
+                title={tab.description}
+                aria-label={tab.description}
+              >
+                <span className="nav-icon">{tab.icon}</span>
+                <span className="nav-label">{tab.label}</span>
+              </button>
+            ))}
+          </div>
+        </nav>
+      </>
     );
   }
 
@@ -149,15 +167,9 @@ export default function BottomNavigation() {
         </div>
 
         <div className="nav-actions">
-          <button className="nav-search" title="Search">
-            🔍
-          </button>
-          <button className="nav-notifications" title="Notifications">
-            🔔
-          </button>
-          <button className="nav-profile" title="Profile">
-            👤
-          </button>
+          <button className="nav-search" title="Search">🔍</button>
+          <button className="nav-notifications" title="Notifications">🔔</button>
+          <button className="nav-profile" title="Profile">👤</button>
         </div>
       </div>
     </nav>

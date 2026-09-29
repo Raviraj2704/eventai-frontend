@@ -10,7 +10,6 @@ import { useNavigate } from 'react-router-dom'
 import { Edit2, Mail, MapPin, Building2, Briefcase, LogOut, Award, Zap, Target } from 'lucide-react'
 import toast from 'react-hot-toast'
 import Header from '../../components/layout/Header'
-import BottomNavigation from '../../components/layout/BottomNavigation'
 import { useAuthStore } from '../../store/authStore'
 
 const ProfileScreen = () => {
@@ -266,7 +265,6 @@ const ProfileScreen = () => {
         </div>
       </main>
 
-      <BottomNavigation />
     </>
   )
 }

@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { apiGet, apiPost } from '../services/api';
-import BottomNavigation from '../components/BottomNavigation';
 import AttendeeCard from '../components/networking/PersonCard'; 
 import '../styles/networking.css';
 
@@ -226,7 +225,6 @@ useEffect(() => {
 
       {/* Bottom Navigation Component */}
       <div className="fixed bottom-0 left-0 right-0 z-50 bg-slate-950">
-        <BottomNavigation activeTab={activeTab} onTabChange={handleTabChange} />
       </div>
       
     </div>

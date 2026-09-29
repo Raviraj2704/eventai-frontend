@@ -2,7 +2,6 @@ import React, { useEffect, useState } from 'react';
 import { Globe, MapPin, Users, Award, ArrowRight } from 'lucide-react';
 import toast from 'react-hot-toast';
 import Header from '../../components/layout/Header';
-import BottomNavigation from '../../components/layout/BottomNavigation';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 import apiClient from '../../config/apiClient';
 
@@ -73,7 +72,6 @@ const PartnersScreen = () => {
       null,
       React.createElement(Header, null),
       React.createElement(LoadingSpinner, { fullScreen: true }),
-      React.createElement(BottomNavigation, null)
     );
   }
 
@@ -249,7 +247,6 @@ const PartnersScreen = () => {
             )
       )
     ),
-    React.createElement(BottomNavigation, null)
   );
 };
 

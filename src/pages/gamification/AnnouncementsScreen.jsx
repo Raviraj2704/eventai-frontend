@@ -9,7 +9,6 @@ import React, { useEffect, useState } from 'react'
 import { Megaphone, AlertCircle, Info, CheckCircle, Bell, Search } from 'lucide-react'
 import toast from 'react-hot-toast'
 import Header from '../../components/layout/Header'
-import BottomNavigation from '../../components/layout/BottomNavigation'
 import LoadingSpinner from '../../components/common/LoadingSpinner'
 import apiClient from '../../config/apiClient'
 
@@ -269,7 +268,6 @@ const AnnouncementsScreen = () => {
         </div>
       </main>
 
-      <BottomNavigation />
     </>
   )
 }

@@ -8,7 +8,6 @@
 import React, { useState, useRef, useEffect } from 'react'
 import { Send, MessageCircle, X } from 'lucide-react'
 import Header from '../../components/layout/Header'
-import BottomNavigation from '../../components/layout/BottomNavigation'
 
 const PicbotScreen = () => {
   const [messages, setMessages] = useState([
@@ -144,7 +143,6 @@ const PicbotScreen = () => {
         </div>
       </main>
 
-      <BottomNavigation />
     </>
   )
 }
