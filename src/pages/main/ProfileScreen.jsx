@@ -1,272 +1,407 @@
 // ============================================================================
-// Profile Screen
+// ProfileScreen.jsx - FIXED - Display Profile Data After Save
 // ============================================================================
-// File: src/pages/main/ProfileScreen.jsx
-// Purpose: View and edit user profile
+// File: frontend/src/pages/main/ProfileScreen.jsx
+// Purpose: Display user profile with edit capability and data persistence
 // Status: Production-Ready ✅
 
-import React, { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { Edit2, Mail, MapPin, Building2, Briefcase, LogOut, Award, Zap, Target } from 'lucide-react'
-import toast from 'react-hot-toast'
-import Header from '../../components/layout/Header'
-import { useAuthStore } from '../../store/authStore'
+import React, { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { apiGet, apiPost } from '../../services/api';
+import toast from 'react-hot-toast';
+import '../../styles/profile.css';
 
-const ProfileScreen = () => {
-  const navigate = useNavigate()
-  const { user, logout } = useAuthStore()
-  const [isEditing, setIsEditing] = useState(false)
+export default function ProfileScreen() {
+  const navigate = useNavigate();
+  
+  // State Management
+  const [profileData, setProfileData] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isEditing, setIsEditing] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [error, setError] = useState(null);
   const [formData, setFormData] = useState({
-    firstName: user?.first_name || '',
-    lastName: user?.last_name || '',
-    bio: user?.bio || '',
-    company: user?.company || '',
-    jobTitle: user?.job_title || ''
-  })
+    firstName: '',
+    lastName: '',
+    email: '',
+    phone: '',
+    designation: '',
+    company: '',
+    bio: '',
+    profilePicture: null
+  });
 
-  const handleChange = (e) => {
-    const { name, value } = e.target
+  // ============================================================================
+  // FETCH PROFILE DATA - Runs ONCE on mount
+  // ============================================================================
+  useEffect(() => {
+    fetchProfileData();
+  }, []); // Empty dependency array - fetch only ONCE
+
+  const fetchProfileData = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
+      
+      // Fetch from /users/me endpoint
+      const response = await apiGet('/users/me');
+      
+      if (response.status === 200 && response.data) {
+        const data = response.data;
+        
+        // Set profile data
+        setProfileData(data);
+        
+        // Populate form with existing data
+        setFormData({
+          firstName: data.first_name || '',
+          lastName: data.last_name || '',
+          email: data.email || '',
+          phone: data.phone || '',
+          designation: data.designation || '',
+          company: data.company || '',
+          bio: data.bio || '',
+          profilePicture: data.profile_picture_url || null
+        });
+      }
+    } catch (err) {
+      console.error('Failed to fetch profile:', err);
+      setError('Failed to load profile data');
+      setProfileData(null);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  // ============================================================================
+  // HANDLE INPUT CHANGE
+  // ============================================================================
+  const handleInputChange = useCallback((e) => {
+    const { name, value } = e.target;
     setFormData(prev => ({
       ...prev,
       [name]: value
-    }))
-  }
+    }));
+  }, []);
 
-  const handleSave = async () => {
-    try {
-      toast.success('Profile updated successfully!')
-      setIsEditing(false)
-    } catch (error) {
-      toast.error('Failed to update profile')
+  // ============================================================================
+  // HANDLE FILE UPLOAD
+  // ============================================================================
+  const handleImageUpload = useCallback((e) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        setFormData(prev => ({
+          ...prev,
+          profilePicture: event.target?.result
+        }));
+      };
+      reader.readAsDataURL(file);
     }
+  }, []);
+
+  // ============================================================================
+  // SAVE PROFILE - Then FETCH fresh data
+  // ============================================================================
+  const handleSaveProfile = useCallback(async () => {
+    try {
+      setIsSaving(true);
+      
+      const updatePayload = {
+        first_name: formData.firstName,
+        last_name: formData.lastName,
+        phone: formData.phone,
+        designation: formData.designation,
+        company: formData.company,
+        bio: formData.bio
+      };
+
+      // Send update to backend
+      const response = await apiPost('/users/me', updatePayload);
+      
+      if (response.status === 200) {
+        toast.success('Profile updated successfully! 🎉');
+        setIsEditing(false);
+        
+        // ✅ CRITICAL: Fetch fresh data after save
+        await fetchProfileData();
+      }
+    } catch (err) {
+      console.error('Failed to save profile:', err);
+      toast.error('Failed to save profile. Please try again.');
+    } finally {
+      setIsSaving(false);
+    }
+  }, [formData, fetchProfileData]);
+
+  // ============================================================================
+  // LOADING STATE
+  // ============================================================================
+  if (isLoading) {
+    return (
+      <div className="profile-container loading">
+        <div className="loading-spinner">
+          <p>Loading your profile...</p>
+        </div>
+      </div>
+    );
   }
 
-  const handleLogout = () => {
-    logout()
-    navigate('/auth/login', { replace: true })
-  }
-
-  return (
-    <>
-      <Header />
-
-      <main className="pb-20 md:pb-0">
-        <div className="container-max py-8">
-          {/* Profile Header */}
-          <div className="bg-white rounded-lg border border-neutral-200 overflow-hidden mb-8">
-            {/* Cover Photo */}
-            <div className="h-32 bg-gradient-to-r from-primary-600 to-secondary-600" />
-
-            {/* Profile Info */}
-            <div className="px-6 pb-6 -mt-16 relative">
-              {/* Avatar */}
-              <div className="w-32 h-32 rounded-full bg-gradient-to-br from-primary-400 to-secondary-400 border-4 border-white flex items-center justify-center overflow-hidden mb-4">
-                {user?.avatar_url ? (
-                  <img
-                    src={user.avatar_url}
-                    alt="Avatar"
-                    className="w-full h-full object-cover"
-                  />
-                ) : (
-                  <span className="text-4xl font-bold text-white">
-                    {user?.first_name?.[0]}{user?.last_name?.[0]}
-                  </span>
-                )}
-              </div>
-
-              {/* Name and Title */}
-              <h1 className="text-3xl font-bold text-neutral-900 mb-1">
-                {user?.first_name} {user?.last_name}
-              </h1>
-
-              <p className="text-lg text-primary-600 font-medium mb-4">
-                {user?.job_title || 'Professional'}
-              </p>
-
-              {/* Edit Button */}
-              <button
-                onClick={() => setIsEditing(!isEditing)}
-                className="btn btn-outline btn-sm flex items-center gap-2"
-              >
-                <Edit2 className="w-4 h-4" />
-                {isEditing ? 'Cancel' : 'Edit Profile'}
-              </button>
-            </div>
-          </div>
-
-          {/* Stats */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-            <div className="bg-white rounded-lg border border-neutral-200 p-6">
-              <div className="flex items-center gap-3 mb-3">
-                <Zap className="w-6 h-6 text-primary-600" />
-                <span className="text-2xl font-bold text-neutral-900">0</span>
-              </div>
-              <p className="text-sm text-neutral-600">Points Earned</p>
-            </div>
-
-            <div className="bg-white rounded-lg border border-neutral-200 p-6">
-              <div className="flex items-center gap-3 mb-3">
-                <Award className="w-6 h-6 text-yellow-600" />
-                <span className="text-2xl font-bold text-neutral-900">0</span>
-              </div>
-              <p className="text-sm text-neutral-600">Badges</p>
-            </div>
-
-            <div className="bg-white rounded-lg border border-neutral-200 p-6">
-              <div className="flex items-center gap-3 mb-3">
-                <Target className="w-6 h-6 text-blue-600" />
-                <span className="text-2xl font-bold text-neutral-900">#0</span>
-              </div>
-              <p className="text-sm text-neutral-600">Rank</p>
-            </div>
-          </div>
-
-          {/* Profile Details */}
-          <div className="bg-white rounded-lg border border-neutral-200 overflow-hidden mb-8">
-            <div className="border-b border-neutral-200 px-6 py-4">
-              <h2 className="text-lg font-bold text-neutral-900">Profile Information</h2>
-            </div>
-
-            <div className="px-6 py-6">
-              {isEditing ? (
-                // Edit Mode
-                <div className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-neutral-700 mb-2">
-                        First Name
-                      </label>
-                      <input
-                        type="text"
-                        name="firstName"
-                        value={formData.firstName}
-                        onChange={handleChange}
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-neutral-700 mb-2">
-                        Last Name
-                      </label>
-                      <input
-                        type="text"
-                        name="lastName"
-                        value={formData.lastName}
-                        onChange={handleChange}
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-neutral-700 mb-2">
-                      Email
-                    </label>
-                    <input
-                      type="email"
-                      value={user?.email}
-                      disabled
-                      className="opacity-60"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-neutral-700 mb-2">
-                      Job Title
-                    </label>
-                    <input
-                      type="text"
-                      name="jobTitle"
-                      value={formData.jobTitle}
-                      onChange={handleChange}
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-neutral-700 mb-2">
-                      Company
-                    </label>
-                    <input
-                      type="text"
-                      name="company"
-                      value={formData.company}
-                      onChange={handleChange}
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-neutral-700 mb-2">
-                      Bio
-                    </label>
-                    <textarea
-                      name="bio"
-                      value={formData.bio}
-                      onChange={handleChange}
-                      rows="4"
-                      maxLength="500"
-                    />
-                    <p className="text-xs text-neutral-500 mt-1">
-                      {formData.bio.length}/500
-                    </p>
-                  </div>
-
-                  <button
-                    onClick={handleSave}
-                    className="btn btn-primary"
-                  >
-                    Save Changes
-                  </button>
-                </div>
-              ) : (
-                // View Mode
-                <div className="space-y-4">
-                  <div className="flex items-center gap-3">
-                    <Mail className="w-5 h-5 text-neutral-400" />
-                    <div>
-                      <p className="text-xs text-neutral-600">Email</p>
-                      <p className="text-neutral-900">{user?.email}</p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-3">
-                    <Briefcase className="w-5 h-5 text-neutral-400" />
-                    <div>
-                      <p className="text-xs text-neutral-600">Job Title</p>
-                      <p className="text-neutral-900">{user?.job_title || 'Not specified'}</p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-3">
-                    <Building2 className="w-5 h-5 text-neutral-400" />
-                    <div>
-                      <p className="text-xs text-neutral-600">Company</p>
-                      <p className="text-neutral-900">{user?.company || 'Not specified'}</p>
-                    </div>
-                  </div>
-
-                  {user?.bio && (
-                    <div>
-                      <p className="text-xs text-neutral-600 mb-2">Bio</p>
-                      <p className="text-neutral-900">{user.bio}</p>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Logout Button */}
-          <button
-            onClick={handleLogout}
-            className="w-full btn btn-outline border-error text-error hover:bg-red-50 flex items-center justify-center gap-2"
+  // ============================================================================
+  // ERROR STATE
+  // ============================================================================
+  if (error && !profileData) {
+    return (
+      <div className="profile-container error">
+        <div className="error-box">
+          <h2>❌ Unable to Load Profile</h2>
+          <p>{error}</p>
+          <button 
+            onClick={fetchProfileData}
+            className="btn btn-primary"
           >
-            <LogOut className="w-5 h-5" />
-            Sign Out
+            🔄 Retry
           </button>
         </div>
-      </main>
+      </div>
+    );
+  }
 
-    </>
-  )
+  // ============================================================================
+  // EDIT MODE - Form
+  // ============================================================================
+  if (isEditing) {
+    return (
+      <div className="profile-container edit-mode">
+        <div className="profile-header">
+          <h1>Edit Profile</h1>
+          <button 
+            onClick={() => setIsEditing(false)}
+            className="btn btn-secondary"
+          >
+            ✕ Cancel
+          </button>
+        </div>
+
+        <div className="profile-form">
+          {/* Profile Picture Section */}
+          <div className="form-section">
+            <h3>Profile Picture</h3>
+            <div className="profile-picture-upload">
+              <img 
+                src={formData.profilePicture || 'https://via.placeholder.com/150'} 
+                alt="Profile" 
+                className="profile-picture-preview"
+              />
+              <input 
+                type="file" 
+                accept="image/*"
+                onChange={handleImageUpload}
+                className="file-input"
+              />
+              <label>Click to upload photo</label>
+            </div>
+          </div>
+
+          {/* Personal Information */}
+          <div className="form-section">
+            <h3>Personal Information</h3>
+            
+            <div className="form-group">
+              <label>First Name</label>
+              <input 
+                type="text" 
+                name="firstName"
+                value={formData.firstName}
+                onChange={handleInputChange}
+                placeholder="Enter first name"
+                className="form-input"
+              />
+            </div>
+
+            <div className="form-group">
+              <label>Last Name</label>
+              <input 
+                type="text" 
+                name="lastName"
+                value={formData.lastName}
+                onChange={handleInputChange}
+                placeholder="Enter last name"
+                className="form-input"
+              />
+            </div>
+
+            <div className="form-group">
+              <label>Email (Read-only)</label>
+              <input 
+                type="email" 
+                value={formData.email}
+                disabled
+                className="form-input disabled"
+              />
+            </div>
+
+            <div className="form-group">
+              <label>Phone</label>
+              <input 
+                type="tel" 
+                name="phone"
+                value={formData.phone}
+                onChange={handleInputChange}
+                placeholder="Enter phone number"
+                className="form-input"
+              />
+            </div>
+          </div>
+
+          {/* Professional Information */}
+          <div className="form-section">
+            <h3>Professional Information</h3>
+            
+            <div className="form-group">
+              <label>Designation</label>
+              <input 
+                type="text" 
+                name="designation"
+                value={formData.designation}
+                onChange={handleInputChange}
+                placeholder="e.g., Software Engineer"
+                className="form-input"
+              />
+            </div>
+
+            <div className="form-group">
+              <label>Company</label>
+              <input 
+                type="text" 
+                name="company"
+                value={formData.company}
+                onChange={handleInputChange}
+                placeholder="Enter company name"
+                className="form-input"
+              />
+            </div>
+
+            <div className="form-group">
+              <label>Bio</label>
+              <textarea 
+                name="bio"
+                value={formData.bio}
+                onChange={handleInputChange}
+                placeholder="Tell us about yourself"
+                className="form-textarea"
+                rows="4"
+              />
+            </div>
+          </div>
+
+          {/* Action Buttons */}
+          <div className="form-actions">
+            <button 
+              onClick={() => setIsEditing(false)}
+              className="btn btn-secondary"
+              disabled={isSaving}
+            >
+              Cancel
+            </button>
+            <button 
+              onClick={handleSaveProfile}
+              className="btn btn-primary"
+              disabled={isSaving}
+            >
+              {isSaving ? '💾 Saving...' : '💾 Save Profile'}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ============================================================================
+  // VIEW MODE - Display Profile Data
+  // ============================================================================
+  return (
+    <div className="profile-container view-mode">
+      {/* Header Section */}
+      <div className="profile-header">
+        <div className="profile-info">
+          <img 
+            src={profileData?.profile_picture_url || 'https://via.placeholder.com/100'} 
+            alt="Profile" 
+            className="profile-avatar"
+          />
+          <div>
+            <h1>
+              {profileData?.first_name || 'User'} {profileData?.last_name || ''}
+            </h1>
+            <p className="designation">
+              {profileData?.designation || 'Designation not set'}
+            </p>
+          </div>
+        </div>
+
+        <button 
+          onClick={() => setIsEditing(true)}
+          className="btn btn-primary"
+        >
+          ✏️ Edit Profile
+        </button>
+      </div>
+
+      {/* Profile Details */}
+      <div className="profile-details">
+        {/* Contact Information */}
+        <div className="detail-section">
+          <h2>📞 Contact Information</h2>
+          <div className="detail-item">
+            <label>Email:</label>
+            <p>{profileData?.email || 'Not specified'}</p>
+          </div>
+          <div className="detail-item">
+            <label>Phone:</label>
+            <p>{profileData?.phone || 'Not specified'}</p>
+          </div>
+        </div>
+
+        {/* Professional Information */}
+        <div className="detail-section">
+          <h2>💼 Professional Information</h2>
+          <div className="detail-item">
+            <label>Designation:</label>
+            <p>{profileData?.designation || 'Not specified'}</p>
+          </div>
+          <div className="detail-item">
+            <label>Company:</label>
+            <p>{profileData?.company || 'Not specified'}</p>
+          </div>
+          <div className="detail-item">
+            <label>Bio:</label>
+            <p>{profileData?.bio || 'Not specified'}</p>
+          </div>
+        </div>
+
+        {/* Account Information */}
+        <div className="detail-section">
+          <h2>ℹ️ Account Information</h2>
+          <div className="detail-item">
+            <label>User ID:</label>
+            <p>{profileData?.id || 'N/A'}</p>
+          </div>
+          <div className="detail-item">
+            <label>Role:</label>
+            <p>{profileData?.role || 'User'}</p>
+          </div>
+          <div className="detail-item">
+            <label>Joined:</label>
+            <p>
+              {profileData?.created_at 
+                ? new Date(profileData.created_at).toLocaleDateString()
+                : 'N/A'}
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 }
-
-export default ProfileScreen
