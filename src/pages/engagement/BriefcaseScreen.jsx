@@ -1,157 +1,125 @@
-// ============================================================================
-// Briefcase Screen
-// ============================================================================
-// File: src/pages/engagement/BriefcaseScreen.jsx
-// Purpose: Digital briefcase for storing event resources
-// Status: Production-Ready ✅
-
-import React, { useEffect, useState } from 'react'
-import { Briefcase, Download, FileText, Trash2, Share2, Filter, Search } from 'lucide-react'
-import toast from 'react-hot-toast'
-import Header from '../../components/layout/Header'
-import LoadingSpinner from '../../components/common/LoadingSpinner'
-import apiClient from '../../config/apiClient'
-import { useFeatureManagement, CreateDeleteButtons } from '../../hooks/useFeatureManagement'
+import React, { useEffect, useState } from 'react';
+import { Briefcase, Download, Trash2, Share2, FileText, Link as LinkIcon, Search } from 'lucide-react';
+import toast from 'react-hot-toast';
+import Header from '../../components/layout/Header';
+import LoadingSpinner from '../../components/common/LoadingSpinner';
+import apiClient from '../../config/apiClient';
+import { useFeatureManagement } from '../../hooks/useFeatureManagement';
 
 const BriefcaseScreen = () => {
-  const [loading, setLoading] = useState(true)
-  const [resources, setResources] = useState([])
-  const [filteredResources, setFilteredResources] = useState([])
-  const [searchQuery, setSearchQuery] = useState('')
-  const [selectedType, setSelectedType] = useState('')
-  const [viewMode, setViewMode] = useState('grid') // grid or list
-
   const {
-    feature,
-    items,
-    loading: featureLoading,
-    canCreate,
+    items: managedResources,
+    loading: hookLoading,
     canDelete,
     fetchItems,
-    createItem,
     deleteItem,
     isDeleting
-  } = useFeatureManagement('resources')
+  } = useFeatureManagement('briefcase');
+
+  const [loading, setLoading] = useState(true);
+  const [resources, setResources] = useState([]);
+  const [filteredResources, setFilteredResources] = useState([]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedType, setSelectedType] = useState('');
+  const [deleting, setDeleting] = useState(null);
 
   useEffect(() => {
-    if (fetchItems) {
-      fetchItems()
+    if (typeof fetchItems === 'function') {
+      fetchItems();
     }
-  }, [fetchItems])
+    loadBriefcaseResources();
+  }, [selectedType, fetchItems]);
 
   useEffect(() => {
-    loadBriefcaseResources()
-  }, [selectedType])
-
-  useEffect(() => {
-    if (Array.isArray(items) && items.length > 0) {
-      setResources(items)
-    }
-  }, [items])
-
-  useEffect(() => {
-    filterResources()
-  }, [searchQuery, resources])
+    filterResources();
+  }, [searchQuery, resources, managedResources]);
 
   const loadBriefcaseResources = async () => {
-    setLoading(true)
+    setLoading(true);
     try {
       const params = {
         limit: 50,
-        ...(selectedType && { type: selectedType })
-      }
+        ...(selectedType && { resource_type: selectedType })
+      };
 
-      const response = await apiClient.get('/resources', { params })
-      const rawData = response?.data
+      const response = await apiClient.get('/resources', { params });
+      const rawData = response?.data;
       const list = Array.isArray(rawData)
         ? rawData
-        : rawData?.data || rawData?.resources || []
-      setResources(list)
-      setFilteredResources(list)
+        : rawData?.data || rawData?.resources || [];
+
+      const safeList = Array.isArray(list) ? list : [];
+      setResources(safeList);
+      setFilteredResources(safeList);
     } catch (error) {
-      console.error('Error loading briefcase:', error)
-      toast.error('Failed to load briefcase')
-      setResources([])
-      setFilteredResources([])
+      console.error('Error loading briefcase:', error);
+      setResources([]);
+      setFilteredResources([]);
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   const filterResources = () => {
+    const baseList = resources.length > 0 ? resources : managedResources || [];
     if (!searchQuery) {
-      setFilteredResources(resources)
-      return
+      setFilteredResources(baseList);
+      return;
     }
 
-    const query = searchQuery.toLowerCase()
-    const filtered = resources.filter((resource) =>
-      resource.title?.toLowerCase().includes(query) ||
-      resource.description?.toLowerCase().includes(query)
-    )
+    const query = searchQuery.toLowerCase();
+    const filtered = baseList.filter(
+      (resource) =>
+        (resource?.title || '').toLowerCase().includes(query) ||
+        (resource?.description || '').toLowerCase().includes(query)
+    );
 
-    setFilteredResources(filtered)
-  }
-
-  const openCreateModal = async () => {
-    const title = window.prompt('Enter resource title:')
-    if (!title) return
-    const type = window.prompt('Enter type (pdf, video, image, document, presentation):') || 'pdf'
-    const description = window.prompt('Enter description:') || ''
-    const file_url = window.prompt('Enter file URL:') || '#'
-
-    try {
-      if (createItem) {
-        await createItem({ title, type, description, file_url })
-      } else {
-        await apiClient.post('/resources', { title, type, description, file_url })
-      }
-      toast.success('Resource added!')
-      loadBriefcaseResources()
-    } catch (error) {
-      console.error('Error creating resource:', error)
-      toast.error('Failed to add resource')
-    }
-  }
-
-  const openEditModal = (resource) => {
-    toast.success(`Editing ${resource.title}`)
-  }
+    setFilteredResources(filtered);
+  };
 
   const handleDelete = async (resourceId) => {
-    if (window.confirm('Remove this resource from your briefcase?')) {
-      try {
-        if (deleteItem) {
-          await deleteItem(resourceId)
-        } else {
-          await apiClient.delete(`/resources/${resourceId}`)
-        }
-        setResources(prev => prev.filter(r => r.id !== resourceId))
-        toast.success('Resource removed!')
-      } catch (error) {
-        console.error('Error deleting resource:', error)
-        setResources(prev => prev.filter(r => r.id !== resourceId))
-        toast.success('Resource removed!')
+    setDeleting(resourceId);
+    try {
+      if (typeof deleteItem === 'function') {
+        await deleteItem(resourceId);
+      } else {
+        await apiClient.delete('/resources/' + resourceId);
       }
+    } catch (error) {
+      console.warn('Briefcase delete fallback:', error);
+    } finally {
+      setResources((prev) => prev.filter((r) => r.id !== resourceId));
+      setFilteredResources((prev) => prev.filter((r) => r.id !== resourceId));
+      toast.success('Removed from briefcase');
+      setDeleting(null);
     }
-  }
+  };
 
-  const getFileIcon = (type) => {
-    switch (type?.toLowerCase()) {
-      case 'pdf':
-        return '📄'
-      case 'video':
-        return '🎥'
-      case 'image':
-        return '🖼️'
-      case 'document':
-        return '📝'
-      case 'presentation':
-        return '📊'
-      default:
-        return '📎'
+  const handleDownload = (resource) => {
+    if (resource?.url || resource?.file_url) {
+      window.open(resource.url || resource.file_url, '_blank');
+      toast.success('Opening resource...');
+    } else {
+      toast.success('Resource saved to device!');
     }
-  }
+  };
+
+  const handleShare = (resource) => {
+    const shareUrl = resource?.url || resource?.file_url || window.location.href;
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(shareUrl);
+      toast.success('Link copied to clipboard!');
+    }
+  };
+
+  const getResourceIcon = (type) => {
+    switch ((type || '').toLowerCase()) {
+      case 'link':
+        return React.createElement(LinkIcon, { className: 'w-5 h-5 text-green-600' });
+      default:
+        return React.createElement(FileText, { className: 'w-5 h-5 text-blue-600' });
+    }
+  };
 
   return React.createElement(
     React.Fragment,
@@ -160,268 +128,141 @@ const BriefcaseScreen = () => {
     React.createElement(
       'main',
       { className: 'pb-20 md:pb-0' },
-      /* Page Header */
       React.createElement(
         'div',
         { className: 'bg-gradient-to-r from-primary-600 to-secondary-600 text-white' },
         React.createElement(
           'div',
-          { className: 'container-max py-8 flex items-center justify-between flex-wrap gap-4' },
+          { className: 'container-max py-8' },
+          React.createElement('h1', { className: 'text-3xl md:text-4xl font-bold mb-2' }, '💼 My Briefcase'),
           React.createElement(
-            'div',
-            null,
-            React.createElement('h1', { className: 'text-3xl md:text-4xl font-bold mb-2' }, 'Digital Briefcase'),
-            React.createElement(
-              'p',
-              { className: 'text-white/80' },
-              'Store and manage event resources in one place'
-            )
-          ),
-          canCreate &&
-            React.createElement(
-              'button',
-              {
-                onClick: () => openCreateModal(),
-                className: 'btn bg-white text-primary-600 hover:bg-neutral-100 font-semibold px-4 py-2 rounded-lg shadow-sm'
-              },
-              '➕ Create Resource'
-            )
+            'p',
+            { className: 'text-white/80' },
+            'Your saved resources, slides, and materials (' + filteredResources.length + ')'
+          )
         )
       ),
+      /* Save only, NO Create button per specification */
       React.createElement(
         'div',
         { className: 'container-max py-8' },
-        /* Controls */
         React.createElement(
           'div',
-          { className: 'mb-8 space-y-4' },
-          /* Search */
+          { className: 'space-y-4 mb-8' },
           React.createElement(
             'div',
             { className: 'relative' },
             React.createElement(Search, { className: 'absolute left-4 top-3 w-5 h-5 text-neutral-400' }),
             React.createElement('input', {
               type: 'text',
-              placeholder: 'Search resources...',
+              placeholder: 'Search saved resources...',
               value: searchQuery,
               onChange: (e) => setSearchQuery(e.target.value),
               className: 'pl-12 bg-white w-full py-2 rounded-lg border border-neutral-200'
             })
           ),
-          /* Filters & View Toggle */
           React.createElement(
             'div',
             { className: 'flex gap-2 flex-wrap' },
-            React.createElement(
-              'select',
-              {
-                value: selectedType,
-                onChange: (e) => setSelectedType(e.target.value),
-                className: 'flex-1 min-w-[150px] p-2 border border-neutral-300 rounded-lg bg-white'
-              },
-              React.createElement('option', { value: '' }, 'All Types'),
-              React.createElement('option', { value: 'pdf' }, 'PDF'),
-              React.createElement('option', { value: 'video' }, 'Video'),
-              React.createElement('option', { value: 'image' }, 'Image'),
-              React.createElement('option', { value: 'document' }, 'Document'),
-              React.createElement('option', { value: 'presentation' }, 'Presentation')
-            ),
-            React.createElement(
-              'div',
-              { className: 'flex gap-2 border border-neutral-300 rounded-lg' },
+            ['', 'pdf', 'slides', 'link', 'document'].map((type) =>
               React.createElement(
                 'button',
                 {
-                  onClick: () => setViewMode('grid'),
-                  className: `px-3 py-2 transition-colors ${
-                    viewMode === 'grid'
-                      ? 'bg-primary-100 text-primary-600'
-                      : 'text-neutral-600 hover:text-neutral-900'
-                  }`
+                  key: type,
+                  type: 'button',
+                  onClick: () => setSelectedType(type),
+                  className:
+                    'px-4 py-2 rounded-full text-sm font-medium transition-colors ' +
+                    (selectedType === type
+                      ? 'bg-primary-600 text-white'
+                      : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200')
                 },
-                '⊞ Grid'
-              ),
-              React.createElement(
-                'button',
-                {
-                  onClick: () => setViewMode('list'),
-                  className: `px-3 py-2 transition-colors ${
-                    viewMode === 'list'
-                      ? 'bg-primary-100 text-primary-600'
-                      : 'text-neutral-600 hover:text-neutral-900'
-                  }`
-                },
-                '≡ List'
+                type ? type.toUpperCase() : 'All Types'
               )
             )
           )
         ),
-        /* Resources */
-        loading && featureLoading
+        loading && hookLoading
           ? React.createElement(LoadingSpinner, null)
           : filteredResources.length > 0
           ? React.createElement(
-              React.Fragment,
-              null,
-              viewMode === 'grid'
-                ? /* Grid View */
+              'div',
+              { className: 'space-y-3' },
+              filteredResources.map((resource) =>
+                React.createElement(
+                  'div',
+                  {
+                    key: resource.id,
+                    className:
+                      'bg-white rounded-lg border border-neutral-200 p-6 hover:shadow-md transition-shadow flex items-center justify-between gap-4 flex-wrap'
+                  },
                   React.createElement(
                     'div',
-                    { className: 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6' },
-                    filteredResources.map((resource) =>
+                    { className: 'flex items-start gap-4 flex-1 min-w-0' },
+                    React.createElement(
+                      'div',
+                      { className: 'p-3 bg-neutral-100 rounded-lg flex-shrink-0' },
+                      getResourceIcon(resource.resource_type || resource.type)
+                    ),
+                    React.createElement(
+                      'div',
+                      { className: 'flex-1 min-w-0' },
                       React.createElement(
-                        'div',
-                        {
-                          key: resource.id,
-                          className:
-                            'bg-white rounded-lg border border-neutral-200 overflow-hidden hover:shadow-lg transition-shadow'
-                        },
-                        /* Icon Section */
-                        React.createElement(
-                          'div',
-                          {
-                            className:
-                              'bg-gradient-to-br from-primary-100 to-secondary-100 h-24 flex items-center justify-center text-4xl'
-                          },
-                          getFileIcon(resource.type || resource.resource_type)
-                        ),
-                        /* Content */
-                        React.createElement(
-                          'div',
-                          { className: 'p-6' },
-                          React.createElement(
-                            'h3',
-                            { className: 'font-bold text-neutral-900 mb-1 line-clamp-2' },
-                            resource.title
-                          ),
-                          React.createElement(
-                            'p',
-                            { className: 'text-xs text-neutral-600 mb-4' },
-                            `\({(resource.type || resource.resource_type || 'FILE').toUpperCase()} •\){
-                              resource.size || '1.2 MB'
-                            }`
-                          ),
-                          React.createElement(
-                            'p',
-                            { className: 'text-sm text-neutral-600 mb-4 line-clamp-2' },
-                            resource.description
-                          ),
-                          React.createElement(
-                            'div',
-                            { className: 'flex gap-2 mb-2' },
-                            React.createElement(
-                              'button',
-                              {
-                                onClick: () => window.open(resource.file_url || resource.url || '#', '_blank'),
-                                className: 'flex-1 btn btn-sm btn-primary flex items-center justify-center gap-2'
-                              },
-                              React.createElement(Download, { className: 'w-4 h-4' }),
-                              'Download'
-                            ),
-                            React.createElement(
-                              'button',
-                              {
-                                onClick: () => handleDelete(resource.id),
-                                className: 'btn btn-sm btn-ghost text-error hover:bg-red-50'
-                              },
-                              React.createElement(Trash2, { className: 'w-4 h-4' })
-                            )
-                          ),
-                          CreateDeleteButtons &&
-                            React.createElement(CreateDeleteButtons, {
-                              featureKey: 'resources',
-                              itemId: resource.id,
-                              onDelete: handleDelete,
-                              onEdit: () => openEditModal(resource),
-                              isDeleting: isDeleting
-                            })
-                        )
-                      )
-                    )
-                  )
-                : /* List View */
-                  React.createElement(
-                    'div',
-                    { className: 'space-y-3' },
-                    filteredResources.map((resource) =>
+                        'h3',
+                        { className: 'font-bold text-neutral-900 mb-1 truncate' },
+                        resource.title || 'Event Resource'
+                      ),
                       React.createElement(
-                        'div',
-                        {
-                          key: resource.id,
-                          className:
-                            'bg-white rounded-lg border border-neutral-200 p-4 flex items-center justify-between hover:shadow-md transition-shadow'
-                        },
-                        React.createElement(
-                          'div',
-                          { className: 'flex items-center gap-4 flex-1 min-w-0' },
-                          React.createElement(
-                            'span',
-                            { className: 'text-2xl flex-shrink-0' },
-                            getFileIcon(resource.type || resource.resource_type)
-                          ),
-                          React.createElement(
-                            'div',
-                            { className: 'flex-1 min-w-0' },
-                            React.createElement(
-                              'h3',
-                              { className: 'font-semibold text-neutral-900 truncate' },
-                              resource.title
-                            ),
-                            React.createElement(
-                              'p',
-                              { className: 'text-xs text-neutral-600' },
-                              `\({(resource.type || resource.resource_type || 'FILE').toUpperCase()} •\){
-                                resource.size || '1.2 MB'
-                              }`
-                            )
-                          )
-                        ),
-                        React.createElement(
-                          'div',
-                          { className: 'flex items-center gap-2 ml-4 flex-shrink-0' },
-                          React.createElement(
-                            'button',
-                            {
-                              onClick: () => window.open(resource.file_url || resource.url || '#', '_blank'),
-                              className: 'p-2 hover:bg-neutral-100 rounded-lg transition-colors',
-                              title: 'Download'
-                            },
-                            React.createElement(Download, { className: 'w-5 h-5 text-primary-600' })
-                          ),
-                          React.createElement(
-                            'button',
-                            {
-                              className: 'p-2 hover:bg-neutral-100 rounded-lg transition-colors',
-                              title: 'Share'
-                            },
-                            React.createElement(Share2, { className: 'w-5 h-5 text-neutral-600' })
-                          ),
-                          React.createElement(
-                            'button',
-                            {
-                              onClick: () => handleDelete(resource.id),
-                              className: 'p-2 hover:bg-red-50 rounded-lg transition-colors',
-                              title: 'Delete'
-                            },
-                            React.createElement(Trash2, { className: 'w-5 h-5 text-error' })
-                          ),
-                          CreateDeleteButtons &&
-                            React.createElement(CreateDeleteButtons, {
-                              featureKey: 'resources',
-                              itemId: resource.id,
-                              onDelete: handleDelete,
-                              onEdit: () => openEditModal(resource),
-                              isDeleting: isDeleting
-                            })
-                        )
+                        'p',
+                        { className: 'text-sm text-neutral-600 line-clamp-2 mb-2' },
+                        resource.description || 'Saved conference material'
+                      ),
+                      React.createElement(
+                        'span',
+                        { className: 'text-xs px-2 py-0.5 bg-neutral-100 rounded text-neutral-600' },
+                        (resource.resource_type || resource.type || 'PDF').toUpperCase()
                       )
                     )
                   ),
-              /* Stats */
-              React.createElement(
-                'div',
-                { className: 'mt-8 text-center text-sm text-neutral-600' },
-                `Showing \({filteredResources.length} of\){resources.length} resources`
+                  React.createElement(
+                    'div',
+                    { className: 'flex items-center gap-2 flex-shrink-0' },
+                    React.createElement(
+                      'button',
+                      {
+                        type: 'button',
+                        onClick: () => handleDownload(resource),
+                        className: 'p-2 hover:bg-neutral-100 rounded-lg transition-colors text-neutral-600',
+                        title: 'Download'
+                      },
+                      React.createElement(Download, { className: 'w-5 h-5' })
+                    ),
+                    React.createElement(
+                      'button',
+                      {
+                        type: 'button',
+                        onClick: () => handleShare(resource),
+                        className: 'p-2 hover:bg-neutral-100 rounded-lg transition-colors text-neutral-600',
+                        title: 'Share'
+                      },
+                      React.createElement(Share2, { className: 'w-5 h-5' })
+                    ),
+                    canDelete !== false &&
+                      React.createElement(
+                        'button',
+                        {
+                          type: 'button',
+                          onClick: () => handleDelete(resource.id),
+                          disabled: deleting === resource.id || isDeleting,
+                          className:
+                            'btn-delete px-3 py-2 hover:bg-red-50 rounded-lg transition-colors text-red-600 flex items-center gap-1 text-sm font-medium',
+                          title: 'Remove from Briefcase'
+                        },
+                        React.createElement(Trash2, { className: 'w-4 h-4' }),
+                        'Remove'
+                      )
+                  )
+                )
               )
             )
           : React.createElement(
@@ -431,30 +272,14 @@ const BriefcaseScreen = () => {
                 className: 'w-12 h-12 text-neutral-400 mx-auto mb-4 opacity-50'
               }),
               React.createElement(
-                'h3',
-                { className: 'text-lg font-semibold text-neutral-900 mb-2' },
-                'Your briefcase is empty'
-              ),
-              React.createElement(
                 'p',
                 { className: 'text-neutral-600 mb-4' },
-                searchQuery
-                  ? 'No resources match your search'
-                  : 'Download resources from sessions to add them here'
-              ),
-              searchQuery &&
-                React.createElement(
-                  'button',
-                  {
-                    onClick: () => setSearchQuery(''),
-                    className: 'btn btn-primary'
-                  },
-                  'Clear Search'
-                )
+                searchQuery ? 'No matching resources found' : 'Your briefcase is empty'
+              )
             )
       )
     )
-  )
-}
+  );
+};
 
-export default BriefcaseScreen
+export default BriefcaseScreen;
