@@ -101,15 +101,6 @@ export default function HubPage() {
       color: '#4a9eff'
     },
     {
-      id: 11,
-      title: 'Picbot',
-      icon: '🤖',
-      description: 'AI assistant',
-      path: '/picbot',
-      apiEndpoint: null,
-      color: '#9575ff'
-    },
-    {
       id: 12,
       title: 'AI Matches',
       icon: '🎯',
@@ -120,11 +111,11 @@ export default function HubPage() {
     }
   ];
 
-  useEffect(() => {
+  useEffect(function () {
     loadHubData();
   }, []);
 
-  const loadHubData = async () => {
+  const loadHubData = async function () {
     try {
       setLoading(true);
       setError(null);
@@ -145,7 +136,7 @@ export default function HubPage() {
     }
   };
 
-  const handleFeatureClick = async (feature) => {
+  const handleFeatureClick = async function (feature) {
     if (!feature.apiEndpoint || feature.path === '/admin') {
       navigate(feature.path);
       return;
@@ -177,8 +168,8 @@ export default function HubPage() {
     React.createElement(
       'div',
       { className: 'hub-hero' },
-      React.createElement('h1', null, hubData?.name || 'NextGen AI Expo 2026'),
-      React.createElement('p', null, hubData?.description || 'Innovation Hub')
+      React.createElement('h1', null, (hubData && hubData.name) || 'NextGen AI Expo 2026'),
+      React.createElement('p', null, (hubData && hubData.description) || 'Innovation Hub')
     ),
     error &&
       React.createElement(
@@ -198,13 +189,15 @@ export default function HubPage() {
       React.createElement(
         'div',
         { className: 'hub-features-grid' },
-        featureCards.map((feature) =>
-          React.createElement(
+        featureCards.map(function (feature) {
+          return React.createElement(
             'div',
             {
               key: feature.id,
               className: 'hub-feature-card',
-              onClick: () => handleFeatureClick(feature),
+              onClick: function () {
+                handleFeatureClick(feature);
+              },
               style: { backgroundColor: feature.color }
             },
             React.createElement(
@@ -215,8 +208,8 @@ export default function HubPage() {
               React.createElement('p', null, feature.description)
             ),
             React.createElement('div', { className: 'feature-arrow' }, '→')
-          )
-        )
+          );
+        })
       )
     ),
     React.createElement(
@@ -231,21 +224,21 @@ export default function HubPage() {
           { className: 'stat-card' },
           React.createElement('span', { className: 'stat-icon' }, '📋'),
           React.createElement('h4', null, 'Total Features'),
-          React.createElement('p', { className: 'stat-value' }, '12')
+          React.createElement('p', { className: 'stat-value' }, String(featureCards.length))
         ),
         React.createElement(
           'div',
           { className: 'stat-card' },
           React.createElement('span', { className: 'stat-icon' }, '📅'),
           React.createElement('h4', null, 'Event'),
-          React.createElement('p', { className: 'stat-value' }, hubData?.name || 'AI Expo')
+          React.createElement('p', { className: 'stat-value' }, (hubData && hubData.name) || 'AI Expo')
         ),
         React.createElement(
           'div',
           { className: 'stat-card' },
           React.createElement('span', { className: 'stat-icon' }, '📍'),
           React.createElement('h4', null, 'Location'),
-          React.createElement('p', { className: 'stat-value' }, hubData?.location || 'Online')
+          React.createElement('p', { className: 'stat-value' }, (hubData && hubData.location) || 'Online')
         ),
         React.createElement(
           'div',

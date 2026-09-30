@@ -4,403 +4,168 @@
 // File: src/App.jsx
 // Purpose: Root component with React Router setup and authentication flow
 // Status: Production-Ready ✅
-// FIXES: BottomNavigation renders ONCE, no infinite loops, proper cleanup
 
-import React, { useEffect, useState, Suspense } from 'react'
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
-import { Toaster } from 'react-hot-toast'
+import React, { useState, Suspense } from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { Toaster } from 'react-hot-toast';
 
 // Store
-import { useAuthStore } from './store/authStore'
+import { useAuthStore } from './store/authStore';
 
 // Pages - Auth
-import SplashScreen from './pages/auth/SplashScreen'
-import LoginScreen from './pages/auth/LoginScreen'
-import RegisterScreen from './pages/auth/RegisterScreen'
-import VerifyEmailScreen from './pages/auth/VerifyEmailScreen'
-import CompleteProfileScreen from './pages/auth/CompleteProfileScreen'
+import SplashScreen from './pages/auth/SplashScreen';
+import LoginScreen from './pages/auth/LoginScreen';
+import RegisterScreen from './pages/auth/RegisterScreen';
+import VerifyEmailScreen from './pages/auth/VerifyEmailScreen';
+import CompleteProfileScreen from './pages/auth/CompleteProfileScreen';
 
 // Pages - Main
-import HomeScreen from './pages/main/HomeScreen'
-import SessionsScreen from './pages/main/SessionsScreen'
-import HubScreen from './pages/main/HubScreen'
-import NetworkingScreen from './pages/main/NetworkingScreen'
-import ProfileScreen from './pages/main/ProfileScreen'
-import PicbotScreen from './pages/main/PicbotScreen'
+import HomeScreen from './pages/main/HomeScreen';
+import SessionsScreen from './pages/main/SessionsScreen';
+import HubScreen from './pages/main/HubScreen';
+import NetworkingScreen from './pages/main/NetworkingScreen';
+import ProfileScreen from './pages/main/ProfileScreen';
 
 // Pages - Engagement
-import SocialWallScreen from './pages/engagement/SocialWallScreen'
-import ActivityHubScreen from './pages/engagement/ActivityHubScreen'
-import AIMatchesScreen from './pages/engagement/AIMatchesScreen'
-import PartnersScreen from './pages/engagement/PartnersScreen'
-import BriefcaseScreen from './pages/engagement/BriefcaseScreen'
+import SocialWallScreen from './pages/engagement/SocialWallScreen';
+import ActivityHubScreen from './pages/engagement/ActivityHubScreen';
+import AIMatchesScreen from './pages/engagement/AIMatchesScreen';
+import PartnersScreen from './pages/engagement/PartnersScreen';
+import BriefcaseScreen from './pages/engagement/BriefcaseScreen';
 
 // Pages - Gamification & Learning
-import RatingsScreen from './pages/gamification/RatingsScreen'
-import AnalyticsScreen from './pages/gamification/AnalyticsScreen'
-import AnnouncementsScreen from './pages/gamification/AnnouncementsScreen'
-import SpeakersScreen from './pages/gamification/SpeakersScreen'
-import LearningPathsScreen from './pages/gamification/LearningPathsScreen'
+import RatingsScreen from './pages/gamification/RatingsScreen';
+import AnalyticsScreen from './pages/gamification/AnalyticsScreen';
+import AnnouncementsScreen from './pages/gamification/AnnouncementsScreen';
+import SpeakersScreen from './pages/gamification/SpeakersScreen';
+import LearningPathsScreen from './pages/gamification/LearningPathsScreen';
 
 // Pages - Engagement Center & Admin
-import EngagementCenterScreen from './pages/engagement-center/engagementCenterScreen.jsx'
-import AdminDashboardScreen from './pages/admin/AdminDashboardScreen.jsx'
-import AdminRBACDashboard from './pages/admin/AdminRBACDashboard.jsx'
+import EngagementCenterScreen from './pages/engagement-center/engagementCenterScreen.jsx';
+import AdminDashboardScreen from './pages/admin/AdminDashboardScreen.jsx';
+import AdminRBACDashboard from './pages/admin/AdminRBACDashboard.jsx';
 
-// Components - ONLY import once
-import PrivateRoute from './components/Auth/PrivateRoute'
-import BottomNavigation from './components/layout/BottomNavigation'
+// Components
+import PrivateRoute from './components/Auth/PrivateRoute';
+import BottomNavigation from './components/layout/BottomNavigation';
 
 // AI Features
-import AIAssistant from './components/ai/AIAssistant'
-import AIEventRecommendations from './components/ai/AIEventRecommendations'
-import AISessionSummary from './components/ai/AISessionSummary'
-import AIQuizGenerator from './components/ai/AIQuizGenerator'
-import AIPerfectNetworkMatch from './components/ai/AIPerfectNetworkMatch'
+import AIAssistant from './components/ai/AIAssistant';
+import AIEventRecommendations from './components/ai/AIEventRecommendations';
+import AISessionSummary from './components/ai/AISessionSummary';
+import AIQuizGenerator from './components/ai/AIQuizGenerator';
+import AIPerfectNetworkMatch from './components/ai/AIPerfectNetworkMatch';
 
-// ============================================================================
-// Loading Fallback Component
-// ============================================================================
-const LoadingFallback = () => (
-  <div style={{ 
-    display: 'flex', 
-    justifyContent: 'center', 
-    alignItems: 'center', 
-    height: '100vh',
-    background: '#f3f4f6'
-  }}>
-    <div style={{ textAlign: 'center' }}>
-      <p>Loading...</p>
-    </div>
-  </div>
-);
+const h = React.createElement;
 
-const App = () => {
-  const { isAuthenticated } = useAuthStore();
-  const [userProfile, setUserProfile] = useState(null);
-
-  return (
-    <div className="min-h-screen bg-white dark:bg-slate-950">
-      {/* Toast Notifications */}
-      <Toaster
-        position="top-right"
-        reverseOrder={false}
-        toastOptions={{
-          duration: 4000,
-          style: {
-            background: '#1f2937',
-            color: '#fff'
-          }
-        }}
-      />
-
-      {/* Router Container */}
-      <Router>
-        <Suspense fallback={<LoadingFallback />}>
-          <Routes>
-            {/* ============================================================================
-                ✅ PUBLIC ROUTES - No authentication required
-                ============================================================================ */}
-
-            {/* Splash/Landing Screen */}
-            <Route path="/" element={<SplashScreen />} />
-
-            {/* ============================================================================
-                AUTHENTICATION ROUTES
-                ============================================================================ */}
-
-            {/* Login Screen */}
-            <Route element={<LoginScreen />} path="/login" />
-
-            {/* Register Screen */}
-            <Route element={<RegisterScreen />} path="/register" />
-
-            {/* Email Verification Screen */}
-            <Route element={<VerifyEmailScreen />} path="/verify-email"/>
-
-            {/* Complete Profile Screen */}
-            <Route element={<CompleteProfileScreen />} path="/complete-profile"/>
-
-            {/* ============================================================================
-                ✅ PROTECTED ROUTES - Authentication required
-                ============================================================================ */}
-
-            {/* ============================================================================
-                MAIN ROUTES - Core App Pages
-                ============================================================================ */}
-
-            {/* Home Screen */}
-            <Route
-              path="/home"
-              element={
-                <PrivateRoute>
-                  <HomeScreen />
-                </PrivateRoute>
-              }
-            />
-
-            {/* Sessions Screen */}
-            <Route
-              path="/sessions"
-              element={
-                <PrivateRoute>
-                  <SessionsScreen />
-                </PrivateRoute>
-              }
-            />
-
-            {/* Hub Screen */}
-            <Route
-              path="/hub"
-              element={
-                <PrivateRoute>
-                  <HubScreen />
-                </PrivateRoute>
-              }
-            />
-
-            {/* Networking Screen */}
-            <Route
-              path="/networking"
-              element={
-                <PrivateRoute>
-                  <NetworkingScreen />
-                </PrivateRoute>
-              }
-            />
-
-            {/* Profile Screen */}
-            <Route
-              path="/profile"
-              element={
-                <PrivateRoute>
-                  <ProfileScreen />
-                </PrivateRoute>
-              }
-            />
-
-            {/* Picbot Screen */}
-            <Route
-              path="/picbot"
-              element={
-                <PrivateRoute>
-                  <PicbotScreen />
-                </PrivateRoute>
-              }
-            />
-
-            {/* ============================================================================
-                ENGAGEMENT ROUTES - Social & Community
-                ============================================================================ */}
-
-            {/* Social Wall Screen */}
-            <Route
-              path="/social-wall"
-              element={
-                <PrivateRoute>
-                  <SocialWallScreen />
-                </PrivateRoute>
-              }
-            />
-
-            {/* Activity Hub Screen */}
-            <Route
-              path="/activity-hub"
-              element={
-                <PrivateRoute>
-                  <ActivityHubScreen />
-                </PrivateRoute>
-              }
-            />
-
-            {/* AI Matches Screen */}
-            <Route
-              path="/ai-matches"
-              element={
-                <PrivateRoute>
-                  <AIMatchesScreen />
-                </PrivateRoute>
-              }
-            />
-
-            {/* Partners Screen */}
-            <Route
-              path="/partners"
-              element={
-                <PrivateRoute>
-                  <PartnersScreen />
-                </PrivateRoute>
-              }
-            />
-
-            {/* Briefcase Screen */}
-            <Route
-              path="/briefcase"
-              element={
-                <PrivateRoute>
-                  <BriefcaseScreen />
-                </PrivateRoute>
-              }
-            />
-
-            {/* ============================================================================
-                GAMIFICATION & LEARNING ROUTES
-                ============================================================================ */}
-
-            {/* Ratings Screen */}
-            <Route
-              path="/ratings"
-              element={
-                <PrivateRoute>
-                  <RatingsScreen />
-                </PrivateRoute>
-              }
-            />
-
-            {/* Analytics Screen */}
-            <Route
-              path="/analytics"
-              element={
-                <PrivateRoute>
-                  <AnalyticsScreen />
-                </PrivateRoute>
-              }
-            />
-
-            {/* Announcements Screen */}
-            <Route
-              path="/announcements"
-              element={
-                <PrivateRoute>
-                  <AnnouncementsScreen />
-                </PrivateRoute>
-              }
-            />
-
-            {/* Speakers Screen */}
-            <Route
-              path="/speakers"
-              element={
-                <PrivateRoute>
-                  <SpeakersScreen />
-                </PrivateRoute>
-              }
-            />
-
-            {/* Learning Paths Screen */}
-            <Route
-              path="/learning-paths"
-              element={
-                <PrivateRoute>
-                  <LearningPathsScreen />
-                </PrivateRoute>
-              }
-            />
-
-            {/* ============================================================================
-                ENGAGEMENT CENTER & ADMIN ROUTES
-                ============================================================================ */}
-
-            {/* Engagement Center Screen */}
-            <Route
-              path="/engagement-center"
-              element={
-                <PrivateRoute>
-                  <EngagementCenterScreen />
-                </PrivateRoute>
-              }
-            />
-
-            {/* Admin Dashboard Screen */}
-            <Route
-              path="/admin"
-              element={
-                <PrivateRoute adminOnly={true}>
-                  <AdminDashboardScreen />
-                </PrivateRoute>
-              }
-            />
-
-            {/* Admin RBAC Dashboard */}
-            <Route
-              path="/admin/rbac"
-              element={
-                <PrivateRoute adminOnly={true}>
-                  <AdminRBACDashboard />
-                </PrivateRoute>
-              }
-            />
-
-            {/* ============================================================================
-                AI FEATURES ROUTES
-                ============================================================================ */}
-
-            <Route 
-              path="/discover" 
-              element={
-                <PrivateRoute>
-                  <AIEventRecommendations userProfile={userProfile} />
-                </PrivateRoute>
-              } 
-            />
-
-            <Route 
-              path="/sessions/:id/summary" 
-              element={
-                <PrivateRoute>
-                  <AISessionSummary />
-                </PrivateRoute>
-              } 
-            />
-
-            <Route 
-              path="/sessions/:id/quiz" 
-              element={
-                <PrivateRoute>
-                  <AIQuizGenerator sessionTitle="Session Name" />
-                </PrivateRoute>
-              } 
-            />
-
-            <Route 
-              path="/network-matches" 
-              element={
-                <PrivateRoute>
-                  <AIPerfectNetworkMatch />
-                </PrivateRoute>
-              } 
-            />
-
-            {/* ============================================================================
-                FALLBACK ROUTE - Catch-all redirect
-                ============================================================================ */}
-
-            <Route
-              path="*"
-              element={
-                <Navigate
-                  to={isAuthenticated ? "/home" : "/"}
-                  replace
-                />
-              }
-            />
-          </Routes>
-        </Suspense>
-
-        {/* ============================================================================
-            BOTTOM NAVIGATION - Rendered ONCE outside routes
-            ============================================================================
-            ✅ This renders only ONCE - not inside route components
-            ✅ No duplication - single import, single render
-            ✅ Responsive - shows as mobile bottom nav or desktop top nav
-        */}
-        {isAuthenticated && <BottomNavigation />}
-      </Router>
-
-      {/* AI Assistant Floating Widget */}
-      {isAuthenticated && <AIAssistant />}
-    </div>
-  )
+function LoadingFallback() {
+  return h(
+    'div',
+    {
+      style: {
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+        height: '100vh',
+        background: '#f3f4f6'
+      }
+    },
+    h('div', { style: { textAlign: 'center' } }, h('p', null, 'Loading...'))
+  );
 }
 
-export default App
+function wrapPrivate(Component, props, adminOnly) {
+  return h(
+    PrivateRoute,
+    adminOnly ? { adminOnly: true } : null,
+    h(Component, props || null)
+  );
+}
+
+function App() {
+  const { isAuthenticated } = useAuthStore();
+  const [userProfile] = useState(null);
+
+  return h(
+    'div',
+    { className: 'min-h-screen bg-white dark:bg-slate-950' },
+    h(Toaster, {
+      position: 'top-right',
+      reverseOrder: false,
+      toastOptions: {
+        duration: 4000,
+        style: {
+          background: '#1f2937',
+          color: '#fff'
+        }
+      }
+    }),
+    h(
+      Router,
+      null,
+      h(
+        Suspense,
+        { fallback: h(LoadingFallback) },
+        h(
+          Routes,
+          null,
+          // Public Routes
+          h(Route, { path: '/', element: h(SplashScreen) }),
+          h(Route, { path: '/login', element: h(LoginScreen) }),
+          h(Route, { path: '/register', element: h(RegisterScreen) }),
+          h(Route, { path: '/verify-email', element: h(VerifyEmailScreen) }),
+          h(Route, { path: '/complete-profile', element: h(CompleteProfileScreen) }),
+
+          // Main Protected Routes
+          h(Route, { path: '/home', element: wrapPrivate(HomeScreen) }),
+          h(Route, { path: '/sessions', element: wrapPrivate(SessionsScreen) }),
+          h(Route, { path: '/hub', element: wrapPrivate(HubScreen) }),
+          h(Route, { path: '/networking', element: wrapPrivate(NetworkingScreen) }),
+          h(Route, { path: '/profile', element: wrapPrivate(ProfileScreen) }),
+
+          // Engagement Routes
+          h(Route, { path: '/social-wall', element: wrapPrivate(SocialWallScreen) }),
+          h(Route, { path: '/activity-hub', element: wrapPrivate(ActivityHubScreen) }),
+          h(Route, { path: '/ai-matches', element: wrapPrivate(AIMatchesScreen) }),
+          h(Route, { path: '/partners', element: wrapPrivate(PartnersScreen) }),
+          h(Route, { path: '/briefcase', element: wrapPrivate(BriefcaseScreen) }),
+
+          // Gamification & Learning Routes
+          h(Route, { path: '/ratings', element: wrapPrivate(RatingsScreen) }),
+          h(Route, { path: '/analytics', element: wrapPrivate(AnalyticsScreen) }),
+          h(Route, { path: '/announcements', element: wrapPrivate(AnnouncementsScreen) }),
+          h(Route, { path: '/speakers', element: wrapPrivate(SpeakersScreen) }),
+          h(Route, { path: '/learning-paths', element: wrapPrivate(LearningPathsScreen) }),
+
+          // Engagement Center & Admin Routes
+          h(Route, { path: '/engagement-center', element: wrapPrivate(EngagementCenterScreen) }),
+          h(Route, { path: '/admin', element: wrapPrivate(AdminDashboardScreen, null, true) }),
+          h(Route, { path: '/admin/rbac', element: wrapPrivate(AdminRBACDashboard, null, true) }),
+
+          // AI Features Routes
+          h(Route, {
+            path: '/discover',
+            element: wrapPrivate(AIEventRecommendations, { userProfile: userProfile })
+          }),
+          h(Route, { path: '/sessions/:id/summary', element: wrapPrivate(AISessionSummary) }),
+          h(Route, {
+            path: '/sessions/:id/quiz',
+            element: wrapPrivate(AIQuizGenerator, { sessionTitle: 'Session Name' })
+          }),
+          h(Route, { path: '/network-matches', element: wrapPrivate(AIPerfectNetworkMatch) }),
+
+          // Fallback Route
+          h(Route, {
+            path: '*',
+            element: h(Navigate, { to: isAuthenticated ? '/home' : '/', replace: true })
+          })
+        )
+      ),
+      isAuthenticated && h(BottomNavigation)
+    ),
+    // Single Unified AI Assistant Floating Widget
+    isAuthenticated && h(AIAssistant, { userProfile: userProfile })
+  );
+}
+
+export default App;
