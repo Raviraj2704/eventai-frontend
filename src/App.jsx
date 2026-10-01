@@ -1,60 +1,69 @@
 // ============================================================================
-// Main App Component with Routing - FIXED
+// Main App Component with Routing - FIXED FOR 5G SPEED (CODE SPLITTING)
 // ============================================================================
 // File: src/App.jsx
-// Purpose: Root component with React Router setup and authentication flow
+// Purpose: Root component with React Router setup, auth flow, and lazy loading
 // Status: Production-Ready ✅
 
-import React, { useState, Suspense } from 'react';
+import React, { useState, Suspense, lazy } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 
 // Store
 import { useAuthStore } from './store/authStore';
 
-// Pages - Auth
-import SplashScreen from './pages/auth/SplashScreen';
-import LoginScreen from './pages/auth/LoginScreen';
-import RegisterScreen from './pages/auth/RegisterScreen';
-import VerifyEmailScreen from './pages/auth/VerifyEmailScreen';
-import CompleteProfileScreen from './pages/auth/CompleteProfileScreen';
-
-// Pages - Main
-import HomeScreen from './pages/main/HomeScreen';
-import SessionsScreen from './pages/main/SessionsScreen';
-import HubScreen from './pages/main/HubScreen';
-import NetworkingScreen from './pages/main/NetworkingScreen';
-import ProfileScreen from './pages/main/ProfileScreen';
-
-// Pages - Engagement
-import SocialWallScreen from './pages/engagement/SocialWallScreen';
-import ActivityHubScreen from './pages/engagement/ActivityHubScreen';
-import AIMatchesScreen from './pages/engagement/AIMatchesScreen';
-import PartnersScreen from './pages/engagement/PartnersScreen';
-import BriefcaseScreen from './pages/engagement/BriefcaseScreen';
-
-// Pages - Gamification & Learning
-import RatingsScreen from './pages/gamification/RatingsScreen';
-import AnalyticsScreen from './pages/gamification/AnalyticsScreen';
-import AnnouncementsScreen from './pages/gamification/AnnouncementsScreen';
-import SpeakersScreen from './pages/gamification/SpeakersScreen';
-import LearningPathsScreen from './pages/gamification/LearningPathsScreen';
-
-// Pages - Engagement Center & Admin
-import EngagementCenterScreen from './pages/engagement-center/engagementCenterScreen.jsx';
-import AdminDashboardScreen from './pages/admin/AdminDashboardScreen.jsx';
-import AdminRBACDashboard from './pages/admin/AdminRBACDashboard.jsx';
-
-// Components
+// Components (Non-lazy for immediate core layout)
 import PrivateRoute from './components/Auth/PrivateRoute';
 import BottomNavigation from './components/layout/BottomNavigation';
-
-// AI Features
 import AIAssistant from './components/ai/AIAssistant';
-import AIEventRecommendations from './components/ai/AIEventRecommendations';
-import AISessionSummary from './components/ai/AISessionSummary';
-import AIQuizGenerator from './components/ai/AIQuizGenerator';
-import AIPerfectNetworkMatch from './components/ai/AIPerfectNetworkMatch';
+import LoadingSpinner from './components/common/LoadingSpinner';
+
+// ============================================================================
+// LAZY LOADED PAGES (Code Splitting for instant initial load)
+// ============================================================================
+
+// Pages - Auth
+const SplashScreen = lazy(() => import('./pages/auth/SplashScreen'));
+const LoginScreen = lazy(() => import('./pages/auth/LoginScreen'));
+const RegisterScreen = lazy(() => import('./pages/auth/RegisterScreen'));
+const VerifyEmailScreen = lazy(() => import('./pages/auth/VerifyEmailScreen'));
+const CompleteProfileScreen = lazy(() => import('./pages/auth/CompleteProfileScreen'));
+
+// Pages - Main
+const HomeScreen = lazy(() => import('./pages/main/HomeScreen'));
+const SessionsScreen = lazy(() => import('./pages/main/SessionsScreen'));
+const HubScreen = lazy(() => import('./pages/main/HubScreen'));
+const NetworkingScreen = lazy(() => import('./pages/main/NetworkingScreen'));
+const ProfileScreen = lazy(() => import('./pages/main/ProfileScreen'));
+
+// Pages - Engagement
+const SocialWallScreen = lazy(() => import('./pages/engagement/SocialWallScreen'));
+const ActivityHubScreen = lazy(() => import('./pages/engagement/ActivityHubScreen'));
+const AIMatchesScreen = lazy(() => import('./pages/engagement/AIMatchesScreen'));
+const PartnersScreen = lazy(() => import('./pages/engagement/PartnersScreen'));
+const BriefcaseScreen = lazy(() => import('./pages/engagement/BriefcaseScreen'));
+
+// Pages - Gamification & Learning
+const RatingsScreen = lazy(() => import('./pages/gamification/RatingsScreen'));
+const AnalyticsScreen = lazy(() => import('./pages/gamification/AnalyticsScreen'));
+const AnnouncementsScreen = lazy(() => import('./pages/gamification/AnnouncementsScreen'));
+const SpeakersScreen = lazy(() => import('./pages/gamification/SpeakersScreen'));
+const LearningPathsScreen = lazy(() => import('./pages/gamification/LearningPathsScreen'));
+
+// Pages - Engagement Center & Admin
+const EngagementCenterScreen = lazy(() => import('./pages/engagement-center/engagementCenterScreen.jsx'));
+const AdminDashboardScreen = lazy(() => import('./pages/admin/AdminDashboardScreen.jsx'));
+const AdminRBACDashboard = lazy(() => import('./pages/admin/AdminRBACDashboard.jsx'));
+
+// AI Features Screens
+const AIEventRecommendations = lazy(() => import('./components/ai/AIEventRecommendations'));
+const AISessionSummary = lazy(() => import('./components/ai/AISessionSummary'));
+const AIQuizGenerator = lazy(() => import('./components/ai/AIQuizGenerator'));
+const AIPerfectNetworkMatch = lazy(() => import('./components/ai/AIPerfectNetworkMatch'));
+
+// ============================================================================
+// ROUTING ENGINE
+// ============================================================================
 
 const h = React.createElement;
 
@@ -70,7 +79,7 @@ function LoadingFallback() {
         background: '#f3f4f6'
       }
     },
-    h('div', { style: { textAlign: 'center' } }, h('p', null, 'Loading...'))
+    h(LoadingSpinner, { fullScreen: true })
   );
 }
 

@@ -18,13 +18,15 @@ export default defineConfig({
     open: true,
     proxy: {
       '/api': {
-        target: 'https://event-ai-backend-o2t3.onrender.com',
+        target: 'https://event-ai-backend-o2f3.onrender.com',
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/api/, '')
       }
     }
   },
   build: {
+    target: 'esnext',
+    cssCodeSplit: true,
     outDir: 'dist',
     sourcemap: false,
     minify: 'terser',
@@ -36,6 +38,10 @@ export default defineConfig({
             'react-dom',
             'react-router-dom',
             'axios'
+          ],
+          'ui': [
+            'lucide-react',
+            'react-hot-toast'
           ]
         }
       }
