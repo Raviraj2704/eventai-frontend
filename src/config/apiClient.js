@@ -123,13 +123,15 @@ apiClient.interceptors.response.use(
     // Handle 401 Unauthorized - token expired or invalid
     if (status === 401) {
       console.warn('⚠️ Unauthorized - Token expired or invalid');
-      localStorage.removeItem('access_token');
-      localStorage.removeItem('user');
       
-      // Redirect to login (if not already on login page)
-      if (window.location.pathname !== '/login') {
-        window.location.href = '/login';
-      }
+      // Clear all auth data to let React Router handle the redirect gracefully
+      localStorage.removeItem('access_token');
+      localStorage.removeItem('refresh_token');
+      localStorage.removeItem('user');
+      localStorage.removeItem('user_id');
+
+      // Dispatch event for authStore to catch and update state, preventing the infinite reload loop
+      window.dispatchEvent(new Event('auth-token-expired'));
 
       return Promise.reject({
         status: 401,
@@ -196,7 +198,7 @@ apiClient.interceptors.response.use(
  * Generate unique request ID for tracking
  */
 function generateRequestId() {
-  return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+  return `\({Date.now()}-\){Math.random().toString(36).substr(2, 9)}`;
 }
 
 /**
