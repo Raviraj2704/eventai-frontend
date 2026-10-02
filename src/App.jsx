@@ -5,9 +5,9 @@
 // Purpose: Root component with React Router setup, auth flow, and lazy loading
 // Status: Production-Ready ✅
 
-import React, { useState, Suspense, lazy } from 'react';
+import React, { useState, useEffect, Suspense, lazy } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { Toaster } from 'react-hot-toast';
+import { Toaster, toast } from 'react-hot-toast';
 
 // Store
 import { useAuthStore } from './store/authStore';
@@ -92,8 +92,20 @@ function wrapPrivate(Component, props, adminOnly) {
 }
 
 function App() {
-  const { isAuthenticated } = useAuthStore();
+  // Grab logout from the store to handle state cleanup
+  const { isAuthenticated, logout } = useAuthStore();
   const [userProfile] = useState(null);
+
+  // Listen for the custom 401 Unauthorized event from apiClient.js
+  useEffect(() => {
+    const handleTokenExpiration = () => {
+      logout(); // Clears Zustand state, triggering a clean redirect to /login
+      toast.error('Session expired. Please log in again.');
+    };
+
+    window.addEventListener('auth-token-expired', handleTokenExpiration);
+    return () => window.removeEventListener('auth-token-expired', handleTokenExpiration);
+  }, [logout]);
 
   return h(
     'div',
