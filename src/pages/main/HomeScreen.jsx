@@ -1,5 +1,5 @@
 // ============================================================================
-// Home Screen
+// Home Screen - FIXED
 // ============================================================================
 // File: src/pages/main/HomeScreen.jsx
 // Purpose: Main home/dashboard screen
@@ -68,16 +68,19 @@ const HomeScreen = () => {
     )
   }
 
+  // Safe username fallback
+  const displayName = user?.first_name || user?.full_name || 'User';
+
   return (
     <>
       <Header />
 
       <main className="pb-20 md:pb-0">
         {/* Hero Section */}
-        <section className="bg-gradient-to-r from-primary-600 to-secondary-600 text-white">
-          <div className="container-max py-12">
+        <section className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white">
+          <div className="container-max py-12 px-4 md:px-8">
             <h1 className="text-3xl md:text-4xl font-bold mb-3">
-              Welcome back, {user?.raviraja_panthulu}! 👋
+              Welcome back, {displayName}! 👋
             </h1>
             <p className="text-lg text-white/80 max-w-2xl">
               Discover amazing sessions, connect with professionals, and level up your skills.
@@ -86,12 +89,12 @@ const HomeScreen = () => {
         </section>
 
         {/* Stats Grid */}
-        <section className="container-max py-8">
+        <section className="container-max py-8 px-4 md:px-8">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {/* Sessions Attended */}
             <div className="bg-white rounded-lg border border-neutral-200 p-6 hover:shadow-md transition-shadow">
               <div className="flex items-center justify-between mb-4">
-                <Zap className="w-8 h-8 text-primary-600" />
+                <Zap className="w-8 h-8 text-blue-600" />
                 <span className="text-2xl font-bold text-neutral-900">
                   {stats.sessionsAttended}
                 </span>
@@ -102,7 +105,7 @@ const HomeScreen = () => {
             {/* Points Earned */}
             <div className="bg-white rounded-lg border border-neutral-200 p-6 hover:shadow-md transition-shadow">
               <div className="flex items-center justify-between mb-4">
-                <Target className="w-8 h-8 text-secondary-600" />
+                <Target className="w-8 h-8 text-indigo-600" />
                 <span className="text-2xl font-bold text-neutral-900">
                   {stats.pointsEarned}
                 </span>
@@ -135,12 +138,12 @@ const HomeScreen = () => {
         </section>
 
         {/* Featured Sessions */}
-        <section className="container-max py-8">
+        <section className="container-max py-8 px-4 md:px-8">
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-2xl font-bold text-neutral-900">Featured Sessions</h2>
             <button
               onClick={() => navigate('/sessions')}
-              className="flex items-center gap-2 text-primary-600 hover:text-primary-700 font-medium transition-colors"
+              className="flex items-center gap-2 text-blue-600 hover:text-blue-700 font-medium transition-colors"
             >
               View All
               <ArrowRight className="w-4 h-4" />
@@ -150,11 +153,17 @@ const HomeScreen = () => {
           {sessions.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {sessions.map((session) => (
-                <SessionCard
-                  key={session.id}
-                  session={session}
-                  onViewDetails={() => navigate(`/sessions/${session.id}`)}
-                />
+                <div 
+                  key={session.id} 
+                  onClick={() => navigate(`/sessions/${session.id}`)}
+                  className="cursor-pointer transition-transform hover:-translate-y-1"
+                >
+                  <SessionCard
+                    session={session}
+                    onViewDetails={() => navigate(`/sessions/${session.id}`)}
+                    onClick={() => navigate(`/sessions/${session.id}`)}
+                  />
+                </div>
               ))}
             </div>
           ) : (
@@ -162,7 +171,7 @@ const HomeScreen = () => {
               <p className="text-neutral-600 mb-4">No sessions available yet</p>
               <button
                 onClick={() => navigate('/sessions')}
-                className="btn btn-primary"
+                className="px-5 py-2 bg-blue-600 text-white rounded-lg font-bold hover:bg-blue-700 transition-colors"
               >
                 Browse Sessions
               </button>
@@ -171,11 +180,11 @@ const HomeScreen = () => {
         </section>
 
         {/* Quick Actions */}
-        <section className="container-max py-8">
+        <section className="container-max py-8 px-4 md:px-8">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <button
               onClick={() => navigate('/activity-hub')}
-              className="bg-gradient-to-br from-primary-500 to-primary-600 text-white rounded-lg p-6 hover:shadow-lg transition-shadow"
+              className="bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-lg p-6 hover:shadow-lg transition-shadow text-left"
             >
               <h3 className="text-lg font-bold mb-1">Activity Hub</h3>
               <p className="text-sm text-white/80">Join challenges and engage</p>
@@ -183,7 +192,7 @@ const HomeScreen = () => {
 
             <button
               onClick={() => navigate('/learning-paths')}
-              className="bg-gradient-to-br from-secondary-500 to-secondary-600 text-white rounded-lg p-6 hover:shadow-lg transition-shadow"
+              className="bg-gradient-to-br from-indigo-500 to-indigo-600 text-white rounded-lg p-6 hover:shadow-lg transition-shadow text-left"
             >
               <h3 className="text-lg font-bold mb-1">Learning Paths</h3>
               <p className="text-sm text-white/80">Boost your skills</p>
@@ -191,7 +200,7 @@ const HomeScreen = () => {
 
             <button
               onClick={() => navigate('/networking')}
-              className="bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-lg p-6 hover:shadow-lg transition-shadow"
+              className="bg-gradient-to-br from-blue-600 to-indigo-700 text-white rounded-lg p-6 hover:shadow-lg transition-shadow text-left"
             >
               <h3 className="text-lg font-bold mb-1">Networking</h3>
               <p className="text-sm text-white/80">Connect with professionals</p>
@@ -199,7 +208,6 @@ const HomeScreen = () => {
           </div>
         </section>
       </main>
-
     </>
   )
 }
