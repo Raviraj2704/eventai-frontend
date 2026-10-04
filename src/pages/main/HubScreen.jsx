@@ -5,7 +5,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { apiGet } from '../../services/api';
 import { 
-  Megaphone, Mic, Calendar, BookOpen, Users, Handshake, 
+  Megaphone, Mic, Calendar, BookOpen, Users, HeartHandshake, 
   Briefcase, Star, BarChart2, Settings, Target, MessageSquare 
 } from 'lucide-react';
 
@@ -23,7 +23,7 @@ export default function HubPage() {
     { id: 4, title: 'Learning', icon: <BookOpen className="w-6 h-6" />, description: 'Boost your skills', path: '/learning-paths', apiEndpoint: '/learning_paths', color: 'text-purple-500', bg: 'bg-purple-50' },
     { id: 5, title: 'Engagement', icon: <Target className="w-6 h-6" />, description: 'Polls and quizzes', path: '/engagement-center', apiEndpoint: '/engagement/polls', color: 'text-blue-500', bg: 'bg-blue-50' },
     { id: 6, title: 'Social Wall', icon: <MessageSquare className="w-6 h-6" />, description: 'Community discussions', path: '/social-wall', apiEndpoint: '/social/posts', color: 'text-indigo-500', bg: 'bg-indigo-50' },
-    { id: 7, title: 'Partners', icon: <Handshake className="w-6 h-6" />, description: 'Discover our partners', path: '/partners', apiEndpoint: '/partners', color: 'text-blue-500', bg: 'bg-blue-50' },
+    { id: 7, title: 'Partners', icon: <HeartHandshake className="w-6 h-6" />, description: 'Discover our partners', path: '/partners', apiEndpoint: '/partners', color: 'text-blue-500', bg: 'bg-blue-50' },
     { id: 8, title: 'Briefcase', icon: <Briefcase className="w-6 h-6" />, description: 'Your saved resources', path: '/briefcase', apiEndpoint: '/resources', color: 'text-amber-500', bg: 'bg-amber-50' },
     { id: 9, title: 'Ratings', icon: <Star className="w-6 h-6" />, description: 'View session ratings', path: '/ratings', apiEndpoint: '/ratings', color: 'text-yellow-500', bg: 'bg-yellow-50' },
     { id: 10, title: 'Analytics', icon: <BarChart2 className="w-6 h-6" />, description: 'Your performance', path: '/analytics', apiEndpoint: '/analytics/dashboard', color: 'text-emerald-500', bg: 'bg-emerald-50' },
