@@ -1,23 +1,25 @@
 // ============================================================================
 // Speakers Screen
 // File: src/pages/gamification/SpeakersScreen.jsx
-// Design: Matches the video's Speakers page (featured speaker cards, search with
-//         filter, Total Count line, AI Matches badge, list rows with bookmarks)
-// Data:   Real API only
-//   GET    /speakers                      list speakers
-//   GET    /speakers/me/following         speaker IDs the logged-in user follows
-//   POST   /speakers/{id}/follow          follow
-//   DELETE /speakers/{id}/follow          unfollow
-//   GET    /chat/speakers/{id}/messages   conversation with a speaker
-//   POST   /chat/speakers/{id}/messages   send a message to a speaker
-//   GET    /auth/me                       logged-in user (to detect own profile)
+// Data: Real API only
+//   GET    /speakers                         list speakers
+//   GET    /speakers/me/following            followed speaker IDs
+//   POST   /speakers/{id}/follow             follow
+//   DELETE /speakers/{id}/follow             unfollow
+//   GET    /speakers/me/bookmarks            saved speaker IDs
+//   POST   /speakers/{id}/bookmark           save
+//   DELETE /speakers/{id}/bookmark           remove saved
+//   GET    /chat/inbox                       your conversations
+//   GET    /chat/users/{id}/messages         conversation with a user
+//   POST   /chat/users/{id}/messages         send a message to a user
+//   GET    /auth/me                          logged-in user
 // ============================================================================
 
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import {
-  Search, SlidersHorizontal, Bookmark, Star, MessageCircle, Sparkles,
+  Search, SlidersHorizontal, Bookmark, Star, MessageCircle, MessageSquare, Sparkles,
   Plus, Trash2, Pencil, Calendar, ChevronRight, X, Send,
 } from 'lucide-react';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
@@ -30,7 +32,6 @@ const FILTERS = [
   { value: 'bookmarked', label: 'Bookmarked' },
 ];
 
-// Reads the server's reason (e.g. "You cannot follow yourself") from any error shape
 const getErrorMessage = (error, fallback) =>
   error?.response?.data?.detail ||
   error?.data?.detail ||
@@ -82,14 +83,19 @@ const SpeakersScreen = () => {
   const [myUserId, setMyUserId] = useState(null);
   const [followingIds, setFollowingIds] = useState([]);
   const [followBusyId, setFollowBusyId] = useState(null);
+  const [bookmarkedIds, setBookmarkedIds] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [filter, setFilter] = useState('all');
   const [filterOpen, setFilterOpen] = useState(false);
   const [expandedId, setExpandedId] = useState(null);
-  const [bookmarkedIds, setBookmarkedIds] = useState([]);
 
-  // Chat state
-  const [chatSpeaker, setChatSpeaker] = useState(null);
+  // Inbox
+  const [inboxOpen, setInboxOpen] = useState(false);
+  const [inboxItems, setInboxItems] = useState([]);
+  const [inboxLoading, setInboxLoading] = useState(false);
+
+  // Chat
+  const [chatPartner, setChatPartner] = useState(null); // { userId, title }
   const [messages, setMessages] = useState([]);
   const [chatLoading, setChatLoading] = useState(false);
   const [chatText, setChatText] = useState('');
@@ -101,6 +107,7 @@ const SpeakersScreen = () => {
     }
     loadCurrentUser();
     loadFollowing();
+    loadBookmarks();
     loadSpeakers();
   }, []);
 
@@ -116,10 +123,18 @@ const SpeakersScreen = () => {
   const loadFollowing = async () => {
     try {
       const response = await apiClient.get('/speakers/me/following');
-      const ids = response?.data?.data?.speaker_ids || [];
-      setFollowingIds(ids);
+      setFollowingIds(response?.data?.data?.speaker_ids || []);
     } catch (error) {
       console.error('Could not load followed speakers:', error);
+    }
+  };
+
+  const loadBookmarks = async () => {
+    try {
+      const response = await apiClient.get('/speakers/me/bookmarks');
+      setBookmarkedIds(response?.data?.data?.speaker_ids || []);
+    } catch (error) {
+      console.error('Could not load saved speakers:', error);
     }
   };
 
@@ -142,8 +157,8 @@ const SpeakersScreen = () => {
     myUserId !== null && speaker.user_id !== undefined && speaker.user_id === myUserId;
 
   const isFollowing = (speakerId) => followingIds.includes(speakerId);
+  const isBookmarked = (speakerId) => bookmarkedIds.includes(speakerId);
 
-  // Search by name, designation, company, bio, and expertise, plus the filter
   const visibleSpeakers = useMemo(() => {
     let list = speakers;
 
@@ -169,7 +184,6 @@ const SpeakersScreen = () => {
     return list;
   }, [speakers, searchQuery, filter, bookmarkedIds, followingIds]);
 
-  // Featured = top rated speakers from the real data
   const featuredSpeakers = useMemo(
     () =>
       [...speakers]
@@ -178,12 +192,9 @@ const SpeakersScreen = () => {
     [speakers]
   );
 
-  const toggleBookmark = (speakerId) => {
-    setBookmarkedIds((prev) =>
-      prev.includes(speakerId) ? prev.filter((id) => id !== speakerId) : [...prev, speakerId]
-    );
-  };
-
+  // ---------------------------------------------------------------------------
+  // Follow and bookmark (saved to the server)
+  // ---------------------------------------------------------------------------
   const handleFollowToggle = async (speaker) => {
     if (followBusyId !== null) return;
     setFollowBusyId(speaker.id);
@@ -205,20 +216,65 @@ const SpeakersScreen = () => {
     }
   };
 
+  const handleBookmarkToggle = async (speakerId) => {
+    const wasSaved = isBookmarked(speakerId);
+
+    // Update the screen immediately, then confirm with the server
+    setBookmarkedIds((prev) =>
+      wasSaved ? prev.filter((id) => id !== speakerId) : [...prev, speakerId]
+    );
+
+    try {
+      if (wasSaved) {
+        await apiClient.delete(`/speakers/${speakerId}/bookmark`);
+        toast.success('Removed from saved');
+      } else {
+        await apiClient.post(`/speakers/${speakerId}/bookmark`);
+        toast.success('Saved!');
+      }
+    } catch (error) {
+      console.error('Bookmark update failed:', error);
+      // Put the screen back the way the server has it
+      setBookmarkedIds((prev) =>
+        wasSaved ? [...prev, speakerId] : prev.filter((id) => id !== speakerId)
+      );
+      toast.error(getErrorMessage(error, 'Could not save speaker'));
+    }
+  };
+
   const handleRate = () => {
     navigate('/ratings');
   };
 
   // ---------------------------------------------------------------------------
-  // Chat with a speaker (real endpoints)
+  // Inbox and chat (saved to the server, keyed by user account)
   // ---------------------------------------------------------------------------
-  const openChat = async (speaker) => {
-    setChatSpeaker(speaker);
+  const openInbox = async () => {
+    setInboxOpen(true);
+    setInboxLoading(true);
+    try {
+      const response = await apiClient.get('/chat/inbox');
+      setInboxItems(response?.data?.data || []);
+    } catch (error) {
+      console.error('Could not load inbox:', error);
+      toast.error(getErrorMessage(error, 'Could not load messages'));
+    } finally {
+      setInboxLoading(false);
+    }
+  };
+
+  const openChat = async (partnerUserId, title) => {
+    if (!partnerUserId) {
+      toast.error('This speaker has no account to message');
+      return;
+    }
+    setInboxOpen(false);
+    setChatPartner({ userId: partnerUserId, title });
     setMessages([]);
     setChatText('');
     setChatLoading(true);
     try {
-      const response = await apiClient.get(`/chat/speakers/${speaker.id}/messages`, {
+      const response = await apiClient.get(`/chat/users/${partnerUserId}/messages`, {
         params: { limit: 100 },
       });
       setMessages(response?.data?.data || []);
@@ -231,7 +287,7 @@ const SpeakersScreen = () => {
   };
 
   const closeChat = () => {
-    setChatSpeaker(null);
+    setChatPartner(null);
     setMessages([]);
     setChatText('');
   };
@@ -239,11 +295,11 @@ const SpeakersScreen = () => {
   const handleSendMessage = async (e) => {
     e.preventDefault();
     const content = chatText.trim();
-    if (!content || !chatSpeaker || sending) return;
+    if (!content || !chatPartner || sending) return;
 
     setSending(true);
     try {
-      const response = await apiClient.post(`/chat/speakers/${chatSpeaker.id}/messages`, {
+      const response = await apiClient.post(`/chat/users/${chatPartner.userId}/messages`, {
         content,
       });
       const saved = response?.data?.data;
@@ -260,7 +316,7 @@ const SpeakersScreen = () => {
   };
 
   // ---------------------------------------------------------------------------
-  // Create / edit / delete (unchanged behaviour)
+  // Create, edit, delete
   // ---------------------------------------------------------------------------
   const handleCreate = async () => {
     const firstName = window.prompt('Enter speaker first name:');
@@ -335,14 +391,22 @@ const SpeakersScreen = () => {
           <h1 className="text-2xl font-bold">Speakers</h1>
           <p className="text-sm text-white/80">Meet the industry experts</p>
         </div>
-        {canCreate && (
+        <div className="flex gap-2">
           <button
-            onClick={handleCreate}
-            className="flex items-center gap-1 bg-white text-[#0c1b78] px-3 py-2 rounded-lg text-sm font-semibold shadow-sm"
+            onClick={openInbox}
+            className="flex items-center gap-1 bg-white/15 text-white px-3 py-2 rounded-lg text-sm font-semibold"
           >
-            <Plus size={16} /> Create
+            <MessageSquare size={16} /> Inbox
           </button>
-        )}
+          {canCreate && (
+            <button
+              onClick={handleCreate}
+              className="flex items-center gap-1 bg-white text-[#0c1b78] px-3 py-2 rounded-lg text-sm font-semibold shadow-sm"
+            >
+              <Plus size={16} /> Create
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Search and filter */}
@@ -397,18 +461,18 @@ const SpeakersScreen = () => {
               <h2 className="px-4 text-base font-semibold text-neutral-500">Featured Speakers</h2>
               <div className="flex gap-3 overflow-x-auto px-4 pt-3 pb-1 hide-scrollbar">
                 {featuredSpeakers.map((speaker) => {
-                  const isBookmarked = bookmarkedIds.includes(speaker.id);
+                  const saved = isBookmarked(speaker.id);
                   return (
                     <div
                       key={speaker.id}
                       className="relative shrink-0 w-36 rounded-xl border border-neutral-200 p-3 text-center shadow-sm"
                     >
                       <button
-                        onClick={() => toggleBookmark(speaker.id)}
-                        aria-label="Bookmark speaker"
-                        className={`absolute top-2 right-2 ${isBookmarked ? 'text-amber-500' : 'text-neutral-400'}`}
+                        onClick={() => handleBookmarkToggle(speaker.id)}
+                        aria-label="Save speaker"
+                        className={`absolute top-2 right-2 ${saved ? 'text-amber-500' : 'text-neutral-400'}`}
                       >
-                        <Bookmark size={16} fill={isBookmarked ? 'currentColor' : 'none'} />
+                        <Bookmark size={16} fill={saved ? 'currentColor' : 'none'} />
                       </button>
                       <div className="flex justify-center pt-2">
                         <Avatar speaker={speaker} size="w-16 h-16" textSize="text-lg" />
@@ -444,7 +508,7 @@ const SpeakersScreen = () => {
             <div className="px-4 pt-2 divide-y divide-neutral-200">
               {visibleSpeakers.map((speaker) => {
                 const isExpanded = expandedId === speaker.id;
-                const isBookmarked = bookmarkedIds.includes(speaker.id);
+                const saved = isBookmarked(speaker.id);
                 const following = isFollowing(speaker.id);
                 const own = isOwnProfile(speaker);
                 const expertise = Array.isArray(speaker.expertise) ? speaker.expertise : [];
@@ -472,12 +536,12 @@ const SpeakersScreen = () => {
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          toggleBookmark(speaker.id);
+                          handleBookmarkToggle(speaker.id);
                         }}
-                        aria-label="Bookmark speaker"
-                        className={`mt-1 ${isBookmarked ? 'text-amber-500' : 'text-neutral-400'}`}
+                        aria-label="Save speaker"
+                        className={`mt-1 ${saved ? 'text-amber-500' : 'text-neutral-400'}`}
                       >
-                        <Bookmark size={18} fill={isBookmarked ? 'currentColor' : 'none'} />
+                        <Bookmark size={18} fill={saved ? 'currentColor' : 'none'} />
                       </button>
                     </div>
 
@@ -543,7 +607,7 @@ const SpeakersScreen = () => {
                               <Star size={14} /> Rate
                             </button>
                             <button
-                              onClick={() => openChat(speaker)}
+                              onClick={() => openChat(speaker.user_id, getFullName(speaker))}
                               className="py-2 rounded-lg text-sm font-semibold border border-neutral-300 text-neutral-700 flex items-center justify-center gap-1"
                             >
                               <MessageCircle size={14} /> Message
@@ -602,12 +666,45 @@ const SpeakersScreen = () => {
         </>
       )}
 
-      {/* Chat sheet */}
-      {chatSpeaker && (
-        <div className="fixed inset-0 bg-black/50 z-60 flex items-end justify-center">
+      {/* Inbox sheet */}
+      {inboxOpen && (
+        <div className="fixed inset-0 bg-black/50 z-[60] flex items-end justify-center">
           <div className="bg-white w-full max-w-[430px] h-[70vh] rounded-t-2xl flex flex-col mb-16">
             <div className="flex items-center justify-between px-4 py-3 border-b border-neutral-200">
-              <p className="font-semibold text-neutral-900 truncate">{getFullName(chatSpeaker)}</p>
+              <p className="font-semibold text-neutral-900">Messages</p>
+              <button onClick={() => setInboxOpen(false)} aria-label="Close inbox" className="text-neutral-500">
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto divide-y divide-neutral-200">
+              {inboxLoading ? (
+                <LoadingSpinner />
+              ) : inboxItems.length === 0 ? (
+                <p className="text-center text-sm text-neutral-500 pt-8">No conversations yet</p>
+              ) : (
+                inboxItems.map((item) => (
+                  <button
+                    key={item.partner_user_id}
+                    onClick={() => openChat(item.partner_user_id, item.name)}
+                    className="w-full text-left px-4 py-3 hover:bg-neutral-50"
+                  >
+                    <p className="text-sm font-semibold text-neutral-900 truncate">{item.name}</p>
+                    <p className="text-xs text-neutral-500 truncate">{item.last_message}</p>
+                  </button>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Chat sheet */}
+      {chatPartner && (
+        <div className="fixed inset-0 bg-black/50 z-[60] flex items-end justify-center">
+          <div className="bg-white w-full max-w-[430px] h-[70vh] rounded-t-2xl flex flex-col mb-16">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-neutral-200">
+              <p className="font-semibold text-neutral-900 truncate">{chatPartner.title}</p>
               <button onClick={closeChat} aria-label="Close chat" className="text-neutral-500">
                 <X size={20} />
               </button>
