@@ -1,8 +1,9 @@
 // ============================================================================
-// BottomNavigation.jsx - FIXED VERSION
+// BottomNavigation.jsx - MERGED VERSION (video style + existing logic)
 // ============================================================================
 import { useState, useEffect, useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { Home, CalendarDays, LayoutGrid, Users, User } from 'lucide-react';
 
 export default function BottomNavigation() {
   const location = useLocation();
@@ -10,11 +11,11 @@ export default function BottomNavigation() {
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
 
   const navTabs = useMemo(() => [
-    { id: 1, label: 'Home', icon: '🏠', path: '/home', description: 'Home' },
-    { id: 2, label: 'Hub', icon: '⚡', path: '/hub', description: 'Features' },
-    { id: 3, label: 'Network', icon: '👥', path: '/networking', description: 'Networking' },
-    { id: 4, label: 'Engage', icon: '🎯', path: '/activity-hub', description: 'Engagement' },
-    { id: 5, label: 'Profile', icon: '👤', path: '/profile', description: 'Profile' }
+    { id: 1, label: 'Home', icon: Home, path: '/home', description: 'Home' },
+    { id: 2, label: 'Sessions', icon: CalendarDays, path: '/sessions', description: 'Sessions' },
+    { id: 3, label: 'Hub', icon: LayoutGrid, path: '/hub', description: 'Features' },
+    { id: 4, label: 'Networking', icon: Users, path: '/networking', description: 'Networking' },
+    { id: 5, label: 'Profile', icon: User, path: '/profile', description: 'Profile' }
   ], []);
 
   useEffect(() => {
@@ -26,15 +27,9 @@ export default function BottomNavigation() {
   const getActiveTab = useMemo(() => {
     return (path) => {
       if (location.pathname === path) return true;
+      if (path === '/sessions' && location.pathname.startsWith('/sessions')) return true;
       if (path === '/hub' && location.pathname.startsWith('/hub')) return true;
       if (path === '/networking' && location.pathname.includes('networking')) return true;
-      if (path === '/activity-hub' && 
-          (location.pathname.includes('activity') || 
-           location.pathname.includes('engagement') ||
-           location.pathname.includes('social') ||
-           location.pathname.includes('ai-matches'))) {
-        return true;
-      }
       return false;
     };
   }, [location.pathname]);
@@ -46,29 +41,27 @@ export default function BottomNavigation() {
   };
 
   // ============================================================================
-  // Render - Mobile Bottom Navigation (LARGE & TOUCH-FRIENDLY)
+  // Render - Mobile Bottom Navigation (video style)
   // ============================================================================
   if (isMobile) {
     return (
-      <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-50 shadow-[0_-4px_10px_rgba(0,0,0,0.03)] pb-safe">
-        <div className="flex justify-around items-center h-[72px] px-2">
+      <nav className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[430px] z-50 bg-white border-t border-gray-200 pb-safe">
+        <div className="grid grid-cols-5 h-16">
           {navTabs.map(tab => {
             const isActive = getActiveTab(tab.path);
+            const Icon = tab.icon;
             return (
               <button
                 key={tab.id}
-                className={`flex flex-col items-center justify-center w-full h-full space-y-1 transition-colors ${
-                  isActive ? 'text-blue-600' : 'text-gray-500 hover:text-gray-900'
+                className={`relative flex flex-col items-center justify-center gap-0.5 text-[11px] font-medium transition-colors ${
+                  isActive ? 'text-[#1d1fb8]' : 'text-gray-400 hover:text-gray-700'
                 }`}
                 onClick={() => handleTabClick(tab.path)}
                 title={tab.description}
               >
-                <span className={`text-2xl transition-transform ${isActive ? 'scale-110 drop-shadow-sm' : ''}`}>
-                  {tab.icon}
-                </span>
-                <span className={`text-[11px] tracking-wide ${isActive ? 'font-bold' : 'font-medium'}`}>
-                  {tab.label}
-                </span>
+                {isActive && <span className="absolute top-0 h-0.5 w-10 bg-[#1d1fb8] rounded-b" />}
+                <Icon size={22} strokeWidth={isActive ? 2.2 : 1.8} />
+                <span>{tab.label}</span>
               </button>
             );
           })}
@@ -90,6 +83,7 @@ export default function BottomNavigation() {
         <div className="flex gap-2">
           {navTabs.map(tab => {
             const isActive = getActiveTab(tab.path);
+            const Icon = tab.icon;
             return (
               <button
                 key={tab.id}
@@ -98,7 +92,7 @@ export default function BottomNavigation() {
                 }`}
                 onClick={() => handleTabClick(tab.path)}
               >
-                <span>{tab.icon}</span>
+                <Icon size={18} />
                 <span>{tab.label}</span>
               </button>
             );
