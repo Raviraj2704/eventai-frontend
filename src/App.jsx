@@ -35,6 +35,7 @@ const SessionsScreen = lazy(() => import('./pages/main/SessionsScreen'));
 const HubScreen = lazy(() => import('./pages/main/HubScreen'));
 const NetworkingScreen = lazy(() => import('./pages/main/NetworkingScreen'));
 const ProfileScreen = lazy(() => import('./pages/main/ProfileScreen'));
+const SessionQuizPage = lazy(() => import('./pages/main/SessionQuizPage'));
 
 // Pages - Engagement
 const SocialWallScreen = lazy(() => import('./pages/engagement/SocialWallScreen'));
@@ -171,7 +172,7 @@ function App() {
           h(Route, { path: '/sessions/:id/summary', element: wrapPrivate(AISessionSummary) }),
           h(Route, {
             path: '/sessions/:id/quiz',
-            element: wrapPrivate(AIQuizGenerator, { sessionTitle: 'Session Name' })
+            element: wrapPrivate(SessionQuizPage)
           }),
           h(Route, { path: '/network-matches', element: wrapPrivate(AIPerfectNetworkMatch) }),
 
