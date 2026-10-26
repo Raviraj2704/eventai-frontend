@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Bell, MessageSquare, MapPin, Sparkles, Bookmark, Users, User, Award,
-  Handshake, Mic, CalendarDays, ChevronRight,
+  Mic, CalendarDays, ChevronRight,
 } from 'lucide-react';
 
 // Edit these values for your event. Logos are handled later.
@@ -27,7 +27,7 @@ const QUICK_ACTIONS = [
 ];
 
 const FEATURES = [
-  { label: 'Partners', icon: Handshake, path: '/partners' },
+  { label: 'Partners', icon: Users, path: '/partners' },
   { label: 'Speakers', icon: Mic, path: '/speakers' },
   { label: 'AI Matches', icon: Sparkles, path: '/ai-matches' },
   { label: 'Agenda', icon: CalendarDays, path: '/sessions' },
