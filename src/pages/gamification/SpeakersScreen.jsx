@@ -604,8 +604,8 @@ const SpeakersScreen = () => {
 
       {/* Chat sheet */}
       {chatSpeaker && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-end justify-center">
-          <div className="bg-white w-full max-w-[430px] h-[70vh] rounded-t-2xl flex flex-col">
+        <div className="fixed inset-0 bg-black/50 z-60 flex items-end justify-center">
+          <div className="bg-white w-full max-w-[430px] h-[70vh] rounded-t-2xl flex flex-col mb-16">
             <div className="flex items-center justify-between px-4 py-3 border-b border-neutral-200">
               <p className="font-semibold text-neutral-900 truncate">{getFullName(chatSpeaker)}</p>
               <button onClick={closeChat} aria-label="Close chat" className="text-neutral-500">
