@@ -3,7 +3,14 @@
 // File: src/pages/gamification/SpeakersScreen.jsx
 // Design: Matches the video's Speakers page (featured speaker cards, search with
 //         filter, Total Count line, AI Matches badge, list rows with bookmarks)
-// Data:   Real API only (GET /speakers and the speaker routes from the original file)
+// Data:   Real API only
+//   GET    /speakers                      list speakers
+//   GET    /speakers/me/following         speaker IDs the logged-in user follows
+//   POST   /speakers/{id}/follow          follow
+//   DELETE /speakers/{id}/follow          unfollow
+//   GET    /chat/speakers/{id}/messages   conversation with a speaker
+//   POST   /chat/speakers/{id}/messages   send a message to a speaker
+//   GET    /auth/me                       logged-in user (to detect own profile)
 // ============================================================================
 
 import { useEffect, useMemo, useState } from 'react';
@@ -11,7 +18,7 @@ import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import {
   Search, SlidersHorizontal, Bookmark, Star, MessageCircle, Sparkles,
-  Plus, Trash2, Pencil, Calendar, ChevronRight,
+  Plus, Trash2, Pencil, Calendar, ChevronRight, X, Send,
 } from 'lucide-react';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 import apiClient from '../../config/apiClient';
@@ -22,6 +29,14 @@ const FILTERS = [
   { value: 'following', label: 'Following' },
   { value: 'bookmarked', label: 'Bookmarked' },
 ];
+
+// Reads the server's reason (e.g. "You cannot follow yourself") from any error shape
+const getErrorMessage = (error, fallback) =>
+  error?.response?.data?.detail ||
+  error?.data?.detail ||
+  error?.data?.message ||
+  error?.message ||
+  fallback;
 
 const getFullName = (s) =>
   s.name || `${s.first_name || ''} ${s.last_name || ''}`.trim() || 'Speaker';
@@ -54,8 +69,6 @@ const SpeakersScreen = () => {
   const navigate = useNavigate();
 
   const {
-    items,
-    loading: featureLoading,
     canCreate,
     canDelete,
     fetchItems,
@@ -66,27 +79,49 @@ const SpeakersScreen = () => {
 
   const [speakers, setSpeakers] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [myUserId, setMyUserId] = useState(null);
+  const [followingIds, setFollowingIds] = useState([]);
+  const [followBusyId, setFollowBusyId] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [filter, setFilter] = useState('all');
   const [filterOpen, setFilterOpen] = useState(false);
   const [expandedId, setExpandedId] = useState(null);
   const [bookmarkedIds, setBookmarkedIds] = useState([]);
 
+  // Chat state
+  const [chatSpeaker, setChatSpeaker] = useState(null);
+  const [messages, setMessages] = useState([]);
+  const [chatLoading, setChatLoading] = useState(false);
+  const [chatText, setChatText] = useState('');
+  const [sending, setSending] = useState(false);
+
   useEffect(() => {
     if (fetchItems) {
       fetchItems();
     }
-  }, [fetchItems]);
-
-  useEffect(() => {
+    loadCurrentUser();
+    loadFollowing();
     loadSpeakers();
   }, []);
 
-  useEffect(() => {
-    if (Array.isArray(items) && items.length > 0) {
-      setSpeakers(items);
+  const loadCurrentUser = async () => {
+    try {
+      const response = await apiClient.get('/auth/me');
+      setMyUserId(response?.data?.id ?? null);
+    } catch (error) {
+      console.error('Could not load current user:', error);
     }
-  }, [items]);
+  };
+
+  const loadFollowing = async () => {
+    try {
+      const response = await apiClient.get('/speakers/me/following');
+      const ids = response?.data?.data?.speaker_ids || [];
+      setFollowingIds(ids);
+    } catch (error) {
+      console.error('Could not load followed speakers:', error);
+    }
+  };
 
   const loadSpeakers = async () => {
     setLoading(true);
@@ -97,18 +132,23 @@ const SpeakersScreen = () => {
       setSpeakers(list);
     } catch (error) {
       console.error('Error loading speakers:', error);
-      toast.error('Failed to load speakers');
+      toast.error(getErrorMessage(error, 'Failed to load speakers'));
     } finally {
       setLoading(false);
     }
   };
+
+  const isOwnProfile = (speaker) =>
+    myUserId !== null && speaker.user_id !== undefined && speaker.user_id === myUserId;
+
+  const isFollowing = (speakerId) => followingIds.includes(speakerId);
 
   // Search by name, designation, company, bio, and expertise, plus the filter
   const visibleSpeakers = useMemo(() => {
     let list = speakers;
 
     if (filter === 'following') {
-      list = list.filter((s) => s.user_following);
+      list = list.filter((s) => followingIds.includes(s.id));
     } else if (filter === 'bookmarked') {
       list = list.filter((s) => bookmarkedIds.includes(s.id));
     }
@@ -127,7 +167,7 @@ const SpeakersScreen = () => {
     }
 
     return list;
-  }, [speakers, searchQuery, filter, bookmarkedIds]);
+  }, [speakers, searchQuery, filter, bookmarkedIds, followingIds]);
 
   // Featured = top rated speakers from the real data
   const featuredSpeakers = useMemo(
@@ -144,16 +184,24 @@ const SpeakersScreen = () => {
     );
   };
 
-  const handleFollow = async (speakerId) => {
+  const handleFollowToggle = async (speaker) => {
+    if (followBusyId !== null) return;
+    setFollowBusyId(speaker.id);
     try {
-      await apiClient.post(`/speakers/${speakerId}/follow`);
-      setSpeakers((prev) =>
-        prev.map((s) => (s.id === speakerId ? { ...s, user_following: !s.user_following } : s))
-      );
-      toast.success('Speaker followed!');
+      if (isFollowing(speaker.id)) {
+        await apiClient.delete(`/speakers/${speaker.id}/follow`);
+        setFollowingIds((prev) => prev.filter((id) => id !== speaker.id));
+        toast.success('Unfollowed');
+      } else {
+        await apiClient.post(`/speakers/${speaker.id}/follow`);
+        setFollowingIds((prev) => (prev.includes(speaker.id) ? prev : [...prev, speaker.id]));
+        toast.success('Speaker followed!');
+      }
     } catch (error) {
-      console.error('Error following speaker:', error);
-      toast.error('Failed to follow speaker');
+      console.error('Follow update failed:', error);
+      toast.error(getErrorMessage(error, 'Failed to update follow'));
+    } finally {
+      setFollowBusyId(null);
     }
   };
 
@@ -161,10 +209,59 @@ const SpeakersScreen = () => {
     navigate('/ratings');
   };
 
-  const handleMessage = () => {
-    navigate('/networking');
+  // ---------------------------------------------------------------------------
+  // Chat with a speaker (real endpoints)
+  // ---------------------------------------------------------------------------
+  const openChat = async (speaker) => {
+    setChatSpeaker(speaker);
+    setMessages([]);
+    setChatText('');
+    setChatLoading(true);
+    try {
+      const response = await apiClient.get(`/chat/speakers/${speaker.id}/messages`, {
+        params: { limit: 100 },
+      });
+      setMessages(response?.data?.data || []);
+    } catch (error) {
+      console.error('Could not load conversation:', error);
+      toast.error(getErrorMessage(error, 'Could not load messages'));
+    } finally {
+      setChatLoading(false);
+    }
   };
 
+  const closeChat = () => {
+    setChatSpeaker(null);
+    setMessages([]);
+    setChatText('');
+  };
+
+  const handleSendMessage = async (e) => {
+    e.preventDefault();
+    const content = chatText.trim();
+    if (!content || !chatSpeaker || sending) return;
+
+    setSending(true);
+    try {
+      const response = await apiClient.post(`/chat/speakers/${chatSpeaker.id}/messages`, {
+        content,
+      });
+      const saved = response?.data?.data;
+      if (saved) {
+        setMessages((prev) => [...prev, saved]);
+      }
+      setChatText('');
+    } catch (error) {
+      console.error('Send failed:', error);
+      toast.error(getErrorMessage(error, 'Could not send your message'));
+    } finally {
+      setSending(false);
+    }
+  };
+
+  // ---------------------------------------------------------------------------
+  // Create / edit / delete (unchanged behaviour)
+  // ---------------------------------------------------------------------------
   const handleCreate = async () => {
     const firstName = window.prompt('Enter speaker first name:');
     if (!firstName) return;
@@ -192,7 +289,7 @@ const SpeakersScreen = () => {
       loadSpeakers();
     } catch (error) {
       console.error('Error creating speaker:', error);
-      toast.error('Failed to create speaker');
+      toast.error(getErrorMessage(error, 'Failed to create speaker'));
     }
   };
 
@@ -210,7 +307,7 @@ const SpeakersScreen = () => {
       loadSpeakers();
     } catch (error) {
       console.error('Error updating speaker:', error);
-      toast.error('Failed to update speaker');
+      toast.error(getErrorMessage(error, 'Failed to update speaker'));
     }
   };
 
@@ -226,7 +323,7 @@ const SpeakersScreen = () => {
       toast.success('Speaker deleted!');
     } catch (error) {
       console.error('Error deleting speaker:', error);
-      toast.error('Failed to delete speaker');
+      toast.error(getErrorMessage(error, 'Failed to delete speaker'));
     }
   };
 
@@ -348,6 +445,8 @@ const SpeakersScreen = () => {
               {visibleSpeakers.map((speaker) => {
                 const isExpanded = expandedId === speaker.id;
                 const isBookmarked = bookmarkedIds.includes(speaker.id);
+                const following = isFollowing(speaker.id);
+                const own = isOwnProfile(speaker);
                 const expertise = Array.isArray(speaker.expertise) ? speaker.expertise : [];
 
                 return (
@@ -420,36 +519,43 @@ const SpeakersScreen = () => {
                           )}
                         </div>
 
-                        <div className="grid grid-cols-2 gap-2">
-                          <button
-                            onClick={() => handleFollow(speaker.id)}
-                            className={`py-2 rounded-lg text-sm font-semibold border ${
-                              speaker.user_following
-                                ? 'bg-[#1d1fb8] text-white border-[#1d1fb8]'
-                                : 'border-[#1d1fb8] text-[#1d1fb8]'
-                            }`}
-                          >
-                            {speaker.user_following ? 'Following' : 'Follow'}
-                          </button>
-                          <button
-                            onClick={handleRate}
-                            className="py-2 rounded-lg text-sm font-semibold border border-neutral-300 text-neutral-700 flex items-center justify-center gap-1"
-                          >
-                            <Star size={14} /> Rate
-                          </button>
-                          <button
-                            onClick={handleMessage}
-                            className="py-2 rounded-lg text-sm font-semibold border border-neutral-300 text-neutral-700 flex items-center justify-center gap-1"
-                          >
-                            <MessageCircle size={14} /> Message
-                          </button>
-                          <button
-                            onClick={() => handleEdit(speaker)}
-                            className="py-2 rounded-lg text-sm font-semibold border border-neutral-300 text-neutral-700 flex items-center justify-center gap-1"
-                          >
-                            <Pencil size={14} /> Edit
-                          </button>
-                        </div>
+                        {own ? (
+                          <p className="text-sm font-medium text-neutral-500 text-center py-2 border border-dashed border-neutral-300 rounded-lg">
+                            This is your speaker profile
+                          </p>
+                        ) : (
+                          <div className="grid grid-cols-2 gap-2">
+                            <button
+                              onClick={() => handleFollowToggle(speaker)}
+                              disabled={followBusyId === speaker.id}
+                              className={`py-2 rounded-lg text-sm font-semibold border disabled:opacity-50 ${
+                                following
+                                  ? 'bg-[#1d1fb8] text-white border-[#1d1fb8]'
+                                  : 'border-[#1d1fb8] text-[#1d1fb8]'
+                              }`}
+                            >
+                              {following ? 'Following' : 'Follow'}
+                            </button>
+                            <button
+                              onClick={handleRate}
+                              className="py-2 rounded-lg text-sm font-semibold border border-neutral-300 text-neutral-700 flex items-center justify-center gap-1"
+                            >
+                              <Star size={14} /> Rate
+                            </button>
+                            <button
+                              onClick={() => openChat(speaker)}
+                              className="py-2 rounded-lg text-sm font-semibold border border-neutral-300 text-neutral-700 flex items-center justify-center gap-1"
+                            >
+                              <MessageCircle size={14} /> Message
+                            </button>
+                            <button
+                              onClick={() => handleEdit(speaker)}
+                              className="py-2 rounded-lg text-sm font-semibold border border-neutral-300 text-neutral-700 flex items-center justify-center gap-1"
+                            >
+                              <Pencil size={14} /> Edit
+                            </button>
+                          </div>
+                        )}
 
                         {canDelete !== false && (
                           <button
@@ -494,6 +600,60 @@ const SpeakersScreen = () => {
             </div>
           )}
         </>
+      )}
+
+      {/* Chat sheet */}
+      {chatSpeaker && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-end justify-center">
+          <div className="bg-white w-full max-w-[430px] h-[70vh] rounded-t-2xl flex flex-col">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-neutral-200">
+              <p className="font-semibold text-neutral-900 truncate">{getFullName(chatSpeaker)}</p>
+              <button onClick={closeChat} aria-label="Close chat" className="text-neutral-500">
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto px-4 py-3 space-y-2">
+              {chatLoading ? (
+                <LoadingSpinner />
+              ) : messages.length === 0 ? (
+                <p className="text-center text-sm text-neutral-500 pt-8">No messages yet</p>
+              ) : (
+                messages.map((m) => {
+                  const mine = myUserId !== null && m.sender_id === myUserId;
+                  return (
+                    <div
+                      key={m.id}
+                      className={`max-w-[75%] px-3 py-2 rounded-xl text-sm ${
+                        mine ? 'ml-auto bg-[#1d1fb8] text-white' : 'bg-neutral-100 text-neutral-900'
+                      }`}
+                    >
+                      {m.content}
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
+            <form onSubmit={handleSendMessage} className="flex gap-2 p-3 border-t border-neutral-200">
+              <input
+                type="text"
+                value={chatText}
+                onChange={(e) => setChatText(e.target.value)}
+                placeholder="Type your message..."
+                className="flex-1 px-3 py-2.5 border border-neutral-300 rounded-lg text-base focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+              <button
+                type="submit"
+                disabled={sending || !chatText.trim()}
+                aria-label="Send message"
+                className="w-11 h-11 rounded-lg bg-[#1d1fb8] text-white flex items-center justify-center disabled:opacity-50"
+              >
+                <Send size={18} />
+              </button>
+            </form>
+          </div>
+        </div>
       )}
     </div>
   );
