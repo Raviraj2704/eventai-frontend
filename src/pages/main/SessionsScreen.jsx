@@ -18,7 +18,7 @@ import {
 import toast from 'react-hot-toast';
 import apiClient from '../../config/apiClient';
 import CreateSessionForm from '../../components/forms/CreateSessionForm';
-import { useFeatureManagement, CreateDeleteButtons } from '../../hooks/useFeatureManagement';
+import { useFeatureManagement } from '../../hooks/useFeatureManagement';
 
 const CATEGORIES = ['all', 'Technical', 'Workshop', 'Networking'];
 
@@ -297,7 +297,7 @@ const SessionsScreen = () => {
     }
   };
 
-  // Filtering (search + category), same logic as before
+  // Filtering (search + category)
   const filteredSessions = useMemo(() => {
     const baseList = sessions.length > 0 ? sessions : managedSessions || [];
     let filtered = baseList;
@@ -365,17 +365,22 @@ const SessionsScreen = () => {
     setActionModal({ sessionId, type });
   };
 
+  // Real endpoints:
+  //   POST /api/v1/sessions/{id}/questions
+  //   POST /api/v1/sessions/{id}/feedback
   const handleSubmitAction = async () => {
     if (!actionModal || !actionText.trim()) return;
     setSubmitting(true);
     try {
-      const path =
-        actionModal.type === 'question'
-          ? `/sessions/${actionModal.sessionId}/questions`
-          : `/sessions/${actionModal.sessionId}/feedback`;
+      const isFeedback = actionModal.type === 'feedback';
+      const path = isFeedback
+        ? `/sessions/${actionModal.sessionId}/feedback`
+        : `/sessions/${actionModal.sessionId}/questions`;
+
       await apiClient.post(path, { content: actionText.trim() });
+
       setSuccessMessage(
-        actionModal.type === 'feedback'
+        isFeedback
           ? 'Your feedback submitted successfully'
           : 'Your question was submitted successfully'
       );
@@ -384,7 +389,7 @@ const SessionsScreen = () => {
       setSuccessOpen(true);
     } catch (err) {
       console.error('Submit failed:', err);
-      toast.error('Could not submit. Please try again.');
+      toast.error(err?.message || 'Could not submit. Please try again.');
     } finally {
       setSubmitting(false);
     }
@@ -425,19 +430,6 @@ const SessionsScreen = () => {
 
       {/* Search & Filter Bar */}
       <div className="sticky top-0 z-40 bg-white border-b border-slate-200 p-4">
-        {CreateDeleteButtons && (
-          <div className="mb-3">
-            <CreateDeleteButtons
-              featureKey="sessions"
-              canCreate={canCreate}
-              canDelete={canDelete}
-              onCreate={() => setIsCreateModalOpen(true)}
-              isCreating={isCreating}
-              isDeleting={isDeleting}
-            />
-          </div>
-        )}
-
         <div className="relative mb-3">
           <Search className="absolute left-3 top-3 text-slate-400" size={18} />
           <input
