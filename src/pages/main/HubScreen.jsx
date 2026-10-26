@@ -1,7 +1,7 @@
 import { useNavigate } from 'react-router-dom';
 import {
   Megaphone, Mic, CalendarDays, BookOpen, Users, MessagesSquare,
-  Handshake, Briefcase, Star, BarChart3, Settings, Sparkles,
+  Briefcase, Star, BarChart3, Settings, Sparkles,
 } from 'lucide-react';
 
 const FEATURES = [
@@ -11,7 +11,7 @@ const FEATURES = [
   { title: 'Learning', icon: BookOpen, path: '/learning-paths' },
   { title: 'Engagement', icon: Users, path: '/engagement-center' },
   { title: 'Social Wall', icon: MessagesSquare, path: '/social-wall' },
-  { title: 'Partners', icon: Handshake, path: '/partners' },
+  { title: 'Partners', icon: Users, path: '/partners' },
   { title: 'Briefcase', icon: Briefcase, path: '/briefcase' },
   { title: 'Ratings', icon: Star, path: '/ratings' },
   { title: 'Analytics', icon: BarChart3, path: '/analytics' },
