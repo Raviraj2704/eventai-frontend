@@ -4,12 +4,11 @@ import apiClient, { setAuthToken, clearAuthData, getAuthToken } from '../config/
  * Auth Service - Handles all authentication operations
  * Includes login, register, email verification, profile completion, and token refresh
  */
-
 const authService = {
   /**
    * Login user with email and password
-   * @param {string} email - User email
-   * @param {string} password - User password
+   * @param {string} email User email
+   * @param {string} password User password
    * @returns {Promise} Login response with tokens and user data
    */
   async login(email, password) {
@@ -89,7 +88,7 @@ const authService = {
 
   /**
    * Register new user
-   * @param {object} userData - User registration data
+   * @param {object} userData User registration data
    * @returns {Promise} Registration response
    */
   async register(userData) {
@@ -163,8 +162,8 @@ const authService = {
 
   /**
    * Verify email with OTP
-   * @param {string} email - User email
-   * @param {string} otp - One-time password
+   * @param {string} email User email
+   * @param {string} otp One-time password
    * @returns {Promise} Verification response
    */
   async verifyEmail(email, otp) {
@@ -217,7 +216,7 @@ const authService = {
 
   /**
    * Resend verification email
-   * @param {string} email - User email
+   * @param {string} email User email
    * @returns {Promise} Response
    */
   async resendVerificationEmail(email) {
@@ -267,7 +266,7 @@ const authService = {
 
   /**
    * Complete user profile
-   * @param {object} profileData - Profile data
+   * @param {object} profileData Profile data
    * @returns {Promise} Response
    */
   async completeProfile(profileData) {
@@ -320,7 +319,7 @@ const authService = {
       };
     }
   },
-
+  
   /**
    * Logout user
    * @returns {Promise} Logout response
@@ -334,6 +333,11 @@ const authService = {
         await apiClient.post('/api/v1/auth/logout');
       }
 
+      // Remove the cached profile so the next user doesn't see it
+      Object.keys(localStorage)
+        .filter((key) => key.startsWith('event'))
+        .forEach((key) => localStorage.removeItem(key));
+
       // Clear auth data
       clearAuthData();
       delete apiClient.defaults.headers.common['Authorization'];
@@ -346,6 +350,11 @@ const authService = {
       };
     } catch (error) {
       console.error('❌ Logout error:', error);
+
+      // Remove the cached profile so the next user doesn't see it
+      Object.keys(localStorage)
+        .filter((key) => key.startsWith('event'))
+        .forEach((key) => localStorage.removeItem(key));
 
       // Clear auth data anyway
       clearAuthData();
@@ -412,7 +421,7 @@ const authService = {
 
   /**
    * Reset password with email
-   * @param {string} email - User email
+   * @param {string} email User email
    * @returns {Promise} Response
    */
   async requestPasswordReset(email) {
@@ -462,8 +471,8 @@ const authService = {
 
   /**
    * Reset password with token
-   * @param {string} token - Reset token
-   * @param {string} newPassword - New password
+   * @param {string} token Reset token
+   * @param {string} newPassword New password
    * @returns {Promise} Response
    */
   async resetPassword(token, newPassword) {

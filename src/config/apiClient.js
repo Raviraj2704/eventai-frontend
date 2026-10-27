@@ -124,6 +124,11 @@ apiClient.interceptors.response.use(
     if (status === 401) {
       console.warn('⚠️ Unauthorized - Token expired or invalid');
       
+      // Remove the cached profile so the next user doesn't see it
+      Object.keys(localStorage)
+        .filter((key) => key.startsWith('event'))
+        .forEach((key) => localStorage.removeItem(key));
+
       // Clear all auth data to let React Router handle the redirect gracefully
       localStorage.removeItem('access_token');
       localStorage.removeItem('refresh_token');
@@ -198,13 +203,18 @@ apiClient.interceptors.response.use(
  * Generate unique request ID for tracking
  */
 function generateRequestId() {
-  return `\({Date.now()}-\){Math.random().toString(36).substr(2, 9)}`;
+  return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 }
 
 /**
  * Clear all auth data
  */
 export const clearAuthData = () => {
+  // Remove the cached profile so the next user doesn't see it
+  Object.keys(localStorage)
+    .filter((key) => key.startsWith('event'))
+    .forEach((key) => localStorage.removeItem(key));
+
   localStorage.removeItem('access_token');
   localStorage.removeItem('refresh_token');
   localStorage.removeItem('user');

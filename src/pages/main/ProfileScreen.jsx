@@ -14,7 +14,10 @@ import {
   Shield, Calendar, Edit2, Save, X, Camera, User as UserIcon 
 } from 'lucide-react';
 
-const LOCAL_PROFILE_KEY = 'eventai_saved_profile_cache';
+const getProfileKey = () => {
+  const uid = localStorage.getItem('user_id') || 'guest';
+  return `eventai_profile_${uid}`;
+};
 
 export default function ProfileScreen() {
   const navigate = useNavigate();
@@ -48,7 +51,7 @@ export default function ProfileScreen() {
 
     let cached = {};
     try {
-      const savedStr = localStorage.getItem(LOCAL_PROFILE_KEY);
+      const savedStr = localStorage.getItem(getProfileKey());
       if (savedStr) {
         cached = JSON.parse(savedStr);
       }
@@ -182,7 +185,7 @@ export default function ProfileScreen() {
       };
 
       try {
-        localStorage.setItem(LOCAL_PROFILE_KEY, JSON.stringify(mergedProfile));
+        localStorage.setItem(getProfileKey(), JSON.stringify(mergedProfile));
       } catch (_) {}
 
       const response = await apiPost('/users/me', updatePayload);
