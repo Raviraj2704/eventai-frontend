@@ -11,7 +11,7 @@ import apiClient from '../../config/apiClient';
 const EVENT = {
   name: 'EventAI',
   dates: '26 - 27 Nov, 2026',
-  venue: 'Yashobhoomi, New Delhi',
+  venue: 'HI-TECH CITY, HYDERABAD',
   start: '2026-11-26T09:00:00+05:30',
 };
 
@@ -50,9 +50,6 @@ const getTimeLeft = (target) => {
 const getErrorMessage = (error, fallback) =>
   error?.response?.data?.detail || error?.data?.detail || error?.message || fallback;
 
-const personName = (u) =>
-  `${u.first_name || ''} ${u.last_name || ''}`.trim() || u.username || 'Attendee';
-
 const initialsOf = (name) =>
   name.split(' ').filter(Boolean).map((p) => p[0]).join('').slice(0, 2).toUpperCase() || 'A';
 
@@ -63,12 +60,16 @@ const formatWhen = (iso) => {
   });
 };
 
-const Avatar = ({ src, name, size = 'w-14 h-14', text = 'text-base' }) =>
+const Avatar = ({ src, name, size = 'w-14 h-14', text = 'text-base', ring = false }) =>
   src ? (
-    <img src={src} alt={name} className={`${size} rounded-full object-cover shrink-0`} />
+    <img
+      src={src}
+      alt={name}
+      className={`${size} rounded-full object-cover shrink-0 ${ring ? 'ring-4 ring-white' : ''}`}
+    />
   ) : (
     <div
-      className={`${size} rounded-full bg-neutral-100 border border-neutral-200 flex items-center justify-center font-semibold text-neutral-600 shrink-0 ${text}`}
+      className={`${size} rounded-full bg-neutral-100 border border-neutral-200 flex items-center justify-center font-semibold text-neutral-600 shrink-0 ${text} ${ring ? 'ring-4 ring-white' : ''}`}
     >
       {initialsOf(name)}
     </div>
@@ -96,7 +97,7 @@ export default function HomeScreen() {
     return () => clearInterval(t);
   }, []);
 
-  // Load Recommended, Leaderboard podium, and Activity Hub preview from real routes
+  // Load Recommended, Leaderboard top 3, and Activity Hub preview from real routes
   useEffect(() => {
     let cancelled = false;
 
@@ -113,10 +114,9 @@ export default function HomeScreen() {
 
     const loadPodium = async () => {
       try {
-        const response = await apiClient.get('/leaderboard', { params: { limit: 3 } });
-        const raw = response?.data;
-        const list = Array.isArray(raw) ? raw : raw?.data || [];
-        if (!cancelled) setPodium(list.slice(0, 3));
+        const response = await apiClient.get('/activity/leaderboard/top', { params: { limit: 3 } });
+        const list = response?.data?.data || [];
+        if (!cancelled) setPodium(list);
       } catch (error) {
         console.error('Could not load leaderboard:', error);
       }
@@ -170,10 +170,8 @@ export default function HomeScreen() {
 
   const current = SLIDES[slide];
 
-  // Podium order in the video: #2 left, #1 center (largest, crown), #3 right
-  const podiumOrder = [podium[1], podium[0], podium[2]].map((entry, i) =>
-    entry ? { ...entry, rankShown: i === 0 ? 2 : i === 1 ? 1 : 3 } : null
-  );
+  // Video layout: #2 on the left, #1 in the center (blue card with crown), #3 on the right
+  const podiumOrder = [podium[1], podium[0], podium[2]];
 
   return (
     <div className="min-h-screen bg-white max-w-[430px] mx-auto pb-28">
@@ -313,7 +311,7 @@ export default function HomeScreen() {
         </div>
       )}
 
-      {/* Leaderboard podium */}
+      {/* Leaderboard (top 3 with profile photos) */}
       {podium.length > 0 && (
         <div className="px-4 pt-6">
           <div className="flex justify-between items-center">
@@ -322,20 +320,38 @@ export default function HomeScreen() {
               View All
             </button>
           </div>
-          <div className="mt-3 rounded-2xl bg-sky-50 px-3 pt-6 pb-4 flex items-end justify-center gap-3">
+          <div className="mt-3 flex items-end justify-center gap-2">
             {podiumOrder.map((entry, i) => {
-              if (!entry) return <div key={i} className="flex-1" />;
-              const name = personName(entry);
-              const isFirst = entry.rankShown === 1;
+              if (!entry) return <div key={`empty-${i}`} className="flex-1" />;
+              const isFirst = entry.rank === 1;
               return (
-                <div key={entry.id ?? i} className={`flex-1 flex flex-col items-center text-center ${isFirst ? 'pb-2' : ''}`}>
+                <div
+                  key={entry.user_id}
+                  className={`flex-1 flex flex-col items-center text-center rounded-2xl px-2 py-4 ${
+                    isFirst
+                      ? 'bg-[#1d1fb8] text-white shadow-lg -mt-4'
+                      : 'bg-white border border-neutral-200 text-neutral-900'
+                  }`}
+                >
                   <div className="relative">
-                    {isFirst && <Crown size={20} className="absolute -top-5 left-1/2 -translate-x-1/2 text-amber-500 fill-amber-400" />}
-                    <Avatar src={entry.avatar_url} name={name} size={isFirst ? 'w-20 h-20' : 'w-16 h-16'} text={isFirst ? 'text-xl' : 'text-base'} />
+                    {isFirst && (
+                      <Crown size={22} className="absolute -top-5 left-1/2 -translate-x-1/2 text-amber-400 fill-amber-300" />
+                    )}
+                    <Avatar
+                      src={entry.avatar_url}
+                      name={entry.name}
+                      size={isFirst ? 'w-20 h-20' : 'w-16 h-16'}
+                      text={isFirst ? 'text-xl' : 'text-base'}
+                      ring={isFirst}
+                    />
                   </div>
-                  <p className="mt-2 text-xs font-medium text-neutral-500">#{entry.rankShown}</p>
-                  <p className="text-sm font-semibold text-neutral-900 truncate w-full">{name}</p>
-                  <p className="text-sm font-bold text-[#1d1fb8]">{entry.total_points ?? 0}</p>
+                  <p className={`mt-2 text-xs font-medium ${isFirst ? 'text-white/85' : 'text-neutral-500'}`}>
+                    #{entry.rank}
+                  </p>
+                  <p className="text-sm font-semibold truncate w-full">{entry.name}</p>
+                  <p className={`text-sm font-bold ${isFirst ? 'text-white' : 'text-[#1d1fb8]'}`}>
+                    {entry.total_points}
+                  </p>
                 </div>
               );
             })}
