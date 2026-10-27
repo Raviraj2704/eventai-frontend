@@ -125,23 +125,35 @@ const CompleteProfileScreen = () => {
     reader.readAsDataURL(file);
   };
 
-  const uploadAvatar = async () => {
-    if (!avatarFile || !userId) return null;
+    const uploadAvatar = async () => {
+    if (!avatarFile) return null;
 
     try {
       const formDataForUpload = new FormData();
       formDataForUpload.append('file', avatarFile);
-      
-      const response = await apiPost(`/api/v1/users/${userId}/avatar`, formDataForUpload, {
-        headers: { 'Content-Type': 'multipart/form-data' }
-      });
-      return response?.avatar_url || response?.profile_photo_url;
+
+      // Real route: the logged-in user's own avatar
+      const response = await apiPost('/api/v1/users/me/avatar', formDataForUpload);
+      const savedUrl = response?.avatar_url || null;
+
+      if (savedUrl) {
+        setAvatar(savedUrl);
+        setAvatarFile(null);
+      }
+      return savedUrl;
     } catch (err) {
       console.error('Avatar upload failed:', err);
-      toast.error('Failed to upload avatar');
+      toast.error(err?.data?.detail || 'Failed to upload avatar');
       return null;
     }
   };
+
+    useEffect(() => {
+    if (avatarFile) {
+      uploadAvatar();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [avatarFile]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
