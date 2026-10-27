@@ -301,7 +301,7 @@ export default function PartnersScreen() {
           </div>
           <div className="flex items-center gap-2">
             {isAdminOrOrganizer && (
-              <button
+              <button 
                 onClick={(e) => handleDeletePartner(selectedPartner.id, e)}
                 className="p-2 rounded-full hover:bg-red-50 text-red-500 transition-colors"
                 title="Delete Partner"
@@ -653,7 +653,7 @@ export default function PartnersScreen() {
       </div>
 
       {/* ====================================================================== */}
-      {/* ADMIN-ONLY CREATE PARTNER MODAL                                         */}
+      {/* ADMIN-ONLY CREATE PARTNER MODAL (SCROLLABLE WITH STICKY FOOTER)          */}
       {/* ====================================================================== */}
       {isAdminOrOrganizer && showCreateModal && (
         <div 
@@ -661,10 +661,11 @@ export default function PartnersScreen() {
           onClick={() => setShowCreateModal(false)}
         >
           <div 
-            className="bg-white w-full max-w-md rounded-t-[28px] sm:rounded-2xl p-6 shadow-2xl max-h-[90vh] overflow-y-auto"
+            className="bg-white w-full max-w-md rounded-t-[28px] sm:rounded-2xl shadow-2xl max-h-[85vh] flex flex-col overflow-hidden"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between mb-4 border-b pb-3">
+            {/* Modal Header */}
+            <div className="p-4 px-6 flex items-center justify-between border-b border-slate-100 bg-white">
               <h3 className="text-base font-bold text-slate-900">Add New Partner (Organizer)</h3>
               <button 
                 onClick={() => setShowCreateModal(false)} 
@@ -674,7 +675,8 @@ export default function PartnersScreen() {
               </button>
             </div>
 
-            <form onSubmit={handleCreatePartner} className="space-y-3.5 text-xs">
+            {/* Scrollable Form Body */}
+            <form onSubmit={handleCreatePartner} className="flex-1 overflow-y-auto p-6 space-y-3.5 text-xs">
               <div>
                 <label className="block font-semibold text-slate-700 mb-1">Company / Partner Name *</label>
                 <input
@@ -786,18 +788,19 @@ export default function PartnersScreen() {
                 </label>
               </div>
 
-              <div className="flex justify-end gap-2 pt-3 border-t">
+              {/* Sticky Action Footer */}
+              <div className="sticky bottom-0 -mx-6 -mb-6 p-4 bg-white/95 backdrop-blur-sm border-t border-slate-100 flex items-center justify-end gap-3 shadow-lg mt-4 z-20">
                 <button
                   type="button"
                   onClick={() => setShowCreateModal(false)}
-                  className="px-4 py-2 border border-slate-200 rounded-xl font-bold text-slate-600 hover:bg-slate-50"
+                  className="px-5 py-2.5 border border-slate-200 rounded-xl font-bold text-slate-600 hover:bg-slate-50 transition-colors text-xs"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="px-5 py-2 bg-[#0F259E] hover:bg-[#0c1e80] text-white rounded-xl font-bold transition-all disabled:opacity-50"
+                  className="px-6 py-2.5 bg-[#0F259E] hover:bg-[#0c1e80] text-white rounded-xl font-bold transition-all disabled:opacity-50 shadow-md flex items-center gap-2 text-xs"
                 >
                   {submitting ? 'Saving...' : 'Save Partner'}
                 </button>
