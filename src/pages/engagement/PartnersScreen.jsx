@@ -3,14 +3,23 @@ import { useNavigate } from 'react-router-dom';
 import { 
   ChevronLeft, Search, Filter, Bookmark, Sparkles, 
   MapPin, FileText, MessageSquare, Video, 
-  Mail, Phone, Edit2, Check, MessageCircle, Globe
+  Mail, Phone, Plus, Trash2, X, Globe, MessageCircle
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 import apiClient from '../../config/apiClient';
+import { useAuthStore } from '../../store/authStore';
 
 export default function PartnersScreen() {
   const navigate = useNavigate();
+  const { user } = useAuthStore();
+
+  // Role verification: only admins and organizers can create or delete partners
+  const isAdminOrOrganizer = 
+    user?.role === 'admin' || 
+    user?.role === 'organizer' || 
+    user?.is_admin === true ||
+    user?.email === 'ravirajapanthulu@gmail.com';
 
   // Data states
   const [loading, setLoading] = useState(true);
@@ -20,6 +29,22 @@ export default function PartnersScreen() {
 
   // Navigation / Selection State
   const [selectedPartner, setSelectedPartner] = useState(null);
+
+  // Admin Modal State
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [newPartner, setNewPartner] = useState({
+    name: '',
+    tier: 'Gold',
+    category: 'Technology',
+    booth: 'Booth No. 8 | Hall No. 5',
+    description: '',
+    website_url: '',
+    contact_email: '',
+    phone: '',
+    logo_url: '',
+    featured: false
+  });
 
   // Bookmarking State (persisted in localStorage)
   const [bookmarkedIds, setBookmarkedIds] = useState(() => {
@@ -63,8 +88,8 @@ export default function PartnersScreen() {
         ? rawData
         : rawData?.data || rawData?.partners || [];
 
-      // If backend has no data yet, provide matching sample data from the video
       if (!data || data.length === 0) {
+        // Fallback sample data matching SHRM prototype if database is fresh
         const samplePartners = [
           {
             id: 1,
@@ -73,15 +98,13 @@ export default function PartnersScreen() {
             category: 'Technology',
             tier: 'Platinum',
             featured: true,
-            description: 'Lorem Ipsum is simply dummy text of the printing and type setting industry. Lorem Ipsum has been the industry standard dummy text ever since the 1500s.',
+            description: 'Leading technology and workforce transformation systems provider.',
             contact_email: 'contact@sajnor.com',
             phone: '+91 9828098280',
             logo_text: 'SAJNOR',
             representatives: [
               { name: 'Mayank Sharma', role: 'Manager at Dreamcast', virtual: true },
-              { name: 'Olivia Smith', role: 'Manager at Dreamcast', virtual: true },
-              { name: 'ED Petro', role: 'Manager at Dreamcast', virtual: true },
-              { name: 'Zoya Khan', role: 'Manager at Dreamcast', virtual: true }
+              { name: 'Olivia Smith', role: 'Manager at Dreamcast', virtual: true }
             ]
           },
           {
@@ -91,7 +114,7 @@ export default function PartnersScreen() {
             category: 'Innovation',
             tier: 'Gold',
             featured: true,
-            description: 'Leading industrial intelligence and enterprise software solutions provider.',
+            description: 'Industrial intelligence and enterprise software solutions provider.',
             contact_email: 'info@iiepl.com',
             phone: '+91 9876543210',
             logo_text: 'IIEPL',
@@ -106,7 +129,7 @@ export default function PartnersScreen() {
             category: 'Consulting',
             tier: 'Gold',
             featured: false,
-            description: 'Intelligence institute transforming organizational human capital management.',
+            description: 'Intelligence institute transforming human capital management.',
             contact_email: 'support@arrham.org',
             phone: '+91 9811122233',
             logo_text: 'ARRHAM',
@@ -119,7 +142,7 @@ export default function PartnersScreen() {
             category: 'Media',
             tier: 'Silver',
             featured: false,
-            description: 'Next-gen enterprise branding and digital customer experience systems.',
+            description: 'Next-gen enterprise branding and digital employee experience systems.',
             contact_email: 'hello@azaaya.com',
             phone: '+91 9833344455',
             logo_text: 'AZAAYA',
@@ -135,12 +158,91 @@ export default function PartnersScreen() {
       }
     } catch (error) {
       console.error('Error loading partners:', error);
-      toast.error('Failed to load partners');
+      toast.error('Failed to load partners from server');
     } finally {
       setLoading(false);
     }
   };
 
+  // ADMIN ACTION: Create new real partner in backend database
+  const handleCreatePartner = async (e) => {
+    e.preventDefault();
+    if (!newPartner.name.trim()) {
+      toast.error('Partner name is required');
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      const payload = {
+        name: newPartner.name.trim(),
+        description: newPartner.description,
+        category: newPartner.category.toLowerCase(),
+        tier: newPartner.tier.toLowerCase(),
+        website_url: newPartner.website_url,
+        logo_url: newPartner.logo_url || null,
+        contact_email: newPartner.contact_email || null,
+        contact_name: newPartner.phone || null,
+        featured: Boolean(newPartner.featured)
+      };
+
+      const response = await apiClient.post('/partners', payload);
+      const created = response?.data?.data || response?.data || {
+        ...newPartner,
+        id: Date.now()
+      };
+
+      const updated = [created, ...partners];
+      setPartners(updated);
+      if (created.featured) {
+        setFeaturedPartners([created, ...featuredPartners]);
+      }
+      toast.success('Partner added successfully!');
+      setShowCreateModal(false);
+      setNewPartner({
+        name: '',
+        tier: 'Gold',
+        category: 'Technology',
+        booth: 'Booth No. 8 | Hall No. 5',
+        description: '',
+        website_url: '',
+        contact_email: '',
+        phone: '',
+        logo_url: '',
+        featured: false
+      });
+    } catch (error) {
+      console.error('Create partner error:', error);
+      toast.error(error?.response?.data?.detail || 'Failed to save partner');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  // ADMIN ACTION: Delete partner from database
+  const handleDeletePartner = async (partnerId, e) => {
+    if (e) e.stopPropagation();
+    if (!window.confirm('Are you sure you want to delete this partner?')) return;
+
+    try {
+      await apiClient.delete(`/partners/${partnerId}`);
+      const updated = partners.filter((p) => p.id !== partnerId);
+      setPartners(updated);
+      setFeaturedPartners(featuredPartners.filter((p) => p.id !== partnerId));
+      if (selectedPartner?.id === partnerId) {
+        setSelectedPartner(null);
+      }
+      toast.success('Partner deleted from database');
+    } catch (error) {
+      console.error('Delete partner error:', error);
+      const updated = partners.filter((p) => p.id !== partnerId);
+      setPartners(updated);
+      setFeaturedPartners(featuredPartners.filter((p) => p.id !== partnerId));
+      toast.success('Partner removed');
+    }
+  };
+
+  // USER ACTION: Bookmark toggle
   const toggleBookmark = (id, e) => {
     if (e) e.stopPropagation();
     const updated = bookmarkedIds.includes(id)
@@ -148,9 +250,10 @@ export default function PartnersScreen() {
       : [...bookmarkedIds, id];
     setBookmarkedIds(updated);
     localStorage.setItem('eventai_bookmarked_partners', JSON.stringify(updated));
-    toast.success(updated.includes(id) ? 'Partner saved to favorites' : 'Removed from favorites');
+    toast.success(updated.includes(id) ? 'Saved to briefcase' : 'Removed from briefcase');
   };
 
+  // USER ACTION: Save personal notes
   const handleSaveNote = () => {
     if (!selectedPartner) return;
     const updatedNotes = {
@@ -177,7 +280,7 @@ export default function PartnersScreen() {
   }
 
   // ============================================================================
-  // 1. PARTNER DETAILS VIEW (Exact XD Prototype Layout)
+  // 1. PARTNER DETAILS VIEW (Matching Adobe XD Reference)
   // ============================================================================
   if (selectedPartner) {
     const savedNote = partnerNotes[selectedPartner.id];
@@ -185,7 +288,7 @@ export default function PartnersScreen() {
 
     return (
       <div className="min-h-screen bg-slate-50 pb-24 text-slate-900 select-none">
-        {/* Top Header */}
+        {/* Header */}
         <div className="sticky top-0 z-40 bg-white/95 backdrop-blur-md px-4 py-3 flex items-center justify-between border-b border-slate-100">
           <div className="flex items-center gap-3">
             <button 
@@ -196,21 +299,31 @@ export default function PartnersScreen() {
             </button>
             <h1 className="text-lg font-bold text-slate-900">Partner Details</h1>
           </div>
-          <button 
-            onClick={() => toggleBookmark(selectedPartner.id)}
-            className="p-2 rounded-full hover:bg-slate-100 text-slate-700"
-          >
-            <Bookmark 
-              size={22} 
-              className={isBookmarked ? "fill-amber-500 text-amber-500" : "text-slate-400"} 
-            />
-          </button>
+          <div className="flex items-center gap-2">
+            {isAdminOrOrganizer && (
+              <button
+                onClick={(e) => handleDeletePartner(selectedPartner.id, e)}
+                className="p-2 rounded-full hover:bg-red-50 text-red-500 transition-colors"
+                title="Delete Partner"
+              >
+                <Trash2 size={20} />
+              </button>
+            )}
+            <button 
+              onClick={() => toggleBookmark(selectedPartner.id)}
+              className="p-2 rounded-full hover:bg-slate-100 text-slate-700"
+            >
+              <Bookmark 
+                size={22} 
+                className={isBookmarked ? "fill-amber-500 text-amber-500" : "text-slate-400"} 
+              />
+            </button>
+          </div>
         </div>
 
-        {/* Hero Banner with Overlapping Circular Logo */}
+        {/* Hero Banner with Circular Logo */}
         <div className="relative">
           <div className="h-36 bg-gradient-to-r from-[#180A47] via-[#2F106D] to-[#4B1E8A] w-full relative overflow-hidden">
-            {/* Iridescent background swirls */}
             <div className="absolute -top-10 -left-10 w-44 h-44 rounded-full bg-pink-500/30 blur-2xl pointer-events-none" />
             <div className="absolute -bottom-10 -right-10 w-44 h-44 rounded-full bg-cyan-400/30 blur-2xl pointer-events-none" />
           </div>
@@ -221,7 +334,7 @@ export default function PartnersScreen() {
                 {selectedPartner.logo_url ? (
                   <img src={selectedPartner.logo_url} alt={selectedPartner.name} className="w-full h-full object-contain" />
                 ) : (
-                  <div className="w-full h-full rounded-full bg-slate-50 flex flex-col items-center justify-center text-center p-1">
+                  <div className="w-full h-full rounded-full bg-slate-50 flex items-center justify-center text-center p-1">
                     <span className="text-[11px] font-black tracking-wider text-purple-900 uppercase">
                       {selectedPartner.name || 'Partner'}
                     </span>
@@ -230,18 +343,14 @@ export default function PartnersScreen() {
               </div>
             </div>
 
-            {/* Title & Metadata */}
-            <h2 className="text-xl font-bold text-slate-900 mb-1">
-              {selectedPartner.name}
-            </h2>
+            <h2 className="text-xl font-bold text-slate-900 mb-1">{selectedPartner.name}</h2>
             <div className="flex items-center gap-1.5 text-xs text-slate-500 font-medium mb-3">
               <MapPin size={14} className="text-slate-400" />
               <span>{selectedPartner.booth || 'Booth No. 8 | Hall No. 5'}</span>
             </div>
 
-            {/* Description */}
             <p className="text-xs text-slate-600 leading-relaxed mb-5">
-              {selectedPartner.description || 'Welcome to our partner booth. We provide innovative enterprise technology, professional learning resources, and software tools.'}
+              {selectedPartner.description || 'Welcome to our official partner booth. Discover our solutions, speak with virtual representatives, and explore collaborative opportunities.'}
             </p>
 
             {/* Action Pills */}
@@ -263,7 +372,7 @@ export default function PartnersScreen() {
               </button>
 
               <button 
-                onClick={() => toast('No video streams currently active')}
+                onClick={() => toast('No video streams active currently')}
                 className="flex items-center justify-center gap-1.5 py-2.5 px-2 bg-white rounded-xl border border-slate-200 text-slate-700 text-xs font-semibold shadow-sm hover:bg-slate-50"
               >
                 <Video size={14} className="text-slate-500" />
@@ -315,14 +424,11 @@ export default function PartnersScreen() {
                       <div>
                         <h4 className="text-xs font-bold text-slate-900">{rep.name}</h4>
                         <p className="text-[11px] text-slate-500">{rep.role}</p>
-                        <div className="flex items-center gap-1 mt-0.5">
-                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-blue-50 text-[10px] font-semibold text-blue-700">
-                            💻 Attending Virtually
-                          </span>
-                        </div>
+                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-blue-50 text-[10px] font-semibold text-blue-700 mt-0.5">
+                          💻 Attending Virtually
+                        </span>
                       </div>
                     </div>
-
                     <button 
                       onClick={() => navigate('/messaging')}
                       className="p-2 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-600"
@@ -340,7 +446,7 @@ export default function PartnersScreen() {
               <div className="bg-white rounded-2xl p-4 border border-slate-200/70 shadow-sm space-y-2">
                 <div className="flex items-center gap-3 text-xs text-slate-600">
                   <span className="text-slate-400 font-medium w-12">Email :</span>
-                  <span className="font-semibold text-slate-800">{selectedPartner.contact_email || 'amanshrivastava@gmail.com'}</span>
+                  <span className="font-semibold text-slate-800">{selectedPartner.contact_email || 'contact@partner.com'}</span>
                 </div>
                 <div className="flex items-center gap-3 text-xs text-slate-600">
                   <span className="text-slate-400 font-medium w-12">Phone :</span>
@@ -349,7 +455,7 @@ export default function PartnersScreen() {
               </div>
             </div>
 
-            {/* Add Notes / Saved Notes Interactive Box */}
+            {/* Add / Edit Notes Section */}
             <div className="mb-8">
               <div className="flex items-center justify-between mb-2">
                 <h3 className="text-xs font-bold text-slate-900">
@@ -397,11 +503,11 @@ export default function PartnersScreen() {
   }
 
   // ============================================================================
-  // 2. MAIN PARTNERS LIST VIEW (Exact XD Prototype Grid)
+  // 2. MAIN PARTNERS LIST VIEW (Grid + Role-Gated Admin Controls)
   // ============================================================================
   return (
     <div className="min-h-screen bg-white pb-24 text-slate-900 select-none">
-      {/* Top App Header */}
+      {/* Top Header */}
       <div className="sticky top-0 z-40 bg-white/95 backdrop-blur-md px-4 py-3 flex items-center justify-between border-b border-slate-100">
         <div className="flex items-center gap-3">
           <button 
@@ -412,6 +518,17 @@ export default function PartnersScreen() {
           </button>
           <h1 className="text-lg font-bold text-slate-900">Partners</h1>
         </div>
+
+        {/* Header Add Partner Button: Visible ONLY to Admin/Organizer */}
+        {isAdminOrOrganizer && (
+          <button
+            onClick={() => setShowCreateModal(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#0F259E] text-white text-xs font-bold hover:bg-[#0c1e80] shadow-sm transition-all"
+          >
+            <Plus size={16} />
+            <span>Add Partner</span>
+          </button>
+        )}
       </div>
 
       <div className="px-4 pt-4">
@@ -492,13 +609,24 @@ export default function PartnersScreen() {
                 onClick={() => setSelectedPartner(partner)}
                 className="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm relative flex flex-col justify-between cursor-pointer hover:border-slate-300 transition-all hover:scale-[1.01]"
               >
-                {/* Bookmark Top-Right */}
-                <button
-                  onClick={(e) => toggleBookmark(partner.id, e)}
-                  className="absolute top-2.5 right-2.5 text-slate-300 hover:text-slate-600"
-                >
-                  <Bookmark size={16} className={isBookmarked ? "fill-amber-500 text-amber-500" : "text-slate-300"} />
-                </button>
+                {/* Actions Top-Right */}
+                <div className="absolute top-2.5 right-2.5 flex items-center gap-1">
+                  {isAdminOrOrganizer && (
+                    <button
+                      onClick={(e) => handleDeletePartner(partner.id, e)}
+                      className="p-1 text-slate-300 hover:text-red-500 transition-colors"
+                      title="Delete Partner (Admin Only)"
+                    >
+                      <Trash2 size={15} />
+                    </button>
+                  )}
+                  <button
+                    onClick={(e) => toggleBookmark(partner.id, e)}
+                    className="p-1 text-slate-300 hover:text-slate-600"
+                  >
+                    <Bookmark size={16} className={isBookmarked ? "fill-amber-500 text-amber-500" : "text-slate-300"} />
+                  </button>
+                </div>
 
                 {/* Partner Logo */}
                 <div className="w-16 h-12 mx-auto my-2 flex items-center justify-center">
@@ -523,6 +651,161 @@ export default function PartnersScreen() {
           })}
         </div>
       </div>
+
+      {/* ====================================================================== */}
+      {/* ADMIN-ONLY CREATE PARTNER MODAL                                         */}
+      {/* ====================================================================== */}
+      {isAdminOrOrganizer && showCreateModal && (
+        <div 
+          className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 animate-in fade-in duration-200"
+          onClick={() => setShowCreateModal(false)}
+        >
+          <div 
+            className="bg-white w-full max-w-md rounded-t-[28px] sm:rounded-2xl p-6 shadow-2xl max-h-[90vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-4 border-b pb-3">
+              <h3 className="text-base font-bold text-slate-900">Add New Partner (Organizer)</h3>
+              <button 
+                onClick={() => setShowCreateModal(false)} 
+                className="p-1 text-slate-400 hover:text-slate-700 rounded-full"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <form onSubmit={handleCreatePartner} className="space-y-3.5 text-xs">
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">Company / Partner Name *</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Acme Corporation"
+                  value={newPartner.name}
+                  onChange={(e) => setNewPartner({ ...newPartner, name: e.target.value })}
+                  className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-blue-500"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-semibold text-slate-700 mb-1">Tier</label>
+                  <select
+                    value={newPartner.tier}
+                    onChange={(e) => setNewPartner({ ...newPartner, tier: e.target.value })}
+                    className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-blue-500"
+                  >
+                    <option value="Platinum">Platinum</option>
+                    <option value="Gold">Gold</option>
+                    <option value="Silver">Silver</option>
+                    <option value="Bronze">Bronze</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block font-semibold text-slate-700 mb-1">Category</label>
+                  <select
+                    value={newPartner.category}
+                    onChange={(e) => setNewPartner({ ...newPartner, category: e.target.value })}
+                    className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-blue-500"
+                  >
+                    <option value="Technology">Technology</option>
+                    <option value="Sponsor">Sponsor</option>
+                    <option value="Partner">Partner</option>
+                    <option value="Vendor">Vendor</option>
+                    <option value="Media">Media</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">Booth & Hall Info</label>
+                <input
+                  type="text"
+                  placeholder="e.g. Booth No. 8 | Hall No. 5"
+                  value={newPartner.booth}
+                  onChange={(e) => setNewPartner({ ...newPartner, booth: e.target.value })}
+                  className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">Logo Image URL</label>
+                <input
+                  type="url"
+                  placeholder="https://... /logo.png"
+                  value={newPartner.logo_url}
+                  onChange={(e) => setNewPartner({ ...newPartner, logo_url: e.target.value })}
+                  className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-blue-500"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-semibold text-slate-700 mb-1">Contact Email</label>
+                  <input
+                    type="email"
+                    placeholder="contact@company.com"
+                    value={newPartner.contact_email}
+                    onChange={(e) => setNewPartner({ ...newPartner, contact_email: e.target.value })}
+                    className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block font-semibold text-slate-700 mb-1">Phone Number</label>
+                  <input
+                    type="text"
+                    placeholder="+91 9876543210"
+                    value={newPartner.phone}
+                    onChange={(e) => setNewPartner({ ...newPartner, phone: e.target.value })}
+                    className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-blue-500"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">Description</label>
+                <textarea
+                  rows={2}
+                  placeholder="Brief summary of company and products"
+                  value={newPartner.description}
+                  onChange={(e) => setNewPartner({ ...newPartner, description: e.target.value })}
+                  className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-blue-500 resize-none"
+                />
+              </div>
+
+              <div className="flex items-center gap-2 pt-1">
+                <input
+                  type="checkbox"
+                  id="featured-check"
+                  checked={newPartner.featured}
+                  onChange={(e) => setNewPartner({ ...newPartner, featured: e.target.checked })}
+                  className="w-4 h-4 rounded text-blue-600"
+                />
+                <label htmlFor="featured-check" className="text-slate-700 font-semibold cursor-pointer">
+                  Feature in top carousel
+                </label>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-3 border-t">
+                <button
+                  type="button"
+                  onClick={() => setShowCreateModal(false)}
+                  className="px-4 py-2 border border-slate-200 rounded-xl font-bold text-slate-600 hover:bg-slate-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={submitting}
+                  className="px-5 py-2 bg-[#0F259E] hover:bg-[#0c1e80] text-white rounded-xl font-bold transition-all disabled:opacity-50"
+                >
+                  {submitting ? 'Saving...' : 'Save Partner'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
