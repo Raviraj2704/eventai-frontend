@@ -8,10 +8,12 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { apiGet, apiPost } from '../../services/api';
+import apiClient from '../../config/apiClient'; // Added to handle multipart/form-data file uploads
+import authService from '../../services/authService'; // Added to handle logout
 import toast from 'react-hot-toast';
 import { 
   Mail, Phone, Briefcase, Building, FileText, Info, 
-  Shield, Calendar, Edit2, Save, X, Camera, User as UserIcon 
+  Shield, Calendar, Edit2, Save, X, Camera, User as UserIcon, LogOut 
 } from 'lucide-react';
 
 const getProfileKey = () => {
@@ -28,6 +30,10 @@ export default function ProfileScreen() {
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState(null);
+  
+  // NEW: State to hold the actual file object for the backend upload
+  const [selectedFile, setSelectedFile] = useState(null); 
+
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
@@ -149,23 +155,45 @@ export default function ProfileScreen() {
   }, []);
 
   const handleImageUpload = useCallback((e) => {
-    const files = e.target.files;
-    const file = files && files[0];
+    const file = e.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        setFormData((prev) => ({
-          ...prev,
-          profilePicture: event.target ? event.target.result : null
-        }));
-      };
-      reader.readAsDataURL(file);
+      // 1. Save the actual physical file to send to the backend later
+      setSelectedFile(file);
+      
+      // 2. Create a temporary local preview for the UI
+      const previewUrl = URL.createObjectURL(file);
+      setFormData((prev) => ({
+        ...prev,
+        profilePicture: previewUrl
+      }));
     }
   }, []);
 
   const handleSaveProfile = useCallback(async () => {
     try {
       setIsSaving(true);
+      
+      let finalAvatarUrl = formData.profilePicture;
+
+      // STEP 1: Upload the physical image file to Cloudinary via the backend
+      if (selectedFile) {
+        const uploadData = new FormData();
+        uploadData.append('file', selectedFile);
+
+        try {
+          // We use apiClient directly here because we need to override the Content-Type to multipart/form-data
+          const uploadResponse = await apiClient.post('/users/me/avatar', uploadData, {
+            headers: { 'Content-Type': 'multipart/form-data' }
+          });
+          finalAvatarUrl = uploadResponse.data.avatar_url;
+          toast.success('Photo uploaded successfully!');
+        } catch (imgError) {
+          console.error('Failed to upload image:', imgError);
+          toast.error('Failed to upload photo, but saving other details.');
+        }
+      }
+
+      // STEP 2: Update the text fields
       const updatePayload = {
         first_name: formData.firstName,
         last_name: formData.lastName,
@@ -177,11 +205,11 @@ export default function ProfileScreen() {
         bio: formData.bio
       };
 
-   const mergedProfile = {
+      const mergedProfile = {
         ...(profileData || {}),
         ...updatePayload,
         email: formData.email || (profileData && profileData.email) || '',
-        profile_picture_url: formData.profilePicture || (profileData && profileData.profile_picture_url) || null
+        profile_picture_url: finalAvatarUrl || (profileData && profileData.profile_picture_url) || null
       };
 
       try {
@@ -200,9 +228,12 @@ export default function ProfileScreen() {
         job_title: formData.designation || updatedData.job_title,
         company: formData.company || updatedData.company,
         bio: formData.bio || updatedData.bio,
-        profile_picture_url: formData.profilePicture || updatedData.profile_picture_url
+        profile_picture_url: finalAvatarUrl || updatedData.profile_picture_url
       });
 
+      // Clear the selected file state so we don't re-upload it on next save
+      setSelectedFile(null);
+      
       toast.success('Profile updated successfully! 🎉');
       setIsEditing(false);
     } catch (err) {
@@ -211,7 +242,20 @@ export default function ProfileScreen() {
     } finally {
       setIsSaving(false);
     }
-  }, [formData, profileData, normalizeProfile]);
+  }, [formData, profileData, normalizeProfile, selectedFile]);
+
+  // NEW: Logout Handler
+  const handleLogout = async () => {
+    try {
+      setIsLoading(true);
+      await authService.logout(); // Triggers the cache cleanup and backend logout
+    } catch (err) {
+      console.error('Logout failed:', err);
+    } finally {
+      // Using window.location completely wipes the React state memory and redirects safely
+      window.location.href = '/login'; 
+    }
+  };
 
   // Helper to generate initials for avatar
   const getInitials = (first, last) => {
@@ -271,7 +315,7 @@ export default function ProfileScreen() {
         <div className="sticky top-0 z-10 bg-white border-b border-neutral-200 px-4 py-4 flex items-center justify-between shadow-sm">
           <h1 className="text-xl font-bold text-neutral-900">Edit Profile</h1>
           <div className="flex gap-2">
-            <button onClick={() => setIsEditing(false)} disabled={isSaving} className="px-4 py-2 text-sm font-bold text-neutral-600 bg-neutral-100 rounded-lg hover:bg-neutral-200 transition-colors">
+            <button onClick={() => { setIsEditing(false); setSelectedFile(null); }} disabled={isSaving} className="px-4 py-2 text-sm font-bold text-neutral-600 bg-neutral-100 rounded-lg hover:bg-neutral-200 transition-colors">
               Cancel
             </button>
             <button onClick={handleSaveProfile} disabled={isSaving} className="px-4 py-2 text-sm font-bold text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2">
@@ -450,6 +494,17 @@ export default function ProfileScreen() {
               </span>
             </div>
           </div>
+        </div>
+
+        {/* NEW: Sign Out Button */}
+        <div className="mt-8 mb-4">
+          <button
+            onClick={handleLogout}
+            className="w-full py-3.5 bg-white border border-red-200 text-red-600 rounded-xl font-bold hover:bg-red-50 hover:border-red-300 flex items-center justify-center gap-2 transition-all shadow-sm"
+          >
+            <LogOut className="w-5 h-5" />
+            Sign Out
+          </button>
         </div>
 
       </div>
