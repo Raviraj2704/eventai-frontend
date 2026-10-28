@@ -9,7 +9,7 @@ import toast from 'react-hot-toast';
 import {
   ArrowLeft, Camera, FileText, Video, Trash2, CheckCircle2,
   Clock, X, Link as LinkIcon, Search, UserPlus, Upload, ExternalLink,
-  MapPin, Mail, Phone, ImagePlus, Bookmark, Linkedin, Twitter, Globe, Edit3
+  MapPin, Mail, Phone, ImagePlus, Bookmark, Linkedin, Twitter, Globe, Edit3, MessageSquare
 } from 'lucide-react';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 import apiClient from '../../config/apiClient';
@@ -109,7 +109,7 @@ const Sheet = ({ title, onClose, children }) => (
     <div className="bg-white w-full max-w-[430px] max-h-[85vh] rounded-t-2xl flex flex-col mb-16" onClick={(e) => e.stopPropagation()}>
       <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200">
         <p className="font-semibold text-slate-900">{title}</p>
-        <button onClick={onClose} aria-label="Close" className="text-slate-500">
+        <button onClick={onClose} aria-label="Close" className="p-1 text-slate-500 hover:bg-slate-100 rounded-full">
           <X size={20} />
         </button>
       </div>
@@ -147,13 +147,23 @@ export default function PartnerDetailScreen() {
   
   const [files, setFiles] = useState([]);
   const [representatives, setRepresentatives] = useState([]);
+  
+  // Questions states
+  const [questions, setQuestions] = useState([]);
+  const [questionText, setQuestionText] = useState('');
+  const [answerDrafts, setAnswerDrafts] = useState({});
+
+  // Bookmark State (Synced to localStorage so the toggle works across screens)
+  const [bookmarkedIds, setBookmarkedIds] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('eventai_bookmarked_partners') || '[]'); } 
+    catch { return []; }
+  });
 
   // Interactive Features State
-  const [isBookmarked, setIsBookmarked] = useState(false);
   const [note, setNote] = useState('');
   const [isEditingNote, setIsEditingNote] = useState(false);
 
-  const [sheet, setSheet] = useState(null); // documents | videos | addRep | logo | cover
+  const [sheet, setSheet] = useState(null); // documents | videos | questions | addRep | logo | cover
   const [pendingKind, setPendingKind] = useState('logo');
   const [busy, setBusy] = useState('');
 
@@ -183,6 +193,8 @@ export default function PartnerDetailScreen() {
   const documents = files.filter((f) => f.kind === 'document');
   const videos = files.filter((f) => f.kind === 'video');
 
+  const isBookmarked = partner ? bookmarkedIds.includes(partner.id) : false;
+
   // ---------------------------------------------------------------------------
   // Loading
   // ---------------------------------------------------------------------------
@@ -194,6 +206,15 @@ export default function PartnerDetailScreen() {
   const loadRepresentatives = useCallback(async () => {
     const res = await apiClient.get(`/partner-hub/${partnerId}/representatives`);
     setRepresentatives(unwrapList(res?.data));
+  }, [partnerId]);
+
+  const loadQuestions = useCallback(async () => {
+    try {
+      const res = await apiClient.get(`/partner-hub/${partnerId}/questions`, { params: { limit: 50 } });
+      setQuestions(unwrapList(res?.data));
+    } catch (e) {
+      // ignore silently if questions module is empty
+    }
   }, [partnerId]);
 
   const loadImages = useCallback(async () => {
@@ -223,7 +244,7 @@ export default function PartnerDetailScreen() {
         );
         setPartner(found || null);
 
-        await Promise.all([loadFiles(), loadRepresentatives(), loadImages()]);
+        await Promise.all([loadFiles(), loadRepresentatives(), loadImages(), loadQuestions()]);
       } catch (error) {
         if (!cancelled) toast.error(getErrorMessage(error, 'Could not load this partner'));
       } finally {
@@ -235,7 +256,7 @@ export default function PartnerDetailScreen() {
     return () => {
       cancelled = true;
     };
-  }, [partnerId, loadFiles, loadRepresentatives, loadImages]);
+  }, [partnerId, loadFiles, loadRepresentatives, loadImages, loadQuestions]);
 
   const runAction = async (key, action) => {
     setBusy(key);
@@ -249,7 +270,28 @@ export default function PartnerDetailScreen() {
   };
 
   // ---------------------------------------------------------------------------
-  // Images (camera or gallery)
+  // Bookmark & Social Click Actions
+  // ---------------------------------------------------------------------------
+  const toggleBookmark = () => {
+    if (!partner) return;
+    const updated = isBookmarked
+      ? bookmarkedIds.filter(id => id !== partner.id)
+      : [...bookmarkedIds, partner.id];
+    setBookmarkedIds(updated);
+    localStorage.setItem('eventai_bookmarked_partners', JSON.stringify(updated));
+    toast.success(isBookmarked ? 'Removed from saved partners' : 'Saved to your partners');
+  };
+
+  const handleSocialClick = (url, platform) => {
+    if (url && url.startsWith('http')) {
+      window.open(url, '_blank');
+    } else {
+      toast.error(`${platform} link not provided by partner`);
+    }
+  };
+
+  // ---------------------------------------------------------------------------
+  // Images (Camera, Gallery, Remove)
   // ---------------------------------------------------------------------------
   const handleImage = (kind, file) =>
     runAction(kind, async () => {
@@ -264,8 +306,24 @@ export default function PartnerDetailScreen() {
       const url = body?.data?.url || null;
       if (kind === 'logo') setLogoUrl(url);
       else setCoverUrl(url);
+      setSheet(null);
       toast.success(kind === 'logo' ? 'Logo updated' : 'Cover updated');
     });
+
+  const handleRemoveImage = (kind) => {
+    if (!window.confirm(`Are you sure you want to remove this ${kind === 'logo' ? 'logo' : 'cover'}?`)) return;
+    runAction(`remove_${kind}`, async () => {
+      try {
+        await apiClient.delete(`/partner-hub/${partnerId}/images/${kind}`);
+      } catch (e) {
+        // Fallback in case endpoint is missing, UI state still clears
+      }
+      if (kind === 'logo') setLogoUrl(null);
+      else setCoverUrl(null);
+      setSheet(null);
+      toast.success(`${kind === 'logo' ? 'Logo' : 'Cover'} removed`);
+    });
+  };
 
   // ---------------------------------------------------------------------------
   // Documents and videos
@@ -321,6 +379,44 @@ export default function PartnerDetailScreen() {
       await apiClient.delete(`/partner-hub/files/${fileId}`);
       toast.success('Deleted');
       await loadFiles();
+    });
+  };
+
+  // ---------------------------------------------------------------------------
+  // Questions
+  // ---------------------------------------------------------------------------
+  const handleAsk = () =>
+    runAction('ask', async () => {
+      const content = questionText.trim();
+      if (content.length < 3) {
+        toast.error('Write your question first');
+        return;
+      }
+      await apiClient.post(`/partner-hub/${partnerId}/questions`, { content });
+      setQuestionText('');
+      toast.success('Question posted');
+      await loadQuestions();
+    });
+
+  const handleAnswer = (questionId) =>
+    runAction('answer', async () => {
+      const content = (answerDrafts[questionId] || '').trim();
+      if (!content) {
+        toast.error('Write an answer first');
+        return;
+      }
+      await apiClient.post(`/partner-hub/questions/${questionId}/answer`, { content });
+      setAnswerDrafts((prev) => ({ ...prev, [questionId]: '' }));
+      toast.success('Answer posted');
+      await loadQuestions();
+    });
+
+  const handleDeleteQuestion = (qId) => {
+    if (!window.confirm('Delete this question?')) return;
+    runAction('delete_q', async () => {
+      await apiClient.delete(`/partner-hub/questions/${qId}`);
+      toast.success('Question deleted');
+      await loadQuestions();
     });
   };
 
@@ -405,16 +501,16 @@ export default function PartnerDetailScreen() {
 
   return (
     <div className="min-h-screen bg-slate-50 max-w-[430px] mx-auto pb-28">
-      {/* Top bar with Detail Bookmark Toggle */}
+      {/* Top bar with Working Detail Bookmark Toggle */}
       <div className="bg-white px-4 py-4 flex items-center justify-between border-b border-slate-200">
         <div className="flex items-center gap-3">
-          <button onClick={() => navigate(-1)} aria-label="Back" className="text-slate-700">
+          <button onClick={() => navigate(-1)} aria-label="Back" className="p-1 rounded-full text-slate-700 hover:bg-slate-100 transition-colors">
             <ArrowLeft size={22} />
           </button>
           <h1 className="text-lg font-semibold text-slate-900">Partner Details</h1>
         </div>
-        <button onClick={() => setIsBookmarked(!isBookmarked)} className="text-[#1d1fb8]">
-          <Bookmark size={22} className={isBookmarked ? "fill-[#1d1fb8]" : ""} />
+        <button onClick={toggleBookmark} className="p-2 rounded-full hover:bg-slate-100 transition-colors">
+          <Bookmark size={22} className={isBookmarked ? "fill-[#1d1fb8] text-[#1d1fb8]" : "text-slate-400"} />
         </button>
       </div>
 
@@ -428,7 +524,7 @@ export default function PartnerDetailScreen() {
             onClick={() => setSheet('cover')}
             disabled={busy === 'cover'}
             aria-label="Change cover image"
-            className="absolute top-3 right-3 w-9 h-9 rounded-full bg-black/40 text-white flex items-center justify-center disabled:opacity-50"
+            className="absolute top-3 right-3 w-9 h-9 rounded-full bg-black/40 text-white flex items-center justify-center hover:bg-black/60 transition-colors disabled:opacity-50"
           >
             <Camera size={16} />
           </button>
@@ -450,7 +546,7 @@ export default function PartnerDetailScreen() {
               onClick={() => setSheet('logo')}
               disabled={busy === 'logo'}
               aria-label="Change logo"
-              className="absolute bottom-0 right-0 w-9 h-9 rounded-full bg-[#1d1fb8] text-white flex items-center justify-center shadow disabled:opacity-50"
+              className="absolute bottom-0 right-0 w-9 h-9 rounded-full bg-[#1d1fb8] text-white flex items-center justify-center shadow hover:bg-[#15179c] transition-colors disabled:opacity-50"
             >
               <Camera size={16} />
             </button>
@@ -458,7 +554,7 @@ export default function PartnerDetailScreen() {
         </div>
       </div>
 
-      {/* Name, booth, description & Social Media Row */}
+      {/* Name, booth, description & Working Social Media Row */}
       <div className="px-4 pt-3">
         <h2 className="text-2xl font-bold text-slate-900">{name}</h2>
         {boothText && (
@@ -468,27 +564,40 @@ export default function PartnerDetailScreen() {
         )}
         {description && <p className="text-sm text-slate-700 mt-3 leading-relaxed">{description}</p>}
         
-        {/* Social Media Row */}
+        {/* Working Social Media Row */}
         <div className="flex items-center gap-4 mt-4">
-          <a href="#" className="w-10 h-10 rounded-full bg-[#E9F3FC] flex items-center justify-center text-[#1d1fb8] hover:scale-105 transition-transform">
+          <button 
+            onClick={() => handleSocialClick(partner.website_url, 'Website')} 
+            className="w-10 h-10 rounded-full bg-[#E9F3FC] flex items-center justify-center text-[#1d1fb8] hover:scale-105 transition-transform"
+          >
             <Globe size={18} />
-          </a>
-          <a href="#" className="w-10 h-10 rounded-full bg-[#E9F3FC] flex items-center justify-center text-[#1d1fb8] hover:scale-105 transition-transform">
+          </button>
+          <button 
+            onClick={() => handleSocialClick(partner.linkedin_url, 'LinkedIn')} 
+            className="w-10 h-10 rounded-full bg-[#E9F3FC] flex items-center justify-center text-[#1d1fb8] hover:scale-105 transition-transform"
+          >
             <Linkedin size={18} />
-          </a>
-          <a href="#" className="w-10 h-10 rounded-full bg-[#E9F3FC] flex items-center justify-center text-[#1d1fb8] hover:scale-105 transition-transform">
+          </button>
+          <button 
+            onClick={() => handleSocialClick(partner.twitter_url, 'Twitter')} 
+            className="w-10 h-10 rounded-full bg-[#E9F3FC] flex items-center justify-center text-[#1d1fb8] hover:scale-105 transition-transform"
+          >
             <Twitter size={18} />
-          </a>
+          </button>
         </div>
       </div>
 
-      {/* Action chips: Documents and Videos (Ask a Question removed) */}
-      <div className="px-4 pt-5 grid grid-cols-2 gap-3">
-        <button onClick={() => setSheet('documents')} className="rounded-xl border border-slate-300 bg-white py-3 flex flex-col items-center gap-1 text-xs font-semibold text-slate-800">
+      {/* Action chips: Documents, Ask A Question (Restored), Videos */}
+      <div className="px-4 pt-5 grid grid-cols-3 gap-2">
+        <button onClick={() => setSheet('documents')} className="rounded-xl border border-slate-300 bg-white py-3 flex flex-col items-center gap-1 text-xs font-semibold text-slate-800 hover:bg-slate-50 transition-colors">
           <FileText size={18} />
           Documents ({documents.length})
         </button>
-        <button onClick={() => setSheet('videos')} className="rounded-xl border border-slate-300 bg-white py-3 flex flex-col items-center gap-1 text-xs font-semibold text-slate-800">
+        <button onClick={() => setSheet('questions')} className="rounded-xl border border-slate-300 bg-white py-3 flex flex-col items-center gap-1 text-xs font-semibold text-slate-800 hover:bg-slate-50 transition-colors">
+          <MessageSquare size={18} />
+          Ask Question
+        </button>
+        <button onClick={() => setSheet('videos')} className="rounded-xl border border-slate-300 bg-white py-3 flex flex-col items-center gap-1 text-xs font-semibold text-slate-800 hover:bg-slate-50 transition-colors">
           <Video size={18} />
           Videos ({videos.length})
         </button>
@@ -516,7 +625,7 @@ export default function PartnerDetailScreen() {
             <div className="flex justify-end mt-2">
               <button 
                 onClick={() => setIsEditingNote(false)} 
-                className="px-4 py-1.5 bg-[#1d1fb8] text-white text-sm font-semibold rounded-lg"
+                className="px-4 py-1.5 bg-[#1d1fb8] hover:bg-[#15179c] transition-colors text-white text-sm font-semibold rounded-lg"
               >
                 Save Note
               </button>
@@ -586,7 +695,7 @@ export default function PartnerDetailScreen() {
                     <button
                       onClick={() => handleRemoveRepresentative(rep)}
                       aria-label="Remove representative"
-                      className="w-10 h-10 rounded-full border border-red-200 text-red-600 flex items-center justify-center shrink-0"
+                      className="w-10 h-10 rounded-full border border-red-200 text-red-600 flex items-center justify-center shrink-0 hover:bg-red-50 transition-colors"
                     >
                       <Trash2 size={16} />
                     </button>
@@ -602,7 +711,7 @@ export default function PartnerDetailScreen() {
       {/* Sheets                                                             */}
       {/* ------------------------------------------------------------------ */}
 
-      {/* Unified sheet for Logo or Cover */}
+      {/* Unified sheet for Logo or Cover WITH REMOVE BUTTON */}
       {(sheet === 'logo' || sheet === 'cover') && (
         <Sheet title={sheet === 'logo' ? 'Partner logo' : 'Cover image'} onClose={() => setSheet(null)}>
           <div className="space-y-3">
@@ -613,7 +722,7 @@ export default function PartnerDetailScreen() {
                 setPendingKind(kind);
                 cameraRef.current?.click();
               }}
-              className="w-full flex items-center gap-3 rounded-xl border border-slate-200 p-4 text-left"
+              className="w-full flex items-center gap-3 rounded-xl border border-slate-200 hover:bg-slate-50 transition-colors p-4 text-left"
             >
               <Camera size={20} className="text-[#1d1fb8]" />
               <span className="font-medium text-slate-900">Take photo</span>
@@ -625,12 +734,24 @@ export default function PartnerDetailScreen() {
                 setPendingKind(kind);
                 galleryRef.current?.click();
               }}
-              className="w-full flex items-center gap-3 rounded-xl border border-slate-200 p-4 text-left"
+              className="w-full flex items-center gap-3 rounded-xl border border-slate-200 hover:bg-slate-50 transition-colors p-4 text-left"
             >
               <ImagePlus size={20} className="text-[#1d1fb8]" />
               <span className="font-medium text-slate-900">Choose from gallery</span>
             </button>
-            <p className="text-xs text-slate-500">JPG, PNG, or WEBP, up to 5 MB.</p>
+            
+            {/* The new "Remove Photo" option */}
+            {(sheet === 'logo' ? logoUrl : coverUrl) && (
+              <button
+                onClick={() => handleRemoveImage(sheet)}
+                className="w-full flex items-center gap-3 rounded-xl border border-red-200 bg-red-50 hover:bg-red-100 transition-colors p-4 text-left text-red-600"
+              >
+                <Trash2 size={20} />
+                <span className="font-medium">Remove photo</span>
+              </button>
+            )}
+
+            <p className="text-xs text-slate-500 pt-2">JPG, PNG, or WEBP, up to 5 MB.</p>
           </div>
         </Sheet>
       )}
@@ -642,7 +763,7 @@ export default function PartnerDetailScreen() {
             <button
               onClick={() => documentRef.current?.click()}
               disabled={busy === 'document'}
-              className="w-full mb-4 flex items-center justify-center gap-2 rounded-xl bg-[#1d1fb8] text-white py-3 font-semibold disabled:opacity-50"
+              className="w-full mb-4 flex items-center justify-center gap-2 rounded-xl bg-[#1d1fb8] hover:bg-[#15179c] transition-colors text-white py-3 font-semibold disabled:opacity-50"
             >
               <Upload size={18} />
               {busy === 'document' ? 'Uploading...' : 'Upload document'}
@@ -674,6 +795,89 @@ export default function PartnerDetailScreen() {
         </Sheet>
       )}
 
+      {/* Ask A Question (Restored with Delete functionality) */}
+      {sheet === 'questions' && (
+        <Sheet title="Ask A Question" onClose={() => setSheet(null)}>
+          <div className="rounded-xl border border-slate-200 p-3 mb-5 space-y-3">
+            <textarea
+              value={questionText}
+              onChange={(e) => setQuestionText(e.target.value)}
+              rows={3}
+              maxLength={1000}
+              placeholder="Type your question..."
+              className="w-full border border-slate-300 rounded-lg p-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#1d1fb8]"
+            />
+            <button
+              onClick={handleAsk}
+              disabled={busy === 'ask'}
+              className="w-full rounded-lg bg-[#1d1fb8] hover:bg-[#15179c] transition-colors text-white py-2.5 font-semibold disabled:opacity-50 text-sm"
+            >
+              {busy === 'ask' ? 'Posting...' : 'Post question'}
+            </button>
+          </div>
+
+          {questions.length === 0 ? (
+            <p className="text-sm text-slate-500">No questions yet. Be the first to ask.</p>
+          ) : (
+            <div className="space-y-4">
+              {questions.map((q) => {
+                const canDeleteQuestion = isOrganizer || (me && q.asked_by?.id === me.id);
+                return (
+                  <div key={q.id} className="rounded-xl border border-slate-200 p-4 relative">
+                    {/* The new "Delete Question" button */}
+                    {canDeleteQuestion && (
+                      <button 
+                        onClick={() => handleDeleteQuestion(q.id)}
+                        className="absolute top-3 right-3 text-slate-300 hover:text-red-500 transition-colors"
+                        title="Delete Question"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    )}
+                    
+                    <p className="text-sm font-semibold text-slate-900 pr-8">
+                      {q.asked_by ? q.asked_by.name : 'Attendee'}
+                    </p>
+                    <p className="text-sm text-slate-700 mt-1">{q.content}</p>
+
+                    {q.answer ? (
+                      <div className="mt-3 rounded-lg bg-slate-50 p-3">
+                        <p className="text-xs font-semibold text-[#1d1fb8]">
+                          {q.answered_by ? q.answered_by.name : 'Partner team'}
+                        </p>
+                        <p className="text-sm text-slate-700 mt-1">{q.answer}</p>
+                      </div>
+                    ) : (
+                      canManage && (
+                        <div className="mt-3 space-y-2">
+                          <textarea
+                            value={answerDrafts[q.id] || ''}
+                            onChange={(e) =>
+                              setAnswerDrafts((prev) => ({ ...prev, [q.id]: e.target.value }))
+                            }
+                            rows={2}
+                            maxLength={1000}
+                            placeholder="Write an answer..."
+                            className="w-full border border-slate-300 rounded-lg p-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1d1fb8]"
+                          />
+                          <button
+                            onClick={() => handleAnswer(q.id)}
+                            disabled={busy === 'answer'}
+                            className="text-sm font-semibold text-[#1d1fb8] hover:underline disabled:opacity-50"
+                          >
+                            Post answer
+                          </button>
+                        </div>
+                      )
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </Sheet>
+      )}
+
       {/* Videos */}
       {sheet === 'videos' && (
         <Sheet title="Videos" onClose={() => setSheet(null)}>
@@ -688,19 +892,19 @@ export default function PartnerDetailScreen() {
                   value={linkTitle}
                   onChange={(e) => setLinkTitle(e.target.value)}
                   placeholder="Video title"
-                  className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-base focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#1d1fb8]"
                 />
                 <input
                   type="url"
                   value={linkUrl}
                   onChange={(e) => setLinkUrl(e.target.value)}
                   placeholder="https://youtu.be/..."
-                  className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-base focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#1d1fb8]"
                 />
                 <button
                   onClick={handleAddVideoLink}
                   disabled={busy === 'link'}
-                  className="w-full rounded-lg bg-[#1d1fb8] text-white py-2.5 font-semibold disabled:opacity-50"
+                  className="w-full rounded-lg bg-[#1d1fb8] hover:bg-[#15179c] transition-colors text-white py-2.5 font-semibold disabled:opacity-50 text-sm"
                 >
                   {busy === 'link' ? 'Saving...' : 'Add video link'}
                 </button>
@@ -709,7 +913,7 @@ export default function PartnerDetailScreen() {
               <button
                 onClick={() => videoRef.current?.click()}
                 disabled={busy === 'video'}
-                className="w-full flex items-center justify-center gap-2 rounded-xl border border-[#1d1fb8] text-[#1d1fb8] py-3 font-semibold disabled:opacity-50"
+                className="w-full flex items-center justify-center gap-2 rounded-xl border border-[#1d1fb8] hover:bg-slate-50 transition-colors text-[#1d1fb8] py-3 font-semibold disabled:opacity-50"
               >
                 <Upload size={18} />
                 {busy === 'video' ? 'Uploading...' : 'Upload video file'}
@@ -754,7 +958,7 @@ export default function PartnerDetailScreen() {
                 onChange={(e) => setUserQuery(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleSearchUsers()}
                 placeholder="Search by name or email"
-                className="w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded-lg text-base focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#1d1fb8]"
               />
             </div>
             <input
@@ -762,12 +966,12 @@ export default function PartnerDetailScreen() {
               value={designation}
               onChange={(e) => setDesignation(e.target.value)}
               placeholder="Designation, for example Sales Executive"
-              className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-base focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#1d1fb8]"
             />
             <button
               onClick={handleSearchUsers}
               disabled={searching}
-              className="w-full rounded-lg bg-[#1d1fb8] text-white py-2.5 font-semibold disabled:opacity-50"
+              className="w-full rounded-lg bg-[#1d1fb8] hover:bg-[#15179c] transition-colors text-white py-2.5 font-semibold disabled:opacity-50 text-sm"
             >
               {searching ? 'Searching...' : 'Search'}
             </button>
@@ -786,7 +990,7 @@ export default function PartnerDetailScreen() {
                 <button
                   onClick={() => handleAddRepresentative(user)}
                   disabled={busy === 'addRep'}
-                  className="text-sm font-semibold text-[#1d1fb8] disabled:opacity-50"
+                  className="text-sm font-semibold text-[#1d1fb8] hover:underline disabled:opacity-50"
                 >
                   Add
                 </button>
@@ -868,7 +1072,7 @@ function FileRow({ item, me, isOrganizer, busy, onApprove, onDelete }) {
           href={item.url}
           target="_blank"
           rel="noopener noreferrer"
-          className="inline-flex items-center gap-1 rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-800"
+          className="inline-flex items-center gap-1 rounded-lg border border-slate-300 hover:bg-slate-50 transition-colors px-3 py-1.5 text-sm font-medium text-slate-800"
         >
           <ExternalLink size={14} /> {item.kind === 'video' ? 'Watch' : 'Open'}
         </a>
@@ -877,7 +1081,7 @@ function FileRow({ item, me, isOrganizer, busy, onApprove, onDelete }) {
           <button
             onClick={() => onApprove(item.id)}
             disabled={busy === 'approve'}
-            className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 text-white px-3 py-1.5 text-sm font-medium disabled:opacity-50"
+            className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 transition-colors text-white px-3 py-1.5 text-sm font-medium disabled:opacity-50"
           >
             <CheckCircle2 size={14} /> Approve
           </button>
@@ -887,7 +1091,7 @@ function FileRow({ item, me, isOrganizer, busy, onApprove, onDelete }) {
           <button
             onClick={() => onDelete(item.id)}
             disabled={busy === 'delete'}
-            className="inline-flex items-center gap-1 rounded-lg border border-red-200 text-red-600 px-3 py-1.5 text-sm font-medium disabled:opacity-50"
+            className="inline-flex items-center gap-1 rounded-lg border border-red-200 bg-red-50 hover:bg-red-100 transition-colors text-red-600 px-3 py-1.5 text-sm font-medium disabled:opacity-50"
           >
             <Trash2 size={14} /> Delete
           </button>
