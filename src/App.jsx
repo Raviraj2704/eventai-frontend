@@ -36,6 +36,7 @@ const HubScreen = lazy(() => import('./pages/main/HubScreen'));
 const NetworkingScreen = lazy(() => import('./pages/main/NetworkingScreen'));
 const ProfileScreen = lazy(() => import('./pages/main/ProfileScreen'));
 const SessionQuizPage = lazy(() => import('./pages/main/SessionQuizPage'));
+const EventInfoScreen = lazy(() => import('./pages/main/EventInfoScreen'));
 
 // Pages - Engagement
 const SocialWallScreen = lazy(() => import('./pages/engagement/SocialWallScreen'));
@@ -145,6 +146,7 @@ function App() {
           h(Route, { path: '/hub', element: wrapPrivate(HubScreen) }),
           h(Route, { path: '/networking', element: wrapPrivate(NetworkingScreen) }),
           h(Route, { path: '/profile', element: wrapPrivate(ProfileScreen) }),
+          h(Route, { path: '/event-info', element: wrapPrivate(EventInfoScreen) }),
 
           // Engagement Routes
           h(Route, { path: '/social-wall', element: wrapPrivate(SocialWallScreen) }),
