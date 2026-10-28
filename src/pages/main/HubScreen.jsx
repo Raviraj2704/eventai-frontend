@@ -326,7 +326,7 @@ export default function HubScreen() {
         {/* ROW 1: Event Info & Picbot */}
         <div className="grid grid-cols-2 gap-3.5">
           <button
-            onClick={() => navigate('/engagement-center')}
+            onClick={() => navigate('/event-info')}
             className="bg-[#E9F3FC] rounded-[22px] p-4 py-5 flex flex-col items-center justify-center gap-3 hover:scale-[1.02] active:scale-[0.98] transition-all shadow-[0_2px_10px_rgba(0,102,255,0.04)] border border-white"
           >
             <EventInfoIcon />
