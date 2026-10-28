@@ -1,27 +1,6 @@
 // ============================================================================
 // Partner Detail Screen
 // File: src/pages/engagement/PartnerDetailScreen.jsx
-// Route: /partners/:partnerId
-// Real API only:
-//   GET    /partners                                 partner details (from list)
-//   GET    /users/me                                 logged-in user
-//   GET    /users/search?q=                          find registered people
-//   GET    /partner-hub/{id}/images                  cover and logo images
-//   POST   /partner-hub/{id}/images/logo             upload logo (camera or gallery)
-//   POST   /partner-hub/{id}/images/cover            upload cover (camera or gallery)
-//   GET    /partner-hub/{id}/files                   documents and videos
-//   POST   /partner-hub/{id}/files                   upload document or video
-//   POST   /partner-hub/{id}/video-links             add a YouTube or Vimeo link
-//   POST   /partner-hub/files/{id}/approve           approve (organizer)
-//   DELETE /partner-hub/files/{id}                   delete
-//   GET    /partner-hub/{id}/questions               questions
-//   POST   /partner-hub/{id}/questions               ask a question
-//   POST   /partner-hub/questions/{id}/answer        answer (organizer or representative)
-//   GET    /partner-hub/{id}/representatives         representatives
-//   POST   /partner-hub/{id}/representatives         add representative (organizer)
-//   DELETE /partner-hub/{id}/representatives/{rep}   remove representative
-//   GET    /chat/users/{user_id}/messages            chat with a representative
-//   POST   /chat/users/{user_id}/messages            send a message
 // ============================================================================
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -55,7 +34,6 @@ const getErrorMessage = (error, fallback) => {
   return fallback;
 };
 
-// Accepts either a plain array or an object with a "data" array
 const unwrapList = (body) => {
   if (Array.isArray(body)) return body;
   if (Array.isArray(body?.data)) return body.data;
@@ -74,7 +52,6 @@ const initialsOf = (name) =>
     .slice(0, 2)
     .toUpperCase() || 'A';
 
-// Client-side checks. The server repeats them, so these only give quicker feedback.
 const checkFile = (file, kind) => {
   if (!file) return 'No file selected';
   if (kind === 'image') {
@@ -92,7 +69,6 @@ const checkFile = (file, kind) => {
   return null;
 };
 
-// Sends a file with fetch so the browser sets the multipart boundary itself
 const postForm = async (path, formData) => {
   const token = localStorage.getItem('access_token');
   const base = (apiClient.defaults.baseURL || '').replace(/\/$/, '');
@@ -123,19 +99,14 @@ const PersonAvatar = ({ src, name, size = 'w-12 h-12' }) =>
   src ? (
     <img src={src} alt={name} className={`${size} rounded-full object-cover shrink-0`} />
   ) : (
-    <div
-      className={`${size} rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center font-semibold text-slate-600 shrink-0`}
-    >
+    <div className={`${size} rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center font-semibold text-slate-600 shrink-0`}>
       {initialsOf(name)}
     </div>
   );
 
 const Sheet = ({ title, onClose, children }) => (
   <div className="fixed inset-0 bg-black/50 z-[60] flex items-end justify-center" onClick={onClose}>
-    <div
-      className="bg-white w-full max-w-[430px] max-h-[85vh] rounded-t-2xl flex flex-col mb-16"
-      onClick={(e) => e.stopPropagation()}
-    >
+    <div className="bg-white w-full max-w-[430px] max-h-[85vh] rounded-t-2xl flex flex-col mb-16" onClick={(e) => e.stopPropagation()}>
       <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200">
         <p className="font-semibold text-slate-900">{title}</p>
         <button onClick={onClose} aria-label="Close" className="text-slate-500">
@@ -169,8 +140,11 @@ export default function PartnerDetailScreen() {
   const [loading, setLoading] = useState(true);
   const [partner, setPartner] = useState(null);
   const [me, setMe] = useState(null);
+  
+  // Image states
   const [logoUrl, setLogoUrl] = useState(null);
   const [coverUrl, setCoverUrl] = useState(null);
+  
   const [files, setFiles] = useState([]);
   const [questions, setQuestions] = useState([]);
   const [representatives, setRepresentatives] = useState([]);
@@ -200,7 +174,7 @@ export default function PartnerDetailScreen() {
   const [chatText, setChatText] = useState('');
   const [sending, setSending] = useState(false);
 
-  // Hidden file inputs (always rendered)
+  // Hidden file inputs
   const cameraRef = useRef(null);
   const galleryRef = useRef(null);
   const documentRef = useRef(null);
@@ -275,7 +249,6 @@ export default function PartnerDetailScreen() {
     };
   }, [partnerId, loadFiles, loadQuestions, loadRepresentatives, loadImages]);
 
-  // Runs one action with a shared busy flag and a clear error message
   const runAction = async (key, action) => {
     setBusy(key);
     try {
@@ -489,10 +462,7 @@ export default function PartnerDetailScreen() {
     return (
       <div className="min-h-screen bg-white max-w-[430px] mx-auto p-6 text-center">
         <p className="text-slate-600 mt-16 mb-6">This partner could not be found.</p>
-        <button
-          onClick={() => navigate('/partners')}
-          className="px-4 py-2 rounded-lg bg-[#0c1b78] text-white font-medium"
-        >
+        <button onClick={() => navigate('/partners')} className="px-4 py-2 rounded-lg bg-[#0c1b78] text-white font-medium">
           Back to partners
         </button>
       </div>
@@ -575,24 +545,15 @@ export default function PartnerDetailScreen() {
 
       {/* Action chips: Documents, Ask A Question, Videos */}
       <div className="px-4 pt-5 grid grid-cols-3 gap-2">
-        <button
-          onClick={() => setSheet('documents')}
-          className="rounded-xl border border-slate-300 bg-white py-3 flex flex-col items-center gap-1 text-xs font-semibold text-slate-800"
-        >
+        <button onClick={() => setSheet('documents')} className="rounded-xl border border-slate-300 bg-white py-3 flex flex-col items-center gap-1 text-xs font-semibold text-slate-800">
           <FileText size={18} />
           Documents ({documents.length})
         </button>
-        <button
-          onClick={() => setSheet('questions')}
-          className="rounded-xl border border-slate-300 bg-white py-3 flex flex-col items-center gap-1 text-xs font-semibold text-slate-800"
-        >
+        <button onClick={() => setSheet('questions')} className="rounded-xl border border-slate-300 bg-white py-3 flex flex-col items-center gap-1 text-xs font-semibold text-slate-800">
           <MessageCircle size={18} />
           Ask A Question
         </button>
-        <button
-          onClick={() => setSheet('videos')}
-          className="rounded-xl border border-slate-300 bg-white py-3 flex flex-col items-center gap-1 text-xs font-semibold text-slate-800"
-        >
+        <button onClick={() => setSheet('videos')} className="rounded-xl border border-slate-300 bg-white py-3 flex flex-col items-center gap-1 text-xs font-semibold text-slate-800">
           <Video size={18} />
           Videos ({videos.length})
         </button>
@@ -622,10 +583,7 @@ export default function PartnerDetailScreen() {
         <div className="flex justify-between items-center mb-2">
           <h3 className="text-base font-semibold text-slate-900">Representatives</h3>
           {isOrganizer && (
-            <button
-              onClick={() => setSheet('addRep')}
-              className="text-sm font-semibold text-[#1d1fb8] flex items-center gap-1"
-            >
+            <button onClick={() => setSheet('addRep')} className="text-sm font-semibold text-[#1d1fb8] flex items-center gap-1">
               <UserPlus size={15} /> Add
             </button>
           )}
@@ -640,10 +598,7 @@ export default function PartnerDetailScreen() {
             {representatives.map((rep) => {
               const canMessage = Boolean(me) && rep.user_id !== me.id;
               return (
-                <div
-                  key={rep.id}
-                  className="flex items-center gap-3 rounded-2xl bg-white border border-slate-200 p-4"
-                >
+                <div key={rep.id} className="flex items-center gap-3 rounded-2xl bg-white border border-slate-200 p-4">
                   <PersonAvatar src={rep.avatar_url} name={rep.name || 'Representative'} />
                   <div className="flex-1 min-w-0">
                     <p className="font-semibold text-slate-900 truncate">{rep.name || 'Representative'}</p>
@@ -683,10 +638,7 @@ export default function PartnerDetailScreen() {
 
       {/* Unified sheet for Logo or Cover */}
       {(sheet === 'logo' || sheet === 'cover') && (
-        <Sheet
-          title={sheet === 'logo' ? 'Partner logo' : 'Cover image'}
-          onClose={() => setSheet(null)}
-        >
+        <Sheet title={sheet === 'logo' ? 'Partner logo' : 'Cover image'} onClose={() => setSheet(null)}>
           <div className="space-y-3">
             <button
               onClick={() => {
