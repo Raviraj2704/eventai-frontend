@@ -42,6 +42,7 @@ const SocialWallScreen = lazy(() => import('./pages/engagement/SocialWallScreen'
 const ActivityHubScreen = lazy(() => import('./pages/engagement/ActivityHubScreen'));
 const AIMatchesScreen = lazy(() => import('./pages/engagement/AIMatchesScreen'));
 const PartnersScreen = lazy(() => import('./pages/engagement/PartnersScreen'));
+const PartnerDetailScreen = lazy(() => import('./pages/engagement/PartnerDetailScreen'));
 const BriefcaseScreen = lazy(() => import('./pages/engagement/BriefcaseScreen'));
 
 // Pages - Gamification & Learning
@@ -150,6 +151,7 @@ function App() {
           h(Route, { path: '/activity-hub', element: wrapPrivate(ActivityHubScreen) }),
           h(Route, { path: '/ai-matches', element: wrapPrivate(AIMatchesScreen) }),
           h(Route, { path: '/partners', element: wrapPrivate(PartnersScreen) }),
+                    h(Route, { path: '/partners/:partnerId', element: wrapPrivate(PartnerDetailScreen) }),
           h(Route, { path: '/briefcase', element: wrapPrivate(BriefcaseScreen) }),
 
           // Gamification & Learning Routes
