@@ -7,9 +7,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import {
-  ArrowLeft, Camera, FileText, Video, MessageCircle, Trash2, CheckCircle2,
-  Clock, X, Send, Link as LinkIcon, Search, UserPlus, Upload, ExternalLink,
-  MapPin, Mail, Phone, ImagePlus,
+  ArrowLeft, Camera, FileText, Video, Trash2, CheckCircle2,
+  Clock, X, Link as LinkIcon, Search, UserPlus, Upload, ExternalLink,
+  MapPin, Mail, Phone, ImagePlus, Bookmark, Linkedin, Twitter, Globe, Edit3
 } from 'lucide-react';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 import apiClient from '../../config/apiClient';
@@ -146,10 +146,14 @@ export default function PartnerDetailScreen() {
   const [coverUrl, setCoverUrl] = useState(null);
   
   const [files, setFiles] = useState([]);
-  const [questions, setQuestions] = useState([]);
   const [representatives, setRepresentatives] = useState([]);
 
-  const [sheet, setSheet] = useState(null); // documents | videos | questions | addRep | chat | logo | cover
+  // Interactive Features State
+  const [isBookmarked, setIsBookmarked] = useState(false);
+  const [note, setNote] = useState('');
+  const [isEditingNote, setIsEditingNote] = useState(false);
+
+  const [sheet, setSheet] = useState(null); // documents | videos | addRep | logo | cover
   const [pendingKind, setPendingKind] = useState('logo');
   const [busy, setBusy] = useState('');
 
@@ -157,22 +161,11 @@ export default function PartnerDetailScreen() {
   const [linkTitle, setLinkTitle] = useState('');
   const [linkUrl, setLinkUrl] = useState('');
 
-  // Questions
-  const [questionText, setQuestionText] = useState('');
-  const [answerDrafts, setAnswerDrafts] = useState({});
-
   // Add representative
   const [userQuery, setUserQuery] = useState('');
   const [userResults, setUserResults] = useState([]);
   const [searching, setSearching] = useState(false);
   const [designation, setDesignation] = useState('Representative');
-
-  // Chat with a representative
-  const [chatWith, setChatWith] = useState(null);
-  const [chatMessages, setChatMessages] = useState([]);
-  const [chatLoading, setChatLoading] = useState(false);
-  const [chatText, setChatText] = useState('');
-  const [sending, setSending] = useState(false);
 
   // Hidden file inputs
   const cameraRef = useRef(null);
@@ -196,11 +189,6 @@ export default function PartnerDetailScreen() {
   const loadFiles = useCallback(async () => {
     const res = await apiClient.get(`/partner-hub/${partnerId}/files`);
     setFiles(unwrapList(res?.data));
-  }, [partnerId]);
-
-  const loadQuestions = useCallback(async () => {
-    const res = await apiClient.get(`/partner-hub/${partnerId}/questions`, { params: { limit: 50 } });
-    setQuestions(unwrapList(res?.data));
   }, [partnerId]);
 
   const loadRepresentatives = useCallback(async () => {
@@ -235,7 +223,7 @@ export default function PartnerDetailScreen() {
         );
         setPartner(found || null);
 
-        await Promise.all([loadFiles(), loadQuestions(), loadRepresentatives(), loadImages()]);
+        await Promise.all([loadFiles(), loadRepresentatives(), loadImages()]);
       } catch (error) {
         if (!cancelled) toast.error(getErrorMessage(error, 'Could not load this partner'));
       } finally {
@@ -247,7 +235,7 @@ export default function PartnerDetailScreen() {
     return () => {
       cancelled = true;
     };
-  }, [partnerId, loadFiles, loadQuestions, loadRepresentatives, loadImages]);
+  }, [partnerId, loadFiles, loadRepresentatives, loadImages]);
 
   const runAction = async (key, action) => {
     setBusy(key);
@@ -337,35 +325,6 @@ export default function PartnerDetailScreen() {
   };
 
   // ---------------------------------------------------------------------------
-  // Questions
-  // ---------------------------------------------------------------------------
-  const handleAsk = () =>
-    runAction('ask', async () => {
-      const content = questionText.trim();
-      if (content.length < 3) {
-        toast.error('Write your question first');
-        return;
-      }
-      await apiClient.post(`/partner-hub/${partnerId}/questions`, { content });
-      setQuestionText('');
-      toast.success('Question posted');
-      await loadQuestions();
-    });
-
-  const handleAnswer = (questionId) =>
-    runAction('answer', async () => {
-      const content = (answerDrafts[questionId] || '').trim();
-      if (!content) {
-        toast.error('Write an answer first');
-        return;
-      }
-      await apiClient.post(`/partner-hub/questions/${questionId}/answer`, { content });
-      setAnswerDrafts((prev) => ({ ...prev, [questionId]: '' }));
-      toast.success('Answer posted');
-      await loadQuestions();
-    });
-
-  // ---------------------------------------------------------------------------
   // Representatives
   // ---------------------------------------------------------------------------
   const handleSearchUsers = async () => {
@@ -408,44 +367,6 @@ export default function PartnerDetailScreen() {
   };
 
   // ---------------------------------------------------------------------------
-  // Chat with a representative
-  // ---------------------------------------------------------------------------
-  const openChat = async (rep) => {
-    setSheet('chat');
-    setChatWith(rep);
-    setChatMessages([]);
-    setChatText('');
-    setChatLoading(true);
-    try {
-      const res = await apiClient.get(`/chat/users/${rep.user_id}/messages`, {
-        params: { limit: 100 },
-      });
-      setChatMessages(unwrapList(res?.data));
-    } catch (error) {
-      toast.error(getErrorMessage(error, 'Could not load messages'));
-    } finally {
-      setChatLoading(false);
-    }
-  };
-
-  const handleSendChat = async (event) => {
-    event.preventDefault();
-    const content = chatText.trim();
-    if (!content || !chatWith || sending) return;
-    setSending(true);
-    try {
-      const res = await apiClient.post(`/chat/users/${chatWith.user_id}/messages`, { content });
-      const saved = res?.data?.data;
-      if (saved) setChatMessages((prev) => [...prev, saved]);
-      setChatText('');
-    } catch (error) {
-      toast.error(getErrorMessage(error, 'Could not send your message'));
-    } finally {
-      setSending(false);
-    }
-  };
-
-  // ---------------------------------------------------------------------------
   // Render states
   // ---------------------------------------------------------------------------
   if (loading) {
@@ -484,12 +405,17 @@ export default function PartnerDetailScreen() {
 
   return (
     <div className="min-h-screen bg-slate-50 max-w-[430px] mx-auto pb-28">
-      {/* Top bar */}
-      <div className="bg-white px-4 py-4 flex items-center gap-3 border-b border-slate-200">
-        <button onClick={() => navigate(-1)} aria-label="Back" className="text-slate-700">
-          <ArrowLeft size={22} />
+      {/* Top bar with Detail Bookmark Toggle */}
+      <div className="bg-white px-4 py-4 flex items-center justify-between border-b border-slate-200">
+        <div className="flex items-center gap-3">
+          <button onClick={() => navigate(-1)} aria-label="Back" className="text-slate-700">
+            <ArrowLeft size={22} />
+          </button>
+          <h1 className="text-lg font-semibold text-slate-900">Partner Details</h1>
+        </div>
+        <button onClick={() => setIsBookmarked(!isBookmarked)} className="text-[#1d1fb8]">
+          <Bookmark size={22} className={isBookmarked ? "fill-[#1d1fb8]" : ""} />
         </button>
-        <h1 className="text-lg font-semibold text-slate-900">Partner Details</h1>
       </div>
 
       {/* Cover banner with camera */}
@@ -532,7 +458,7 @@ export default function PartnerDetailScreen() {
         </div>
       </div>
 
-      {/* Name, booth, description */}
+      {/* Name, booth, description & Social Media Row */}
       <div className="px-4 pt-3">
         <h2 className="text-2xl font-bold text-slate-900">{name}</h2>
         {boothText && (
@@ -541,22 +467,66 @@ export default function PartnerDetailScreen() {
           </p>
         )}
         {description && <p className="text-sm text-slate-700 mt-3 leading-relaxed">{description}</p>}
+        
+        {/* Social Media Row */}
+        <div className="flex items-center gap-4 mt-4">
+          <a href="#" className="w-10 h-10 rounded-full bg-[#E9F3FC] flex items-center justify-center text-[#1d1fb8] hover:scale-105 transition-transform">
+            <Globe size={18} />
+          </a>
+          <a href="#" className="w-10 h-10 rounded-full bg-[#E9F3FC] flex items-center justify-center text-[#1d1fb8] hover:scale-105 transition-transform">
+            <Linkedin size={18} />
+          </a>
+          <a href="#" className="w-10 h-10 rounded-full bg-[#E9F3FC] flex items-center justify-center text-[#1d1fb8] hover:scale-105 transition-transform">
+            <Twitter size={18} />
+          </a>
+        </div>
       </div>
 
-      {/* Action chips: Documents, Ask A Question, Videos */}
-      <div className="px-4 pt-5 grid grid-cols-3 gap-2">
+      {/* Action chips: Documents and Videos (Ask a Question removed) */}
+      <div className="px-4 pt-5 grid grid-cols-2 gap-3">
         <button onClick={() => setSheet('documents')} className="rounded-xl border border-slate-300 bg-white py-3 flex flex-col items-center gap-1 text-xs font-semibold text-slate-800">
           <FileText size={18} />
           Documents ({documents.length})
-        </button>
-        <button onClick={() => setSheet('questions')} className="rounded-xl border border-slate-300 bg-white py-3 flex flex-col items-center gap-1 text-xs font-semibold text-slate-800">
-          <MessageCircle size={18} />
-          Ask A Question
         </button>
         <button onClick={() => setSheet('videos')} className="rounded-xl border border-slate-300 bg-white py-3 flex flex-col items-center gap-1 text-xs font-semibold text-slate-800">
           <Video size={18} />
           Videos ({videos.length})
         </button>
+      </div>
+
+      {/* Interactive Notes Section */}
+      <div className="px-4 pt-6">
+        <div className="flex items-center justify-between mb-2">
+          <h3 className="text-base font-semibold text-slate-900">My Notes</h3>
+          {note && !isEditingNote && (
+            <button onClick={() => setIsEditingNote(true)} className="text-sm font-semibold text-[#1d1fb8] flex items-center gap-1">
+              <Edit3 size={15} /> Edit
+            </button>
+          )}
+        </div>
+        {isEditingNote || !note ? (
+          <div className="rounded-2xl bg-white border border-slate-200 p-3">
+            <textarea
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              placeholder="Add private notes about this partner..."
+              rows={3}
+              className="w-full text-sm focus:outline-none resize-none"
+            />
+            <div className="flex justify-end mt-2">
+              <button 
+                onClick={() => setIsEditingNote(false)} 
+                className="px-4 py-1.5 bg-[#1d1fb8] text-white text-sm font-semibold rounded-lg"
+              >
+                Save Note
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="rounded-2xl bg-white border border-slate-200 p-4">
+            <p className="text-sm text-slate-700 whitespace-pre-wrap">{note}</p>
+          </div>
+        )}
       </div>
 
       {/* Contact details */}
@@ -578,7 +548,7 @@ export default function PartnerDetailScreen() {
         </div>
       )}
 
-      {/* Representatives */}
+      {/* Representatives with Virtual Status Badge */}
       <div className="px-4 pt-6">
         <div className="flex justify-between items-center mb-2">
           <h3 className="text-base font-semibold text-slate-900">Representatives</h3>
@@ -596,7 +566,6 @@ export default function PartnerDetailScreen() {
         ) : (
           <div className="space-y-3">
             {representatives.map((rep) => {
-              const canMessage = Boolean(me) && rep.user_id !== me.id;
               return (
                 <div key={rep.id} className="flex items-center gap-3 rounded-2xl bg-white border border-slate-200 p-4">
                   <PersonAvatar src={rep.avatar_url} name={rep.name || 'Representative'} />
@@ -606,16 +575,13 @@ export default function PartnerDetailScreen() {
                       {rep.designation}
                       {rep.company ? `, ${rep.company}` : ''}
                     </p>
+                    {/* Virtual Status Badge */}
+                    <div className="mt-1">
+                      <span className="inline-flex items-center gap-1 text-[10px] font-bold text-[#1d1fb8] bg-[#E9F3FC] px-2 py-0.5 rounded-full border border-blue-100">
+                        💻 Attending Virtually
+                      </span>
+                    </div>
                   </div>
-                  {canMessage && (
-                    <button
-                      onClick={() => openChat(rep)}
-                      aria-label={`Message ${rep.name || 'representative'}`}
-                      className="w-10 h-10 rounded-full bg-[#1d1fb8] text-white flex items-center justify-center shrink-0"
-                    >
-                      <MessageCircle size={18} />
-                    </button>
-                  )}
                   {isOrganizer && (
                     <button
                       onClick={() => handleRemoveRepresentative(rep)}
@@ -776,75 +742,6 @@ export default function PartnerDetailScreen() {
         </Sheet>
       )}
 
-      {/* Questions */}
-      {sheet === 'questions' && (
-        <Sheet title="Ask A Question" onClose={() => setSheet(null)}>
-          <div className="rounded-xl border border-slate-200 p-3 mb-5 space-y-3">
-            <textarea
-              value={questionText}
-              onChange={(e) => setQuestionText(e.target.value)}
-              rows={3}
-              maxLength={1000}
-              placeholder="Type your question..."
-              className="w-full border border-slate-300 rounded-lg p-3 text-base focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-            <button
-              onClick={handleAsk}
-              disabled={busy === 'ask'}
-              className="w-full rounded-lg bg-[#1d1fb8] text-white py-2.5 font-semibold disabled:opacity-50"
-            >
-              {busy === 'ask' ? 'Posting...' : 'Post question'}
-            </button>
-          </div>
-
-          {questions.length === 0 ? (
-            <p className="text-sm text-slate-500">No questions yet. Be the first to ask.</p>
-          ) : (
-            <div className="space-y-4">
-              {questions.map((q) => (
-                <div key={q.id} className="rounded-xl border border-slate-200 p-4">
-                  <p className="text-sm font-semibold text-slate-900">
-                    {q.asked_by ? q.asked_by.name : 'Attendee'}
-                  </p>
-                  <p className="text-sm text-slate-700 mt-1">{q.content}</p>
-
-                  {q.answer ? (
-                    <div className="mt-3 rounded-lg bg-slate-50 p-3">
-                      <p className="text-xs font-semibold text-[#1d1fb8]">
-                        {q.answered_by ? q.answered_by.name : 'Partner team'}
-                      </p>
-                      <p className="text-sm text-slate-700 mt-1">{q.answer}</p>
-                    </div>
-                  ) : (
-                    canManage && (
-                      <div className="mt-3 space-y-2">
-                        <textarea
-                          value={answerDrafts[q.id] || ''}
-                          onChange={(e) =>
-                            setAnswerDrafts((prev) => ({ ...prev, [q.id]: e.target.value }))
-                          }
-                          rows={2}
-                          maxLength={1000}
-                          placeholder="Write an answer..."
-                          className="w-full border border-slate-300 rounded-lg p-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        />
-                        <button
-                          onClick={() => handleAnswer(q.id)}
-                          disabled={busy === 'answer'}
-                          className="text-sm font-semibold text-[#1d1fb8] disabled:opacity-50"
-                        >
-                          Post answer
-                        </button>
-                      </div>
-                    )
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-        </Sheet>
-      )}
-
       {/* Add representative (organizer) */}
       {sheet === 'addRep' && isOrganizer && (
         <Sheet title="Add representative" onClose={() => setSheet(null)}>
@@ -895,52 +792,6 @@ export default function PartnerDetailScreen() {
                 </button>
               </div>
             ))}
-          </div>
-        </Sheet>
-      )}
-
-      {/* Chat with representative */}
-      {sheet === 'chat' && chatWith && (
-        <Sheet title={chatWith.name || 'Representative'} onClose={() => setSheet(null)}>
-          <div className="flex flex-col h-[55vh]">
-            <div className="flex-1 overflow-y-auto space-y-2 pb-3">
-              {chatLoading ? (
-                <LoadingSpinner />
-              ) : chatMessages.length === 0 ? (
-                <p className="text-center text-sm text-slate-500 pt-8">No messages yet</p>
-              ) : (
-                chatMessages.map((m) => {
-                  const mine = Boolean(me) && m.sender_id === me.id;
-                  return (
-                    <div
-                      key={m.id}
-                      className={`max-w-[75%] px-3 py-2 rounded-xl text-sm ${
-                        mine ? 'ml-auto bg-[#1d1fb8] text-white' : 'bg-slate-100 text-slate-900'
-                      }`}
-                    >
-                      {m.content}
-                    </div>
-                  );
-                })
-              )}
-            </div>
-            <form onSubmit={handleSendChat} className="flex gap-2 pt-3 border-t border-slate-200">
-              <input
-                type="text"
-                value={chatText}
-                onChange={(e) => setChatText(e.target.value)}
-                placeholder="Type your message..."
-                className="flex-1 px-3 py-2.5 border border-slate-300 rounded-lg text-base focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-              <button
-                type="submit"
-                disabled={sending || !chatText.trim()}
-                aria-label="Send message"
-                className="w-11 h-11 rounded-lg bg-[#1d1fb8] text-white flex items-center justify-center disabled:opacity-50"
-              >
-                <Send size={18} />
-              </button>
-            </form>
           </div>
         </Sheet>
       )}
