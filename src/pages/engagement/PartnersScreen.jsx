@@ -542,7 +542,7 @@ export default function PartnersScreen() {
                 return (
                   <div
                     key={fp.id}
-                    onClick={() => setSelectedPartner(fp)}
+                    onClick={() => navigate(`/partners/${fp.id}`)}
                     className="min-w-[210px] bg-white rounded-2xl p-3.5 border border-slate-200 shadow-sm relative flex items-center gap-3 cursor-pointer hover:border-slate-300 transition-colors"
                   >
                     <button
@@ -606,7 +606,7 @@ export default function PartnersScreen() {
             return (
               <div
                 key={partner.id}
-                onClick={() => setSelectedPartner(partner)}
+                onClick={() => navigate(`/partners/${partner.id}`)}
                 className="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm relative flex flex-col justify-between cursor-pointer hover:border-slate-300 transition-all hover:scale-[1.01]"
               >
                 {/* Actions Top-Right */}
