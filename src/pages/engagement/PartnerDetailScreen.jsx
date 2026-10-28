@@ -6,8 +6,9 @@
 //   GET    /partners                                 partner details (from list)
 //   GET    /users/me                                 logged-in user
 //   GET    /users/search?q=                          find registered people
-//   GET    /partner-hub/{id}/logo                    logo
-//   POST   /partner-hub/{id}/logo                    upload logo (camera or gallery)
+//   GET    /partner-hub/{id}/images                  cover and logo images
+//   POST   /partner-hub/{id}/images/logo             upload logo (camera or gallery)
+//   POST   /partner-hub/{id}/images/cover            upload cover (camera or gallery)
 //   GET    /partner-hub/{id}/files                   documents and videos
 //   POST   /partner-hub/{id}/files                   upload document or video
 //   POST   /partner-hub/{id}/video-links             add a YouTube or Vimeo link
@@ -169,11 +170,13 @@ export default function PartnerDetailScreen() {
   const [partner, setPartner] = useState(null);
   const [me, setMe] = useState(null);
   const [logoUrl, setLogoUrl] = useState(null);
+  const [coverUrl, setCoverUrl] = useState(null);
   const [files, setFiles] = useState([]);
   const [questions, setQuestions] = useState([]);
   const [representatives, setRepresentatives] = useState([]);
 
-  const [sheet, setSheet] = useState(null); // documents | videos | questions | addRep | chat | photo
+  const [sheet, setSheet] = useState(null); // documents | videos | questions | addRep | chat | logo | cover
+  const [pendingKind, setPendingKind] = useState('logo');
   const [busy, setBusy] = useState('');
 
   // Video link form
@@ -231,9 +234,11 @@ export default function PartnerDetailScreen() {
     setRepresentatives(unwrapList(res?.data));
   }, [partnerId]);
 
-  const loadLogo = useCallback(async () => {
-    const res = await apiClient.get(`/partner-hub/${partnerId}/logo`);
-    setLogoUrl(res?.data?.data?.url || null);
+  const loadImages = useCallback(async () => {
+    const res = await apiClient.get(`/partner-hub/${partnerId}/images`);
+    const data = res?.data?.data || {};
+    setLogoUrl(data.logo || null);
+    setCoverUrl(data.cover || null);
   }, [partnerId]);
 
   useEffect(() => {
@@ -256,7 +261,7 @@ export default function PartnerDetailScreen() {
         );
         setPartner(found || null);
 
-        await Promise.all([loadFiles(), loadQuestions(), loadRepresentatives(), loadLogo()]);
+        await Promise.all([loadFiles(), loadQuestions(), loadRepresentatives(), loadImages()]);
       } catch (error) {
         if (!cancelled) toast.error(getErrorMessage(error, 'Could not load this partner'));
       } finally {
@@ -268,7 +273,7 @@ export default function PartnerDetailScreen() {
     return () => {
       cancelled = true;
     };
-  }, [partnerId, loadFiles, loadQuestions, loadRepresentatives, loadLogo]);
+  }, [partnerId, loadFiles, loadQuestions, loadRepresentatives, loadImages]);
 
   // Runs one action with a shared busy flag and a clear error message
   const runAction = async (key, action) => {
@@ -283,10 +288,10 @@ export default function PartnerDetailScreen() {
   };
 
   // ---------------------------------------------------------------------------
-  // Logo (camera or gallery)
+  // Images (camera or gallery)
   // ---------------------------------------------------------------------------
-  const handleLogo = (file) =>
-    runAction('logo', async () => {
+  const handleImage = (kind, file) =>
+    runAction(kind, async () => {
       const problem = checkFile(file, 'image');
       if (problem) {
         toast.error(problem);
@@ -294,9 +299,11 @@ export default function PartnerDetailScreen() {
       }
       const form = new FormData();
       form.append('file', file);
-      const body = await postForm(`/partner-hub/${partnerId}/logo`, form);
-      setLogoUrl(body?.data?.url || null);
-      toast.success('Logo updated');
+      const body = await postForm(`/partner-hub/${partnerId}/images/${kind}`, form);
+      const url = body?.data?.url || null;
+      if (kind === 'logo') setLogoUrl(url);
+      else setCoverUrl(url);
+      toast.success(kind === 'logo' ? 'Logo updated' : 'Cover updated');
     });
 
   // ---------------------------------------------------------------------------
@@ -515,8 +522,24 @@ export default function PartnerDetailScreen() {
         <h1 className="text-lg font-semibold text-slate-900">Partner Details</h1>
       </div>
 
-      {/* Banner and logo */}
-      <div className="relative h-36 bg-gradient-to-r from-[#4c1d95] to-[#1e3a8a]" />
+      {/* Cover banner with camera */}
+      <div className="relative h-36 bg-gradient-to-r from-[#4c1d95] to-[#1e3a8a] overflow-hidden">
+        {coverUrl && (
+          <img src={coverUrl} alt="" className="absolute inset-0 w-full h-full object-cover" />
+        )}
+        {canManage && (
+          <button
+            onClick={() => setSheet('cover')}
+            disabled={busy === 'cover'}
+            aria-label="Change cover image"
+            className="absolute top-3 right-3 w-9 h-9 rounded-full bg-black/40 text-white flex items-center justify-center disabled:opacity-50"
+          >
+            <Camera size={16} />
+          </button>
+        )}
+      </div>
+
+      {/* Logo */}
       <div className="px-4 -mt-14 flex items-end gap-4">
         <div className="relative">
           <div className="w-28 h-28 rounded-full bg-white shadow-lg border-4 border-white flex items-center justify-center overflow-hidden">
@@ -528,7 +551,7 @@ export default function PartnerDetailScreen() {
           </div>
           {canManage && (
             <button
-              onClick={() => setSheet('photo')}
+              onClick={() => setSheet('logo')}
               disabled={busy === 'logo'}
               aria-label="Change logo"
               className="absolute bottom-0 right-0 w-9 h-9 rounded-full bg-[#1d1fb8] text-white flex items-center justify-center shadow disabled:opacity-50"
@@ -658,13 +681,18 @@ export default function PartnerDetailScreen() {
       {/* Sheets                                                             */}
       {/* ------------------------------------------------------------------ */}
 
-      {/* Logo: camera or gallery */}
-      {sheet === 'photo' && (
-        <Sheet title="Partner logo" onClose={() => setSheet(null)}>
+      {/* Unified sheet for Logo or Cover */}
+      {(sheet === 'logo' || sheet === 'cover') && (
+        <Sheet
+          title={sheet === 'logo' ? 'Partner logo' : 'Cover image'}
+          onClose={() => setSheet(null)}
+        >
           <div className="space-y-3">
             <button
               onClick={() => {
+                const kind = sheet;
                 setSheet(null);
+                setPendingKind(kind);
                 cameraRef.current?.click();
               }}
               className="w-full flex items-center gap-3 rounded-xl border border-slate-200 p-4 text-left"
@@ -674,7 +702,9 @@ export default function PartnerDetailScreen() {
             </button>
             <button
               onClick={() => {
+                const kind = sheet;
                 setSheet(null);
+                setPendingKind(kind);
                 galleryRef.current?.click();
               }}
               className="w-full flex items-center gap-3 rounded-xl border border-slate-200 p-4 text-left"
@@ -972,7 +1002,7 @@ export default function PartnerDetailScreen() {
         className="hidden"
         onChange={(e) => {
           const file = pickedFile(e);
-          if (file) handleLogo(file);
+          if (file) handleImage(pendingKind, file);
         }}
       />
       <input
@@ -982,7 +1012,7 @@ export default function PartnerDetailScreen() {
         className="hidden"
         onChange={(e) => {
           const file = pickedFile(e);
-          if (file) handleLogo(file);
+          if (file) handleImage(pendingKind, file);
         }}
       />
       <input
