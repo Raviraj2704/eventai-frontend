@@ -244,7 +244,7 @@ export default function PartnerDetailScreen() {
       try {
         const [meRes, partnersRes] = await Promise.all([
           apiClient.get('/users/me'),
-          apiClient.get('/partners', { params: { limit: 50 } }),
+          apiClient.get('/partners', { params: { limit: 20 } }),
         ]);
         if (cancelled) return;
 
