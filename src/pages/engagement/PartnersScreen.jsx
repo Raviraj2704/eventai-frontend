@@ -657,7 +657,7 @@ export default function PartnersScreen() {
       {/* ====================================================================== */}
       {isAdminOrOrganizer && showCreateModal && (
         <div 
-          className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 animate-in fade-in duration-200"
+          className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 pb-20 sm:p-4 animate-in fade-in duration-200"
           onClick={() => setShowCreateModal(false)}
         >
           <div 
@@ -676,7 +676,7 @@ export default function PartnersScreen() {
             </div>
 
             {/* Scrollable Form Body */}
-            <form onSubmit={handleCreatePartner} className="flex-1 overflow-y-auto p-6 space-y-3.5 text-xs">
+            <form onSubmit={handleCreatePartner} className="flex-1 overflow-y-auto p-6 pb-12 space-y-3.5 text-xs">
               <div>
                 <label className="block font-semibold text-slate-700 mb-1">Company / Partner Name *</label>
                 <input
