@@ -17,6 +17,7 @@ import PrivateRoute from './components/Auth/PrivateRoute';
 import BottomNavigation from './components/layout/BottomNavigation';
 import AIAssistant from './components/ai/AIAssistant';
 import LoadingSpinner from './components/common/LoadingSpinner';
+import SessionDetailScreen from './pages/main/SessionDetailScreen';
 
 // ============================================================================
 // LAZY LOADED PAGES (Code Splitting for instant initial load)
@@ -37,6 +38,7 @@ const NetworkingScreen = lazy(() => import('./pages/main/NetworkingScreen'));
 const ProfileScreen = lazy(() => import('./pages/main/ProfileScreen'));
 const SessionQuizPage = lazy(() => import('./pages/main/SessionQuizPage'));
 const EventInfoScreen = lazy(() => import('./pages/main/EventInfoScreen'));
+const SessionDetailScreen = lazy(() => import('./pages/main/SessionDetailScreen'));
 
 // Pages - Engagement
 const SocialWallScreen = lazy(() => import('./pages/engagement/SocialWallScreen'));
@@ -147,6 +149,7 @@ function App() {
           h(Route, { path: '/networking', element: wrapPrivate(NetworkingScreen) }),
           h(Route, { path: '/profile', element: wrapPrivate(ProfileScreen) }),
           h(Route, { path: '/event-info', element: wrapPrivate(EventInfoScreen) }),
+          h(Route, { path: '/sessions/:id', element: wrapPrivate(SessionDetailScreen) }),
 
           // Engagement Routes
           h(Route, { path: '/social-wall', element: wrapPrivate(SocialWallScreen) }),
