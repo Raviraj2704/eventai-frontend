@@ -40,9 +40,7 @@ const AIEventRecommendations = ({ userProfile }) => {
 
   const handleAttend = async (sessionId) => {
     try {
-      await apiClient.post(`/sessions/${sessionId}/attend`, {
-        status: 'attending'
-      });
+      await apiClient.post(`/session-hub/sessions/${sessionId}/schedule`);
       // Update recommendation
       fetchAIRecommendations();
     } catch (err) {

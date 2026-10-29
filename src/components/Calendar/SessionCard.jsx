@@ -27,9 +27,7 @@ const SessionCard = ({ session, onSessionUpdate }) => {
     setIsLoading(true);
     setError(null);
     try {
-      const response = await apiClient.post(`/sessions/${session.id}/attend`, {
-        status: 'attending'
-      });
+      const response = await apiClient.post(`/session-hub/sessions/${session.id}/schedule`);
       setIsAttended(true);
       setSuccess('Successfully attending this session!');
       setTimeout(() => setSuccess(null), 3000);
@@ -51,9 +49,9 @@ const SessionCard = ({ session, onSessionUpdate }) => {
     setError(null);
     try {
       if (isSaved) {
-        await apiClient.delete(`/sessions/${session.id}/save`);
+        await apiClient.delete(`/session-hub/sessions/${session.id}/save`);
       } else {
-        await apiClient.post(`/sessions/${session.id}/save`);
+        await apiClient.post(`/session-hub/sessions/${session.id}/save`);
       }
       setIsSaved(!isSaved);
       onSessionUpdate?.();
@@ -73,10 +71,10 @@ const SessionCard = ({ session, onSessionUpdate }) => {
     setIsLoading(true);
     setError(null);
     try {
-      await apiClient.post(`/sessions/${session.id}/rate`, {
-        score: rating,
-        feedback: ''
-      });
+      await apiClient.post(`/session-hub/sessions/${session.id}/feedback`, {
+  rating: rating,
+  feedback: '' // Optional feedback text can be added here
+});
       setSuccess('Rating submitted successfully!');
       setRatingOpen(false);
       setRating(0);
@@ -91,7 +89,7 @@ const SessionCard = ({ session, onSessionUpdate }) => {
 
   // Handle Share
   const handleShare = async () => {
-    const shareUrl = `${window.location.origin}/sessions/${session.id}`;
+    const shareUrl = `${window.location.origin}/session-hub/sessions/${session.id}`;
     if (navigator.share) {
       try {
         await navigator.share({
