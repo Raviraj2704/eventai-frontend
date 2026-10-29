@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, Filter, MapPin, Play, CalendarPlus, CalendarCheck, MessageSquareWarning } from 'lucide-react';
+import { Search, Filter, MapPin, Play, CalendarPlus, CalendarCheck, MessageSquare } from 'lucide-react';
 import apiClient from '../../config/apiClient';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 
@@ -101,7 +101,7 @@ export default function SessionsScreen() {
       <div className="px-4 pt-6 pb-2 flex items-center justify-between">
         <h1 className="text-2xl font-bold text-slate-900">Sessions</h1>
         <div className="flex gap-4 text-slate-700">
-          <MessageSquareWarning size={22} className="cursor-pointer" />
+          <MessageSquare size={22} className="cursor-pointer" />
           <div className="relative">
             <div className="absolute top-0 right-0 w-2 h-2 bg-red-500 rounded-full border border-white"></div>
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="cursor-pointer">
