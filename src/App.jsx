@@ -17,7 +17,6 @@ import PrivateRoute from './components/Auth/PrivateRoute';
 import BottomNavigation from './components/layout/BottomNavigation';
 import AIAssistant from './components/ai/AIAssistant';
 import LoadingSpinner from './components/common/LoadingSpinner';
-import SessionDetailScreen from './pages/main/SessionDetailScreen';
 
 // ============================================================================
 // LAZY LOADED PAGES (Code Splitting for instant initial load)
