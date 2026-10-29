@@ -1,16 +1,14 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import {
-  Search, Filter, Bookmark, MapPin, Play, CalendarPlus,
-  MessageSquare, Bell
-} from 'lucide-react';
+import { Search, Filter, MapPin, Play, CalendarPlus, CalendarCheck, MessageSquareWarning } from 'lucide-react';
 import apiClient from '../../config/apiClient';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 
+const TABS = ['All Sessions', 'My Sessions', 'AI Recommended'];
 const DATES = [
-  { id: 'd1', label: '15th Oct', sub: 'Day 1' },
-  { id: 'd2', label: '16th Oct', sub: 'Day 2' },
-  { id: 'd3', label: '17th Oct', sub: 'Day 3' },
+  { label: '15th Oct', sub: 'Day 1', date: '2024-10-15' },
+  { label: '16th Oct', sub: 'Day 2', date: '2024-10-16' },
+  { label: '17th Oct', sub: 'Day 5', date: '2024-10-17' }
 ];
 
 export default function SessionsScreen() {
@@ -18,30 +16,31 @@ export default function SessionsScreen() {
   const [loading, setLoading] = useState(true);
   const [sessions, setSessions] = useState([]);
   
-  // UI State
-  const [activeTab, setActiveTab] = useState('all'); // 'all' | 'my' | 'ai'
-  const [activeDate, setActiveDate] = useState('d1');
+  const [activeTab, setActiveTab] = useState('All Sessions');
+  const [selectedDate, setSelectedDate] = useState(DATES[0].date);
   const [isLiveOnly, setIsLiveOnly] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  
+  // Track personal bookmarks locally for the UI (until backend bookmark sync is wired)
   const [bookmarkedIds, setBookmarkedIds] = useState(new Set());
 
   useEffect(() => {
-    let cancelled = false;
-    const fetchSessions = async () => {
-      try {
-        const res = await apiClient.get('/sessions', { params: { limit: 100 } });
-        if (cancelled) return;
-        const data = res?.data?.data ?? res?.data ?? [];
-        setSessions(Array.isArray(data) ? data : []);
-      } catch (error) {
-        console.error("Failed to load sessions", error);
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    };
     fetchSessions();
-    return () => { cancelled = true; };
   }, []);
+
+  const fetchSessions = async () => {
+    setLoading(true);
+    try {
+      // Limit matches backend le=100 cap
+      const response = await apiClient.get('/sessions?limit=100');
+      const data = response?.data?.data || response?.data || [];
+      setSessions(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error('Failed to fetch sessions:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const toggleBookmark = (e, id) => {
     e.stopPropagation();
@@ -53,187 +52,237 @@ export default function SessionsScreen() {
     });
   };
 
-  // Mock filtering based on UI state
-  const displayedSessions = useMemo(() => {
-    let filtered = sessions;
-    if (activeTab === 'my') filtered = filtered.filter(s => bookmarkedIds.has(s.id));
-    if (isLiveOnly) filtered = filtered.filter(s => s.status === 'live');
-    if (searchQuery) {
-      const q = searchQuery.toLowerCase();
-      filtered = filtered.filter(s => (s.title || '').toLowerCase().includes(q));
+  // Filter Logic
+  const filteredSessions = useMemo(() => {
+    let result = sessions;
+
+    // Tab Filter
+    if (activeTab === 'My Sessions') {
+      result = result.filter(s => bookmarkedIds.has(s.id));
+    } else if (activeTab === 'AI Recommended') {
+      // Mock logic: Show sessions with 'AI' or 'Tech' in category/title
+      result = result.filter(s => 
+        (s.title || '').toLowerCase().includes('ai') || 
+        (s.category || '').toLowerCase().includes('tech')
+      );
     }
-    return filtered;
+
+    // Live Filter
+    if (isLiveOnly) {
+      result = result.filter(s => s.status === 'live' || s.is_live);
+    }
+
+    // Search Filter
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      result = result.filter(s => 
+        (s.title || '').toLowerCase().includes(q) || 
+        (s.speaker_name || '').toLowerCase().includes(q)
+      );
+    }
+
+    return result;
   }, [sessions, activeTab, isLiveOnly, searchQuery, bookmarkedIds]);
+
+  const formatTimeRange = (start, end) => {
+    if (!start) return '10:00 AM - 05:00 PM'; // Mock default from prototype
+    const fmt = (d) => new Date(d).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    return `${fmt(start)} - ${fmt(end || start)}`;
+  };
 
   if (loading) {
     return <div className="min-h-screen flex items-center justify-center bg-white"><LoadingSpinner /></div>;
   }
 
   return (
-    <div className="min-h-screen bg-white max-w-md mx-auto pb-24 font-sans select-none">
+    <div className="min-h-screen bg-white pb-24 max-w-md mx-auto">
       
-      {/* Top Header Navigation */}
-      <div className="px-5 py-4 flex items-center justify-between bg-white sticky top-0 z-40">
-        <h1 className="text-2xl font-black text-slate-900 tracking-tight">Sessions</h1>
-        <div className="flex items-center gap-4 text-slate-700">
-          <button><MessageSquare size={22} /></button>
-          <button><Bell size={22} /></button>
+      {/* Header */}
+      <div className="px-4 pt-6 pb-2 flex items-center justify-between">
+        <h1 className="text-2xl font-bold text-slate-900">Sessions</h1>
+        <div className="flex gap-4 text-slate-700">
+          <MessageSquareWarning size={22} className="cursor-pointer" />
+          <div className="relative">
+            <div className="absolute top-0 right-0 w-2 h-2 bg-red-500 rounded-full border border-white"></div>
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="cursor-pointer">
+              <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+              <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+            </svg>
+          </div>
         </div>
       </div>
 
-      {/* Top Tabs */}
-      <div className="flex px-5 gap-6 border-b border-slate-100">
-        <button 
-          onClick={() => setActiveTab('all')}
-          className={`pb-3 text-[15px] font-bold transition-colors relative ${activeTab === 'all' ? 'text-[#1d1fb8]' : 'text-slate-400'}`}
-        >
-          All Sessions
-          {activeTab === 'all' && <div className="absolute bottom-0 left-0 w-full h-[3px] bg-[#1d1fb8] rounded-t-full" />}
-        </button>
-        <button 
-          onClick={() => setActiveTab('my')}
-          className={`pb-3 text-[15px] font-bold transition-colors relative ${activeTab === 'my' ? 'text-slate-800' : 'text-slate-400'}`}
-        >
-          My Sessions
-          {activeTab === 'my' && <div className="absolute bottom-0 left-0 w-full h-[3px] bg-slate-800 rounded-t-full" />}
-        </button>
-        <button 
-          onClick={() => setActiveTab('ai')}
-          className={`pb-3 text-[15px] font-bold transition-colors relative ${activeTab === 'ai' ? 'text-purple-600' : 'text-purple-400'}`}
-        >
-          AI Recom...
-          {activeTab === 'ai' && <div className="absolute bottom-0 left-0 w-full h-[3px] bg-purple-600 rounded-t-full" />}
-        </button>
-      </div>
-
-      {/* Date Carousel */}
-      <div className="flex gap-3 px-5 py-5 overflow-x-auto no-scrollbar">
-        {DATES.map(date => (
+      {/* Tabs */}
+      <div className="px-4 flex items-center justify-between border-b border-slate-200 mt-2">
+        {TABS.map(tab => (
           <button
-            key={date.id}
-            onClick={() => setActiveDate(date.id)}
-            className={`flex flex-col items-start min-w-[100px] p-3 rounded-2xl border transition-all ${
-              activeDate === date.id 
-                ? 'bg-[#0005B2] border-[#0005B2] text-white shadow-md' 
-                : 'bg-white border-slate-200 text-slate-700'
+            key={tab}
+            onClick={() => setActiveTab(tab)}
+            className={`pb-3 text-sm font-semibold transition-colors relative ${
+              activeTab === tab ? 'text-[#1d1fb8]' : 'text-slate-500'
             }`}
           >
-            <span className={`text-[13px] font-bold ${activeDate === date.id ? 'text-white' : 'text-slate-900'}`}>
-              {date.label}
-            </span>
-            <span className={`text-[11px] ${activeDate === date.id ? 'text-white/80' : 'text-slate-500'}`}>
-              {date.sub}
-            </span>
+            {tab}
+            {activeTab === tab && (
+              <div className="absolute bottom-0 left-0 right-0 h-[3px] bg-[#1d1fb8] rounded-t-full"></div>
+            )}
           </button>
         ))}
       </div>
 
-      {/* Live Toggle & Filter Controls */}
-      <div className="px-5 flex items-center justify-between mb-6">
+      {/* Date Pills */}
+      <div className="px-4 py-4 flex gap-3 overflow-x-auto no-scrollbar">
+        {DATES.map(date => {
+          const isActive = selectedDate === date.date;
+          return (
+            <button
+              key={date.date}
+              onClick={() => setSelectedDate(date.date)}
+              className={`flex flex-col items-center justify-center min-w-[85px] py-2 rounded-2xl border transition-all ${
+                isActive 
+                  ? 'bg-[#0010A3] border-[#0010A3] text-white shadow-md' 
+                  : 'bg-white border-slate-200 text-slate-600'
+              }`}
+            >
+              <span className={`text-sm font-bold ${isActive ? 'text-white' : 'text-slate-900'}`}>{date.label}</span>
+              <span className={`text-xs ${isActive ? 'text-blue-100' : 'text-slate-500'}`}>{date.sub}</span>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Controls: Live Toggle & Search/Filter */}
+      <div className="px-4 pb-4 flex items-center justify-between">
         <button 
           onClick={() => setIsLiveOnly(!isLiveOnly)}
-          className="flex items-center gap-2 px-3 py-1.5 rounded-full border border-slate-200 bg-white shadow-sm"
+          className={`flex items-center gap-2 px-4 py-2 rounded-full border text-sm font-semibold transition-colors ${
+            isLiveOnly ? 'bg-red-50 border-red-200 text-red-600' : 'bg-white border-slate-200 text-slate-700'
+          }`}
         >
-          <div className={`w-2 h-2 rounded-full ${isLiveOnly ? 'bg-red-500 animate-pulse' : 'bg-slate-300'}`} />
-          <span className="text-xs font-semibold text-slate-600">Live Sessions</span>
+          <div className={`w-2 h-2 rounded-full ${isLiveOnly ? 'bg-red-500' : 'bg-slate-400'}`}></div>
+          Live Sessions
         </button>
-        
-        <div className="flex items-center gap-3">
-          <button className="w-9 h-9 rounded-full bg-slate-50 flex items-center justify-center text-slate-500 hover:bg-slate-100">
-            <Search size={16} />
-          </button>
-          <button className="w-9 h-9 rounded-full bg-slate-50 flex items-center justify-center text-slate-500 hover:bg-slate-100 relative">
-            <Filter size={16} />
-            <div className="absolute top-2 right-2 w-1.5 h-1.5 bg-red-500 rounded-full border border-white" />
-          </button>
+
+        <div className="flex gap-2">
+          <div className="w-10 h-10 rounded-full border border-slate-200 flex items-center justify-center text-slate-600 bg-white">
+            <Search size={18} />
+          </div>
+          <div className="w-10 h-10 rounded-full border border-slate-200 flex items-center justify-center text-slate-600 bg-white relative">
+            <Filter size={18} />
+            <div className="absolute top-2 right-2 w-1.5 h-1.5 bg-red-500 rounded-full"></div>
+          </div>
         </div>
       </div>
 
-      {/* Session Cards Grid */}
-      <div className="px-5 space-y-4">
-        
-        {/* Card 1: Foundational Track (Pink theme) */}
-        <div 
-          onClick={() => navigate('/sessions/1')}
-          className="bg-white rounded-2xl p-4 border-[1.5px] border-pink-500 shadow-sm relative active:scale-[0.99] transition-transform"
-        >
-          <div className="flex justify-between items-start mb-3">
-            <div className="flex items-center gap-1.5">
-              <span className="bg-pink-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
-                Foundational Track
-              </span>
-              <span className="bg-slate-100 text-slate-600 text-[10px] font-bold px-1.5 py-0.5 rounded-full">+2</span>
-            </div>
-            <div className="flex items-center gap-3">
-              <span className="text-[10px] font-bold text-red-500 flex items-center gap-1">
-                <span className="w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse" /> Live and Streaming
-              </span>
-              <Bookmark size={18} className="text-slate-400" />
-            </div>
-          </div>
+      {/* Session Cards */}
+      <div className="px-4 space-y-4">
+        {filteredSessions.map((session, i) => {
+          const isBookmarked = bookmarkedIds.has(session.id);
+          const isLive = session.status === 'live' || session.is_live;
           
-          <p className="text-[11px] text-slate-500 mb-1 font-medium">15th Oct, 2024 | 10:00 AM - 05:00 PM</p>
-          <h3 className="text-[16px] font-bold text-slate-900 leading-tight mb-2 pr-4 line-clamp-2">
-            How to book meetings fully automated with the help of cold...
-          </h3>
-          <p className="text-[11px] text-slate-500 flex items-center gap-1 mb-4">
-            <MapPin size={12} /> Primary Hall (Meeting room 1)
-          </p>
-
-          <div className="flex items-center justify-between border-t border-slate-100 pt-3 mt-1">
-            <div className="flex items-center -space-x-2">
-              <img src="https://i.pravatar.cc/100?img=11" className="w-7 h-7 rounded-full border-2 border-white object-cover" alt="" />
-              <img src="https://i.pravatar.cc/100?img=5" className="w-7 h-7 rounded-full border-2 border-white object-cover" alt="" />
-              <img src="https://i.pravatar.cc/100?img=3" className="w-7 h-7 rounded-full border-2 border-white object-cover" alt="" />
-              <div className="w-7 h-7 rounded-full border-2 border-white bg-slate-100 flex items-center justify-center text-[9px] font-bold text-slate-600 z-10">+3</div>
-            </div>
-            <div className="flex items-center gap-2">
-              <button className="flex items-center gap-1 bg-slate-50 hover:bg-slate-100 text-slate-700 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors">
-                <Play size={12} className="fill-slate-700" /> Watch
-              </button>
-              <button className="flex items-center gap-1 bg-slate-50 hover:bg-slate-100 text-slate-700 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors">
-                <CalendarPlus size={14} /> Add
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* Card 2: General (Blue theme) */}
-        <div 
-          onClick={() => navigate('/sessions/2')}
-          className="bg-white rounded-2xl p-4 border-[1.5px] border-blue-600 shadow-sm relative active:scale-[0.99] transition-transform"
-        >
-          <div className="flex justify-between items-start mb-3">
-            <span className="bg-blue-600 text-white text-[10px] font-bold px-3 py-0.5 rounded-full">
-              General
-            </span>
-            <div className="flex items-center gap-3">
-              <span className="text-[10px] font-bold text-amber-500 flex items-center gap-1">
-                <span className="w-1.5 h-1.5 bg-amber-500 rounded-full" /> Upcoming
-              </span>
-              <Bookmark size={18} className="fill-amber-400 text-amber-400" />
-            </div>
-          </div>
+          // Mimic the UI gradients based on category/index
+          const track = session.category || 'General';
+          const isMagenta = track.toLowerCase().includes('foundational') || i % 2 === 0;
           
-          <p className="text-[11px] text-slate-500 mb-1 font-medium">15th Oct, 2024 | 10:00 AM - 05:00 PM</p>
-          <h3 className="text-[16px] font-bold text-slate-900 leading-tight mb-2 pr-4 line-clamp-2">
-            How to book meetings fully automated with the help of cold...
-          </h3>
-          <p className="text-[11px] text-slate-500 flex items-center gap-1 mb-4">
-            <MapPin size={12} /> Primary Hall (Meeting room 1)
-          </p>
+          const cardClass = isMagenta 
+            ? 'border-[#D91B6B] shadow-[0_4px_20px_rgba(217,27,107,0.08)]' 
+            : 'border-[#1d1fb8] shadow-[0_4px_20px_rgba(29,31,184,0.08)]';
+            
+          const badgeClass = isMagenta 
+            ? 'bg-[#D91B6B] text-white' 
+            : 'bg-[#1d1fb8] text-white';
 
-          <div className="flex items-center justify-between border-t border-slate-100 pt-3 mt-1">
-            <div className="w-7 h-7 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-400">
-              <User size={12} />
+          return (
+            <div 
+              key={session.id}
+              onClick={() => navigate(`/sessions/${session.id}`)}
+              className={`bg-white rounded-3xl p-4 border-[1.5px] relative cursor-pointer active:scale-[0.98] transition-transform ${cardClass}`}
+            >
+              {/* Card Header */}
+              <div className="flex justify-between items-start mb-3">
+                <div className="flex items-center gap-2">
+                  <span className={`px-3 py-1 rounded-full text-xs font-bold ${badgeClass}`}>
+                    {track}
+                  </span>
+                  <span className="text-xs font-bold text-slate-400 bg-slate-100 rounded-full px-2 py-1">
+                    +2
+                  </span>
+                </div>
+                
+                <div className="flex items-center gap-3">
+                  {isLive ? (
+                    <span className="text-xs font-bold text-red-500 flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse"></span>
+                      Live and Streaming
+                    </span>
+                  ) : (
+                    <span className="text-xs font-bold text-amber-500 flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 bg-amber-500 rounded-full"></span>
+                      Upcoming
+                    </span>
+                  )}
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-slate-800">
+                    <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path>
+                  </svg>
+                </div>
+              </div>
+
+              {/* Date & Time */}
+              <p className="text-xs font-medium text-slate-500 mb-2">
+                15th Oct, 2024 | {formatTimeRange(session.start_time, session.end_time)}
+              </p>
+
+              {/* Title */}
+              <h3 className="text-lg font-bold text-slate-900 leading-snug mb-3 pr-4">
+                {session.title || 'How to book meetings fully automated with the help of cold...'}
+              </h3>
+
+              {/* Location */}
+              <div className="flex items-center gap-1.5 text-slate-500 text-xs font-medium mb-5">
+                <MapPin size={14} />
+                <span>{session.location || 'Primary Hall (Meeting room 1)'}</span>
+              </div>
+
+              {/* Footer: Avatars & Buttons */}
+              <div className="flex items-center justify-between mt-auto">
+                
+                {/* Avatars Stack */}
+                <div className="flex items-center -space-x-2">
+                  <div className="w-8 h-8 rounded-full border-2 border-white bg-slate-200 overflow-hidden"><img src="https://i.pravatar.cc/100?img=11" alt="Speaker" /></div>
+                  <div className="w-8 h-8 rounded-full border-2 border-white bg-slate-300 overflow-hidden"><img src="https://i.pravatar.cc/100?img=5" alt="Speaker" /></div>
+                  <div className="w-8 h-8 rounded-full border-2 border-white bg-slate-400 overflow-hidden"><img src="https://i.pravatar.cc/100?img=8" alt="Speaker" /></div>
+                  <div className="w-8 h-8 rounded-full border-2 border-white bg-slate-50 flex items-center justify-center text-[10px] font-bold text-slate-600 z-10">+3</div>
+                </div>
+
+                {/* Actions */}
+                <div className="flex gap-2">
+                  {isLive && (
+                    <button className="flex items-center gap-1.5 px-4 py-2 bg-slate-50 hover:bg-slate-100 rounded-lg text-sm font-bold text-slate-800 transition-colors">
+                      <Play size={14} className="fill-slate-800" /> Watch
+                    </button>
+                  )}
+                  <button 
+                    onClick={(e) => toggleBookmark(e, session.id)}
+                    className="flex items-center gap-1.5 px-4 py-2 bg-slate-50 hover:bg-slate-100 rounded-lg text-sm font-bold text-slate-800 transition-colors"
+                  >
+                    {isBookmarked ? (
+                      <><CalendarCheck size={16} className="text-[#1d1fb8]" /> Added</>
+                    ) : (
+                      <><CalendarPlus size={16} /> Add</>
+                    )}
+                  </button>
+                </div>
+              </div>
             </div>
-            <button className="flex items-center gap-1 bg-slate-50 hover:bg-slate-100 text-slate-700 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors">
-              <CalendarPlus size={14} /> Add
-            </button>
-          </div>
-        </div>
-
+          );
+        })}
       </div>
+
+      {filteredSessions.length === 0 && (
+        <div className="px-4 text-center mt-12">
+          <p className="text-slate-500 font-medium">No sessions found for this criteria.</p>
+        </div>
+      )}
     </div>
   );
 }
