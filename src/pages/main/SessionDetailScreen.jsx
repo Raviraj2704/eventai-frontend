@@ -23,6 +23,7 @@ import {
   ThumbsUp, Hand, Megaphone, HelpCircle, ClipboardList, User, Star, X,
 } from 'lucide-react';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
+import SessionAdminBar from '../../components/sessions/SessionAdminBar';
 import apiClient from '../../config/apiClient';
 
 const TRACK_COLORS = [
@@ -297,6 +298,8 @@ export default function SessionDetailScreen() {
           </button>
         </div>
       </div>
+
+            <SessionAdminBar sessionId={id} onChanged={() => window.location.reload()} />
 
       {/* Banner */}
       <div className="relative h-44 bg-gradient-to-br from-slate-700 to-slate-900 overflow-hidden">

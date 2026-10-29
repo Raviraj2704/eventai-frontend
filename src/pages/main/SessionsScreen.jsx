@@ -20,6 +20,7 @@ import {
   MessageSquare, Bell, X,
 } from 'lucide-react';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
+import SessionAdminToolbar from '../../components/sessions/SessionAdminToolbar';
 import apiClient from '../../config/apiClient';
 
 const TABS = [
@@ -203,6 +204,7 @@ export default function SessionsScreen() {
   const [error, setError] = useState('');
   const [busyId, setBusyId] = useState(null);
   const [metaLoaded, setMetaLoaded] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   // Days and tracks for the chips and the filter sheet
   useEffect(() => {
@@ -282,7 +284,7 @@ export default function SessionsScreen() {
     return () => {
       cancelled = true;
     };
-  }, [tab, metaLoaded, selectedDay, track, statusFilter, liveOnly, debouncedQuery]);
+  }, [tab, metaLoaded, selectedDay, track, statusFilter, liveOnly, debouncedQuery, refreshKey]);
 
   const patchItem = (id, patch) =>
     setItems((prev) => prev.map((x) => (x.id === id ? { ...x, ...patch } : x)));
@@ -392,6 +394,8 @@ export default function SessionsScreen() {
           </button>
         ))}
       </div>
+      
+      <SessionAdminToolbar onChanged={() => setRefreshKey((k) => k + 1)} />
 
       {/* Day chips (All Sessions only) */}
       {tab === 'all' && days.length > 0 && (
