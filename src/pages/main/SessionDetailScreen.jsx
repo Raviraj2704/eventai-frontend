@@ -1,435 +1,556 @@
-import React, { useState, useEffect } from 'react';
+// ============================================================================
+// Session Detail Screen (matches the reference video)
+// File: src/pages/main/SessionDetailScreen.jsx
+// Route: /sessions/:id
+// Real API only:
+//   GET    /session-hub/sessions/{id}
+//   POST/DELETE /session-hub/sessions/{id}/schedule
+//   POST/DELETE /session-hub/sessions/{id}/bookmark
+//   POST   /session-hub/sessions/{id}/check-in
+//   POST   /session-hub/sessions/{id}/reactions
+//   DELETE /session-hub/sessions/{id}/reactions/{kind}
+//   GET    /session-hub/sessions/{id}/stream
+//   POST   /session-hub/sessions/{id}/questions
+//   POST   /session-hub/sessions/{id}/feedback
+// Quiz opens the existing /sessions/:id/quiz screen.
+// ============================================================================
+
+import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import {
-  ArrowLeft, Bookmark, MapPin, Clock, HelpCircle, 
-  ClipboardList, Megaphone, CalendarPlus, CalendarCheck, ChevronRight,
-  X, Star, CheckCircle2
-} from 'lucide-react';
-import apiClient from '../../config/apiClient';
-import LoadingSpinner from '../../components/common/LoadingSpinner';
 import toast from 'react-hot-toast';
+import {
+  ArrowLeft, Bookmark, Share2, Clock, MapPin, Play, Calendar, CheckCircle2,
+  ThumbsUp, Hand, Megaphone, HelpCircle, ClipboardList, User, Star, X,
+} from 'lucide-react';
+import LoadingSpinner from '../../components/common/LoadingSpinner';
+import apiClient from '../../config/apiClient';
+
+const TRACK_COLORS = [
+  'bg-pink-600', 'bg-orange-600', 'bg-sky-600', 'bg-slate-800', 'bg-indigo-600', 'bg-emerald-600',
+];
+
+const REACTIONS = [
+  { key: 'like', label: 'Like', icon: ThumbsUp },
+  { key: 'clap', label: 'Clap', icon: Hand },
+  { key: 'announce', label: 'Announce', icon: Megaphone },
+];
+
+const getErrorMessage = (error, fallback) =>
+  error?.data?.detail || error?.response?.data?.detail || error?.message || fallback;
+
+const trackColor = (name = '') => {
+  let hash = 0;
+  for (let i = 0; i < name.length; i += 1) {
+    hash = (hash * 31 + name.charCodeAt(i)) >>> 0;
+  }
+  return TRACK_COLORS[hash % TRACK_COLORS.length];
+};
+
+const formatVideoDate = (iso) => {
+  if (!iso) return '';
+  const d = new Date(iso);
+  const n = d.getDate();
+  const suffix = n % 100 >= 11 && n % 100 <= 13 ? 'th' : ({ 1: 'st', 2: 'nd', 3: 'rd' }[n % 10] || 'th');
+  const month = d.toLocaleString('en-US', { month: 'short' });
+  return `${n}${suffix} ${month}, ${d.getFullYear()}`;
+};
 
 export default function SessionDetailScreen() {
   const { id } = useParams();
   const navigate = useNavigate();
-  
+
   const [loading, setLoading] = useState(true);
-  const [session, setSession] = useState(null);
-  const [isBookmarked, setIsBookmarked] = useState(false);
-  const [isAdded, setIsAdded] = useState(false);
-
-  // Modal States
-  const [activeModal, setActiveModal] = useState(null); // 'question', 'quiz', 'feedback'
-  const [submitting, setSubmitting] = useState(false);
-  
-  // Form States
+  const [item, setItem] = useState(null);
+  const [busy, setBusy] = useState('');
+  const [sheet, setSheet] = useState(null); // 'question' | 'feedback' | null
   const [questionText, setQuestionText] = useState('');
-  const [feedbackText, setFeedbackText] = useState('');
   const [rating, setRating] = useState(0);
-  const [quizAnswer, setQuizAnswer] = useState(null);
-
-  // Success Popup State
-  const [successOpen, setSuccessOpen] = useState(false);
-  const [successMessage, setSuccessMessage] = useState('');
+  const [feedbackText, setFeedbackText] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [expanded, setExpanded] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
-    const fetchSession = async () => {
+
+    const load = async () => {
+      setLoading(true);
       try {
-        const res = await apiClient.get(`/sessions/${id}`);
+        const res = await apiClient.get(`/session-hub/sessions/${id}`);
+        if (!cancelled) setItem(res?.data?.data || null);
+      } catch (err) {
         if (!cancelled) {
-          const data = res?.data?.data || res?.data;
-          setSession(data);
-          setIsAdded(data.is_attended_by_user || false);
-        }
-      } catch (error) {
-        // Fallback mock data for immediate UI rendering if endpoint isn't fully seeded
-        if (!cancelled) {
-          setSession({
-            title: "How to book meetings fully automated with the help of cold email outreach",
-            category: "Foundational Track",
-            is_live: true,
-            date: "15th Oct, 2024",
-            time: "10:00 AM - 05:00 PM",
-            location: "Primary Hall (Meeting room 1)",
-            description: "Learn the exact frameworks, templates, and automation sequences top performers use to book 20+ qualified meetings per month on autopilot without spamming.",
-            speakers: [
-              { id: 1, name: "Sarah Jenkins", title: "VP of Sales", company: "Outreach.io", avatar: "https://i.pravatar.cc/150?img=5", isModerator: true },
-              { id: 2, name: "David Chen", title: "Growth Lead", company: "TechFlow", avatar: "https://i.pravatar.cc/150?img=11" }
-            ],
-            sponsors: [
-              { id: 1, name: "Acme Corp", logo: "https://ui-avatars.com/api/?name=Acme&background=f8fafc&color=0f172a" },
-              { id: 2, name: "GlobalTech", logo: "https://ui-avatars.com/api/?name=GT&background=f8fafc&color=0f172a" }
-            ]
-          });
+          setItem(null);
+          toast.error(getErrorMessage(err, 'Could not load this session'));
         }
       } finally {
         if (!cancelled) setLoading(false);
       }
     };
-    fetchSession();
-    return () => { cancelled = true; };
+
+    load();
+    return () => {
+      cancelled = true;
+    };
   }, [id]);
 
-  // Handle Add to Schedule (Calling the backend attend endpoint)
-  const handleToggleSchedule = async () => {
-    const previousState = isAdded;
-    setIsAdded(!previousState); // Optimistic UI update
-    
+  const patch = (changes) => setItem((prev) => (prev ? { ...prev, ...changes } : prev));
+
+  const toggleSchedule = async () => {
+    if (!item || busy) return;
+    const adding = !item.is_scheduled;
+    setBusy('schedule');
+    patch({ is_scheduled: adding });
     try {
-      if (!previousState) {
-        await apiClient.post(`/sessions/${id}/attend`);
-        toast.success("Added to your schedule!");
+      if (adding) {
+        await apiClient.post(`/session-hub/sessions/${id}/schedule`);
+        toast.success('Added to your schedule');
       } else {
-        // Assuming there is a remove endpoint, or mock for now
-        toast.success("Removed from your schedule");
+        await apiClient.delete(`/session-hub/sessions/${id}/schedule`);
+        toast.success('Removed from your schedule');
       }
-    } catch (error) {
-      setIsAdded(previousState); // Revert on failure
-      toast.error(error?.response?.data?.detail || "Could not update schedule");
+    } catch (err) {
+      patch({ is_scheduled: !adding });
+      toast.error(getErrorMessage(err, 'Could not update your schedule'));
+    } finally {
+      setBusy('');
     }
   };
 
-  // Submit Feedback (Calling the backend rate endpoint)
-  const handleSubmitFeedback = async () => {
-    if (rating === 0) {
-      toast.error("Please select a star rating");
+  const toggleBookmark = async () => {
+    if (!item || busy) return;
+    const saving = !item.is_bookmarked;
+    setBusy('bookmark');
+    patch({ is_bookmarked: saving });
+    try {
+      if (saving) {
+        await apiClient.post(`/session-hub/sessions/${id}/bookmark`);
+        toast.success('Saved');
+      } else {
+        await apiClient.delete(`/session-hub/sessions/${id}/bookmark`);
+        toast.success('Removed from saved');
+      }
+    } catch (err) {
+      patch({ is_bookmarked: !saving });
+      toast.error(getErrorMessage(err, 'Could not update saved sessions'));
+    } finally {
+      setBusy('');
+    }
+  };
+
+  const toggleReaction = async (kind) => {
+    if (!item || busy) return;
+    const active = (item.my_reactions || []).includes(kind);
+    setBusy(`reaction-${kind}`);
+    try {
+      const res = active
+        ? await apiClient.delete(`/session-hub/sessions/${id}/reactions/${kind}`)
+        : await apiClient.post(`/session-hub/sessions/${id}/reactions`, { kind });
+      const data = res?.data?.data;
+      if (data) {
+        patch({ reactions: data.reactions, my_reactions: data.my_reactions });
+      }
+    } catch (err) {
+      toast.error(getErrorMessage(err, 'Could not save your reaction'));
+    } finally {
+      setBusy('');
+    }
+  };
+
+  const checkIn = async () => {
+    if (!item || busy) return;
+    setBusy('checkin');
+    try {
+      await apiClient.post(`/session-hub/sessions/${id}/check-in`);
+      patch({ is_checked_in: true });
+      toast.success('Checked in');
+    } catch (err) {
+      toast.error(getErrorMessage(err, 'Could not check you in'));
+    } finally {
+      setBusy('');
+    }
+  };
+
+  const watch = async () => {
+    try {
+      const res = await apiClient.get(`/session-hub/sessions/${id}/stream`);
+      const url = res?.data?.data?.stream_url;
+      if (url) {
+        window.open(url, '_blank', 'noopener,noreferrer');
+      } else {
+        toast.error('Stream link is not available');
+      }
+    } catch (err) {
+      toast.error(getErrorMessage(err, 'This session is not live right now'));
+    }
+  };
+
+  const share = async () => {
+    const url = window.location.href;
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: item?.title || 'Session', url });
+      } else {
+        await navigator.clipboard.writeText(url);
+        toast.success('Link copied');
+      }
+    } catch (err) {
+      console.warn('Share cancelled or unavailable:', err);
+    }
+  };
+
+  const submitQuestion = async () => {
+    const content = questionText.trim();
+    if (content.length < 3) {
+      toast.error('Write at least 3 characters');
       return;
     }
     setSubmitting(true);
     try {
-      await apiClient.post(`/sessions/${id}/rate`, { 
-        score: rating, 
-        feedback: feedbackText 
+      await apiClient.post(`/session-hub/sessions/${id}/questions`, { content });
+      setQuestionText('');
+      setSheet(null);
+      toast.success('Your question has been sent');
+    } catch (err) {
+      toast.error(getErrorMessage(err, 'Could not send your question'));
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const submitFeedback = async () => {
+    if (rating < 1) {
+      toast.error('Choose a star rating');
+      return;
+    }
+    setSubmitting(true);
+    try {
+      const text = feedbackText.trim();
+      await apiClient.post(`/session-hub/sessions/${id}/feedback`, {
+        rating,
+        content: text || undefined,
       });
-      setActiveModal(null);
-      setSuccessMessage('Thank you for your feedback! You earned 5 points.');
-      setSuccessOpen(true);
       setRating(0);
       setFeedbackText('');
-    } catch (error) {
-      toast.error(error?.response?.data?.detail || "You must be added to the schedule to rate this session.");
+      setSheet(null);
+      toast.success('Thanks for your feedback');
+    } catch (err) {
+      toast.error(getErrorMessage(err, 'Could not save your feedback'));
     } finally {
       setSubmitting(false);
     }
-  };
-
-  // Submit Question
-  const handleSubmitQuestion = async () => {
-    if (!questionText.trim()) return;
-    setSubmitting(true);
-    try {
-      // Endpoint to be created in event_info / q&a module
-      await apiClient.post(`/sessions/${id}/questions`, { content: questionText });
-      setActiveModal(null);
-      setSuccessMessage('Your question has been sent to the speakers!');
-      setSuccessOpen(true);
-      setQuestionText('');
-    } catch (error) {
-      // Mock success if endpoint doesn't exist yet
-      setActiveModal(null);
-      setSuccessMessage('Your question has been sent to the speakers!');
-      setSuccessOpen(true);
-      setQuestionText('');
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  // Submit Quiz (Mocking quiz submission for now)
-  const handleSubmitQuiz = () => {
-    if (quizAnswer === null) {
-      toast.error("Please select an answer");
-      return;
-    }
-    setSubmitting(true);
-    setTimeout(() => {
-      setSubmitting(false);
-      setActiveModal(null);
-      setSuccessMessage('Quiz completed! You earned 10 points.');
-      setSuccessOpen(true);
-      setQuizAnswer(null);
-    }, 800);
   };
 
   if (loading) {
-    return <div className="min-h-screen flex items-center justify-center bg-[#F8FAFC]"><LoadingSpinner /></div>;
+    return (
+      <div className="min-h-screen bg-white max-w-[430px] mx-auto">
+        <div className="py-24">
+          <LoadingSpinner />
+        </div>
+      </div>
+    );
   }
 
-  if (!session) {
-    return <div className="min-h-screen flex items-center justify-center bg-[#F8FAFC]">Session not found.</div>;
+  if (!item) {
+    return (
+      <div className="min-h-screen bg-white max-w-[430px] mx-auto p-6 text-center">
+        <p className="text-slate-600 mt-16 mb-6">This session could not be found.</p>
+        <button
+          type="button"
+          onClick={() => navigate('/sessions')}
+          className="px-4 py-2 rounded-lg bg-[#0000c8] text-white font-medium"
+        >
+          Back to sessions
+        </button>
+      </div>
+    );
   }
 
-  const trackColor = (session.category || session.track || '').toLowerCase().includes('foundational') ? 'bg-[#D91B6B]' : 'bg-[#1d1fb8]';
-  const trackName = session.category || session.track || 'General';
+  const reactionCounts = item.reactions || {};
+  const myReactions = item.my_reactions || [];
+  const longDescription = item.description || '';
+  const shortDescription = longDescription.length > 160 && !expanded
+    ? `${longDescription.slice(0, 160)}...`
+    : longDescription;
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] max-w-md mx-auto pb-24 font-sans select-none relative">
-      
-      {/* Header */}
-      <div className="px-5 py-4 flex items-center justify-between bg-white sticky top-0 z-40 shadow-sm">
+    <div className="min-h-screen bg-white max-w-[430px] mx-auto pb-28">
+      {/* Top bar */}
+      <div className="flex items-center justify-between px-4 py-4 border-b border-slate-200">
         <div className="flex items-center gap-3">
-          <button onClick={() => navigate(-1)} className="text-slate-700">
-            <ArrowLeft size={24} />
+          <button type="button" onClick={() => navigate(-1)} aria-label="Back" className="text-slate-700">
+            <ArrowLeft size={22} />
           </button>
-          <h1 className="text-lg font-bold text-slate-900 truncate pr-4">Session Details</h1>
+          <h1 className="text-lg font-semibold text-slate-900">Session Details</h1>
         </div>
-        <button onClick={() => setIsBookmarked(!isBookmarked)} className="text-slate-400 hover:text-[#1d1fb8] transition-colors">
-          <Bookmark size={24} className={isBookmarked ? "fill-[#1d1fb8] text-[#1d1fb8]" : ""} />
-        </button>
+        <div className="flex items-center gap-4 text-slate-600">
+          <button type="button" onClick={share} aria-label="Share session">
+            <Share2 size={18} />
+          </button>
+          <button
+            type="button"
+            onClick={toggleBookmark}
+            disabled={busy === 'bookmark'}
+            aria-label={item.is_bookmarked ? 'Remove from saved' : 'Save session'}
+            className={item.is_bookmarked ? 'text-amber-500' : ''}
+          >
+            <Bookmark size={18} fill={item.is_bookmarked ? 'currentColor' : 'none'} />
+          </button>
+        </div>
       </div>
 
-      {/* Hero Banner Area */}
-      <div className="bg-white px-5 pt-6 pb-5 border-b border-slate-100">
-        <div className="flex justify-between items-start mb-4">
-          <span className={`${trackColor} text-white text-[11px] font-bold px-3 py-1 rounded-full`}>
-            {trackName}
+      {/* Banner */}
+      <div className="relative h-44 bg-gradient-to-br from-slate-700 to-slate-900 overflow-hidden">
+        {item.image_url && (
+          <img src={item.image_url} alt="" className="absolute inset-0 w-full h-full object-cover" />
+        )}
+      </div>
+
+      {/* Track chips */}
+      <div className="flex gap-2 px-4 pt-4 overflow-x-auto">
+        <span className={`shrink-0 text-xs font-semibold text-white px-3 py-1 rounded-full ${trackColor(item.track)}`}>
+          {item.track}
+        </span>
+        {(item.tags || []).map((tag) => (
+          <span key={tag} className="shrink-0 text-xs font-semibold text-slate-700 bg-slate-100 px-3 py-1 rounded-full">
+            {tag}
           </span>
-          {(session.is_live || session.status === 'live') && (
-            <span className="text-[11px] font-bold text-red-500 flex items-center gap-1.5 bg-red-50 px-2.5 py-1 rounded-full border border-red-100">
-              <span className="w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse" /> Live Now
-            </span>
-          )}
-        </div>
+        ))}
+      </div>
 
-        <h2 className="text-[22px] font-black text-slate-900 leading-[1.2] mb-4">
-          {session.title}
-        </h2>
+      {/* Reactions */}
+      <div className="flex gap-6 px-4 pt-4">
+        {REACTIONS.map(({ key, label, icon: Icon }) => {
+          const active = myReactions.includes(key);
+          return (
+            <button
+              key={key}
+              type="button"
+              onClick={() => toggleReaction(key)}
+              disabled={busy === `reaction-${key}`}
+              aria-label={label}
+              className={`flex items-center gap-1.5 text-sm ${active ? 'text-[#0000c8]' : 'text-slate-500'}`}
+            >
+              <Icon size={18} />
+              <span>{reactionCounts[key] || 0}</span>
+            </button>
+          );
+        })}
+      </div>
 
-        <div className="space-y-2 mb-6">
-          <div className="flex items-center gap-2 text-sm text-slate-600 font-medium">
-            <Clock size={16} className="text-slate-400" />
-            <span>{session.date || "15th Oct, 2024"} | {session.time || "10:00 AM - 05:00 PM"}</span>
-          </div>
-          <div className="flex items-center gap-2 text-sm text-slate-600 font-medium">
-            <MapPin size={16} className="text-slate-400" />
-            <span>{session.location || session.room || "Primary Hall"}</span>
-          </div>
-        </div>
+      {/* Status, date, room */}
+      <div className="px-4 pt-4 space-y-2">
+        {item.is_live ? (
+          <p className="flex items-center gap-1.5 text-sm font-semibold text-red-500">
+            <span className="w-1.5 h-1.5 rounded-full bg-red-500" />
+            Live and Streaming
+          </p>
+        ) : item.status === 'ended' ? (
+          <p className="text-sm font-semibold text-slate-500">Ended</p>
+        ) : (
+          <p className="flex items-center gap-1.5 text-sm font-semibold text-amber-500">
+            <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+            Upcoming
+          </p>
+        )}
+        <p className="text-sm text-slate-600 flex items-center gap-2">
+          <Clock size={14} />
+          {item.start_time ? `${formatVideoDate(item.start_time)} | ${item.time_label}` : item.time_label}
+        </p>
+        {item.location && (
+          <p className="text-sm text-slate-600 flex items-center gap-2">
+            <MapPin size={14} />
+            {item.location}
+          </p>
+        )}
+        <h2 className="text-xl font-bold text-slate-900 pt-2">{item.title}</h2>
+      </div>
 
-        <button 
-          onClick={handleToggleSchedule}
-          className={`w-full flex items-center justify-center gap-2 py-3.5 rounded-xl font-bold transition-colors ${
-            isAdded ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-[#1d1fb8] text-white shadow-md shadow-blue-900/20'
+      {/* Schedule, watch, check in */}
+      <div className="px-4 pt-4 space-y-3">
+        <button
+          type="button"
+          onClick={toggleSchedule}
+          disabled={busy === 'schedule'}
+          className={`w-full flex items-center justify-center gap-2 rounded-xl py-3 font-semibold disabled:opacity-50 ${
+            item.is_scheduled ? 'bg-slate-100 text-slate-800' : 'bg-[#0000c8] text-white'
           }`}
         >
-          {isAdded ? <CalendarCheck size={18} /> : <CalendarPlus size={18} />}
-          {isAdded ? 'Added to Schedule' : 'Add to My Schedule'}
+          {item.is_scheduled ? <CheckCircle2 size={18} /> : <Calendar size={18} />}
+          {item.is_scheduled ? 'Added to My Schedule' : 'Add to My Schedule'}
         </button>
+
+        {item.is_live && (
+          <button
+            type="button"
+            onClick={watch}
+            className="w-full flex items-center justify-center gap-2 rounded-xl border border-slate-300 py-3 font-semibold text-slate-800"
+          >
+            <Play size={18} />
+            Watch
+          </button>
+        )}
+
+        {item.is_scheduled && item.is_live && !item.is_checked_in && (
+          <button
+            type="button"
+            onClick={checkIn}
+            disabled={busy === 'checkin'}
+            className="w-full rounded-xl border border-emerald-600 text-emerald-700 py-3 font-semibold disabled:opacity-50"
+          >
+            Check in
+          </button>
+        )}
+        {item.is_checked_in && (
+          <p className="text-center text-sm font-semibold text-emerald-700">You are checked in</p>
+        )}
       </div>
 
-      {/* Interactive Action Row */}
-      <div className="px-5 py-6 bg-white mt-2 border-y border-slate-100">
-        <h3 className="text-[15px] font-bold text-slate-900 mb-4">Engage</h3>
-        <div className="grid grid-cols-3 gap-3">
-          <button 
-            onClick={() => setActiveModal('question')}
-            className="flex flex-col items-center justify-center gap-2 py-4 px-2 bg-slate-50 border border-slate-200 rounded-2xl active:scale-95 transition-transform"
+      {/* Engage: Ask A Question, Quiz, Session Feedback */}
+      <div className="px-4 pt-5">
+        <p className="text-sm font-semibold text-slate-700 mb-2">Engage</p>
+        <div className="grid grid-cols-3 gap-2">
+          <button
+            type="button"
+            onClick={() => setSheet('question')}
+            className="rounded-xl border border-slate-200 py-3 flex flex-col items-center gap-1 text-xs font-semibold text-slate-800"
           >
-            <HelpCircle size={22} className="text-[#1d1fb8]" />
-            <span className="text-[11px] font-bold text-slate-700 text-center leading-tight">Ask A<br/>Question</span>
+            <HelpCircle size={18} />
+            Ask A Question
           </button>
-          <button 
-            onClick={() => setActiveModal('quiz')}
-            className="flex flex-col items-center justify-center gap-2 py-4 px-2 bg-slate-50 border border-slate-200 rounded-2xl active:scale-95 transition-transform"
+          <button
+            type="button"
+            onClick={() => navigate(`/sessions/${id}/quiz`)}
+            className="rounded-xl border border-slate-200 py-3 flex flex-col items-center gap-1 text-xs font-semibold text-slate-800"
           >
-            <ClipboardList size={22} className="text-[#1d1fb8]" />
-            <span className="text-[11px] font-bold text-slate-700 text-center leading-tight">Take<br/>Quiz</span>
+            <ClipboardList size={18} />
+            Take Quiz
           </button>
-          <button 
-            onClick={() => setActiveModal('feedback')}
-            className="flex flex-col items-center justify-center gap-2 py-4 px-2 bg-slate-50 border border-slate-200 rounded-2xl active:scale-95 transition-transform"
+          <button
+            type="button"
+            onClick={() => setSheet('feedback')}
+            className="rounded-xl border border-slate-200 py-3 flex flex-col items-center gap-1 text-xs font-semibold text-slate-800"
           >
-            <Megaphone size={22} className="text-[#1d1fb8]" />
-            <span className="text-[11px] font-bold text-slate-700 text-center leading-tight">Session<br/>Feedback</span>
+            <Megaphone size={18} />
+            Session Feedback
           </button>
         </div>
       </div>
 
-      {/* About Section */}
-      {session.description && (
-        <div className="px-5 py-6 bg-white mt-2 border-y border-slate-100">
-          <h3 className="text-[15px] font-bold text-slate-900 mb-2">About Session</h3>
-          <p className="text-sm text-slate-600 leading-relaxed">
-            {session.description}
-          </p>
-        </div>
-      )}
-
-      {/* Speakers Section */}
-      {session.speakers && session.speakers.length > 0 && (
-        <div className="px-5 py-6 bg-white mt-2 border-y border-slate-100">
-          <h3 className="text-[15px] font-bold text-slate-900 mb-4">Speakers</h3>
-          <div className="space-y-3">
-            {session.speakers.map((speaker) => (
-              <div key={speaker.id} className="flex items-center justify-between p-4 rounded-2xl border border-slate-100 bg-white shadow-[0_2px_8px_rgba(0,0,0,0.03)]">
-                <div className="flex items-center gap-4">
-                  <img src={speaker.avatar || `https://ui-avatars.com/api/?name=${speaker.name}`} alt={speaker.name} className="w-14 h-14 rounded-full object-cover border border-slate-200" />
-                  <div>
-                    <div className="flex items-center gap-2 mb-0.5">
-                      <h4 className="text-[15px] font-bold text-slate-900">{speaker.name}</h4>
-                      {speaker.isModerator && (
-                        <span className="bg-[#E9E4FF] text-[#5B34EA] text-[9px] font-bold px-2 py-0.5 rounded-md">
-                          Moderator
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-xs font-medium text-slate-500">{speaker.title || speaker.job_title}</p>
-                    <p className="text-xs text-slate-400">{speaker.company}</p>
-                  </div>
-                </div>
-                <ChevronRight size={18} className="text-slate-300" />
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Sponsors Carousel */}
-      {session.sponsors && session.sponsors.length > 0 && (
-        <div className="px-5 py-6 bg-white mt-2 border-y border-slate-100">
-          <h3 className="text-[15px] font-bold text-slate-900 mb-4">Session Sponsors</h3>
-          <div className="flex overflow-x-auto gap-4 pb-2 no-scrollbar">
-            {session.sponsors.map((sponsor) => (
-              <div key={sponsor.id} className="min-w-[140px] p-4 rounded-2xl border border-slate-100 bg-white shadow-sm flex flex-col items-center justify-center gap-3">
-                <img src={sponsor.logo} alt={sponsor.name} className="w-12 h-12 rounded-full object-cover border border-slate-200" />
-                <span className="text-xs font-bold text-slate-700 text-center">{sponsor.name}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* ========================================================= */}
-      {/* MODALS */}
-      {/* ========================================================= */}
-
-      {/* 1. Ask a Question Modal */}
-      {activeModal === 'question' && (
-        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 relative animate-in fade-in zoom-in duration-200">
-            <button onClick={() => setActiveModal(null)} className="absolute top-4 right-4 text-slate-400 hover:text-slate-700">
-              <X size={20} />
+      {/* About */}
+      {longDescription && (
+        <div className="px-4 pt-6">
+          <p className="text-sm font-semibold text-slate-900 mb-2">About Session</p>
+          <p className="text-sm text-slate-700 leading-relaxed">{shortDescription}</p>
+          {longDescription.length > 160 && (
+            <button
+              type="button"
+              onClick={() => setExpanded((v) => !v)}
+              className="text-sm text-[#0000c8] font-medium mt-1"
+            >
+              {expanded ? 'Show less' : 'Read more'}
             </button>
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center text-[#1d1fb8]"><HelpCircle size={20} /></div>
-              <h2 className="text-lg font-bold text-slate-900">Ask a Question</h2>
+          )}
+        </div>
+      )}
+
+      {/* Speakers */}
+      {(item.speakers || []).length > 0 && (
+        <div className="px-4 pt-6">
+          <p className="text-sm font-semibold text-slate-900 mb-2">Speakers</p>
+          <div className="space-y-2">
+            {item.speakers.map((sp) => (
+              <div key={sp.id} className="flex items-center gap-3 rounded-xl border border-slate-200 p-3">
+                <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-500">
+                  <User size={18} />
+                </div>
+                <p className="text-sm font-semibold text-slate-900">{sp.name}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Ask A Question sheet */}
+      {sheet === 'question' && (
+        <div className="fixed inset-0 bg-black/50 z-[60] flex items-end justify-center" onClick={() => setSheet(null)}>
+          <div
+            className="bg-white w-full max-w-[430px] rounded-t-2xl p-4 mb-16"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-3">
+              <p className="font-semibold text-slate-900">Ask A Question</p>
+              <button type="button" onClick={() => setSheet(null)} aria-label="Close" className="text-slate-500">
+                <X size={20} />
+              </button>
             </div>
             <textarea
               value={questionText}
               onChange={(e) => setQuestionText(e.target.value)}
               rows={4}
-              placeholder="What would you like to ask the speakers?"
-              className="w-full border border-slate-300 rounded-xl p-3 text-sm focus:outline-none focus:border-[#1d1fb8] focus:ring-1 focus:ring-[#1d1fb8] resize-none"
+              maxLength={1000}
+              placeholder="Type your question..."
+              className="w-full border border-slate-300 rounded-lg p-3 text-base focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
             <button
-              onClick={handleSubmitQuestion}
-              disabled={submitting || !questionText.trim()}
-              className="w-full mt-4 bg-[#1d1fb8] text-white py-3 rounded-xl font-bold disabled:opacity-50"
+              type="button"
+              onClick={submitQuestion}
+              disabled={submitting}
+              className="w-full mt-3 rounded-lg bg-[#0000c8] text-white py-3 font-semibold disabled:opacity-50"
             >
-              {submitting ? 'Submitting...' : 'Submit Question'}
+              {submitting ? 'Sending...' : 'Send question'}
             </button>
           </div>
         </div>
       )}
 
-      {/* 2. Quiz Modal */}
-      {activeModal === 'quiz' && (
-        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 relative animate-in fade-in zoom-in duration-200">
-            <button onClick={() => setActiveModal(null)} className="absolute top-4 right-4 text-slate-400 hover:text-slate-700">
-              <X size={20} />
-            </button>
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 rounded-full bg-indigo-50 flex items-center justify-center text-[#1d1fb8]"><ClipboardList size={20} /></div>
-              <h2 className="text-lg font-bold text-slate-900">Live Quiz</h2>
+      {/* Feedback sheet */}
+      {sheet === 'feedback' && (
+        <div className="fixed inset-0 bg-black/50 z-[60] flex items-end justify-center" onClick={() => setSheet(null)}>
+          <div
+            className="bg-white w-full max-w-[430px] rounded-t-2xl p-4 mb-16"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-3">
+              <p className="font-semibold text-slate-900">Session Feedback</p>
+              <button type="button" onClick={() => setSheet(null)} aria-label="Close" className="text-slate-500">
+                <X size={20} />
+              </button>
             </div>
-            
-            <p className="text-sm font-semibold text-slate-900 mb-3">Which framework is best for cold outreach?</p>
-            <div className="space-y-2 mb-6">
-              {['AIDA Framework', 'PAS Framework', 'The 3-C Method', 'All of the above'].map((opt, i) => (
-                <button 
-                  key={i}
-                  onClick={() => setQuizAnswer(i)}
-                  className={`w-full text-left px-4 py-3 rounded-xl border text-sm font-medium transition-colors ${
-                    quizAnswer === i ? 'border-[#1d1fb8] bg-blue-50 text-[#1d1fb8]' : 'border-slate-200 text-slate-700 hover:bg-slate-50'
-                  }`}
+            <p className="text-sm text-slate-700 mb-2">How was this session?</p>
+            <div className="flex gap-2 mb-4">
+              {[1, 2, 3, 4, 5].map((n) => (
+                <button
+                  key={n}
+                  type="button"
+                  onClick={() => setRating(n)}
+                  aria-label={`${n} star${n > 1 ? 's' : ''}`}
                 >
-                  {opt}
+                  <Star
+                    size={28}
+                    className={n <= rating ? 'text-yellow-500 fill-yellow-400' : 'text-slate-300'}
+                  />
                 </button>
               ))}
             </div>
-
-            <button
-              onClick={handleSubmitQuiz}
-              disabled={submitting || quizAnswer === null}
-              className="w-full bg-[#1d1fb8] text-white py-3 rounded-xl font-bold disabled:opacity-50"
-            >
-              {submitting ? 'Submitting...' : 'Submit Answer'}
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* 3. Feedback Modal */}
-      {activeModal === 'feedback' && (
-        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 relative animate-in fade-in zoom-in duration-200">
-            <button onClick={() => setActiveModal(null)} className="absolute top-4 right-4 text-slate-400 hover:text-slate-700">
-              <X size={20} />
-            </button>
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 rounded-full bg-amber-50 flex items-center justify-center text-amber-500"><Megaphone size={20} /></div>
-              <h2 className="text-lg font-bold text-slate-900">Session Feedback</h2>
-            </div>
-
-            <p className="text-sm text-slate-600 mb-3 text-center">How would you rate this session?</p>
-            <div className="flex items-center justify-center gap-2 mb-5">
-              {[1, 2, 3, 4, 5].map((star) => (
-                <button key={star} onClick={() => setRating(star)} className="focus:outline-none">
-                  <Star size={32} className={`transition-colors ${rating >= star ? 'fill-amber-400 text-amber-400' : 'fill-slate-100 text-slate-300'}`} />
-                </button>
-              ))}
-            </div>
-
             <textarea
               value={feedbackText}
               onChange={(e) => setFeedbackText(e.target.value)}
               rows={3}
-              placeholder="Any additional comments? (Optional)"
-              className="w-full border border-slate-300 rounded-xl p-3 text-sm focus:outline-none focus:border-[#1d1fb8] focus:ring-1 focus:ring-[#1d1fb8] resize-none"
+              maxLength={2000}
+              placeholder="Anything you'd like to add? (optional)"
+              className="w-full border border-slate-300 rounded-lg p-3 text-base focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
-
             <button
-              onClick={handleSubmitFeedback}
-              disabled={submitting || rating === 0}
-              className="w-full mt-4 bg-[#1d1fb8] text-white py-3 rounded-xl font-bold disabled:opacity-50"
+              type="button"
+              onClick={submitFeedback}
+              disabled={submitting}
+              className="w-full mt-3 rounded-lg bg-[#0000c8] text-white py-3 font-semibold disabled:opacity-50"
             >
-              {submitting ? 'Submitting...' : 'Submit Feedback'}
+              {submitting ? 'Sending...' : 'Submit feedback'}
             </button>
           </div>
         </div>
       )}
-
-      {/* Success Popup */}
-      {successOpen && (
-        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
-          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-xs p-8 text-center animate-in fade-in zoom-in duration-300">
-            <div className="mx-auto w-16 h-16 rounded-full bg-emerald-100 flex items-center justify-center mb-4">
-              <CheckCircle2 size={36} className="text-emerald-500" />
-            </div>
-            <h2 className="text-xl font-black text-slate-900 mb-2">Success!</h2>
-            <p className="text-sm text-slate-600 mb-6 leading-relaxed">{successMessage}</p>
-            <button
-              onClick={() => setSuccessOpen(false)}
-              className="w-full bg-[#1d1fb8] text-white py-3.5 rounded-xl font-bold active:scale-95 transition-transform"
-            >
-              Done
-            </button>
-          </div>
-        </div>
-      )}
-
     </div>
   );
 }
