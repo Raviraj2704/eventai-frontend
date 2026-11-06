@@ -4,16 +4,17 @@
 // Real API only:
 //   GET    /session-admin/me/roles
 //   GET    /session-admin/sessions/{id}/manage
-//   PUT    /session-admin/sessions/{id}          (via SessionForm)
+//   GET    /session-admin/sessions/{id}/history
 //   POST   /session-admin/sessions/{id}/publish
 //   POST   /session-admin/sessions/{id}/image
 //   DELETE /session-admin/sessions/{id}
+//   PUT    /session-admin/sessions/{id}          (through SessionForm)
 // ============================================================================
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { Pencil, Send, ImagePlus, Trash2 } from 'lucide-react';
+import { Pencil, Send, ImagePlus, Trash2, History, X } from 'lucide-react';
 import apiClient from '../../config/apiClient';
 import SessionForm from './SessionForm';
 
@@ -44,12 +45,38 @@ const STATUS_TEXT = {
   deleted: 'Removed',
 };
 
+const ACTION_LABELS = {
+  created: 'Created',
+  edited: 'Edited',
+  published: 'Published',
+  proposed: 'Proposed by speaker',
+  resubmitted: 'Resent by speaker',
+  approved: 'Approved',
+  rejected: 'Rejected',
+  removed: 'Removed',
+  photo_updated: 'Photo updated',
+};
+
+const formatWhen = (iso) => {
+  if (!iso) return '';
+  return new Date(iso).toLocaleString('en-IN', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+};
+
 export default function SessionAdminBar({ sessionId, onChanged }) {
   const navigate = useNavigate();
   const fileRef = useRef(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [manage, setManage] = useState(null);
   const [formOpen, setFormOpen] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [history, setHistory] = useState([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
   const [busy, setBusy] = useState(false);
 
   const load = useCallback(async () => {
@@ -69,6 +96,19 @@ export default function SessionAdminBar({ sessionId, onChanged }) {
   useEffect(() => {
     load();
   }, [load]);
+
+  const openHistory = async () => {
+    setHistoryOpen(true);
+    setHistoryLoading(true);
+    try {
+      const res = await apiClient.get(`/session-admin/sessions/${sessionId}/history`);
+      setHistory(res?.data?.data || []);
+    } catch (error) {
+      toast.error(getErrorMessage(error, 'Could not load the history'));
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
 
   const publish = async () => {
     setBusy(true);
@@ -159,6 +199,16 @@ export default function SessionAdminBar({ sessionId, onChanged }) {
 
         <button
           type="button"
+          onClick={openHistory}
+          disabled={busy}
+          className="flex items-center gap-1 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-semibold text-slate-800 disabled:opacity-50"
+        >
+          <History size={14} />
+          History
+        </button>
+
+        <button
+          type="button"
           onClick={remove}
           disabled={busy}
           className="flex items-center gap-1 rounded-lg border border-red-200 bg-white px-3 py-1.5 text-sm font-semibold text-red-600 disabled:opacity-50"
@@ -193,6 +243,45 @@ export default function SessionAdminBar({ sessionId, onChanged }) {
             onChanged?.();
           }}
         />
+      )}
+
+      {historyOpen && (
+        <div className="fixed inset-0 bg-black/50 z-[60] flex items-end justify-center" onClick={() => setHistoryOpen(false)}>
+          <div
+            className="bg-white w-full max-w-[430px] max-h-[80vh] rounded-t-2xl flex flex-col mb-16"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200">
+              <p className="font-semibold text-slate-900">Session history</p>
+              <button type="button" onClick={() => setHistoryOpen(false)} aria-label="Close" className="text-slate-500">
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-4 space-y-3">
+              {historyLoading && <p className="text-sm text-slate-500 text-center py-8">Loading...</p>}
+
+              {!historyLoading && history.length === 0 && (
+                <p className="text-sm text-slate-500 text-center py-8">No changes recorded yet.</p>
+              )}
+
+              {!historyLoading &&
+                history.map((entry) => (
+                  <div key={entry.id} className="rounded-xl border border-slate-200 p-3">
+                    <p className="text-sm font-semibold text-slate-900">
+                      {ACTION_LABELS[entry.action] || entry.action}
+                    </p>
+                    <p className="text-xs text-slate-500 mt-1">
+                      {entry.actor_name} | {formatWhen(entry.created_at)}
+                    </p>
+                    {entry.note && (
+                      <p className="text-sm text-slate-700 mt-2">Note: {entry.note}</p>
+                    )}
+                  </div>
+                ))}
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

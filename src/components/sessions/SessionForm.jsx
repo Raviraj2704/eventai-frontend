@@ -1,13 +1,19 @@
 // ============================================================================
-// Session form: create (organizer), propose (speaker), edit (organizer)
+// Session form
 // File: src/components/sessions/SessionForm.jsx
+// Modes:
+//   create    organizer creates a session (draft or published)
+//   propose   speaker proposes a session
+//   resubmit  speaker edits their own proposal and sends it again
+//   edit      organizer edits any session
 // Real API only:
-//   POST /session-admin/sessions           create
-//   POST /session-admin/proposals          propose
-//   PUT  /session-admin/sessions/{id}      edit
-//   POST /session-admin/sessions/{id}/image   photo
-//   GET  /session-hub/tracks               track suggestions
-//   GET  /speakers                         speaker choices (organizer)
+//   POST /session-admin/sessions
+//   POST /session-admin/proposals
+//   PUT  /session-admin/proposals/{id}
+//   PUT  /session-admin/sessions/{id}
+//   POST /session-admin/sessions/{id}/image
+//   GET  /session-hub/tracks
+//   GET  /speakers
 // ============================================================================
 
 import { useEffect, useState } from 'react';
@@ -68,6 +74,7 @@ const fromInitial = (initial) => ({
 const TITLES = {
   create: 'Create session',
   propose: 'Propose a session',
+  resubmit: 'Edit and resend',
   edit: 'Edit session',
 };
 
@@ -154,11 +161,13 @@ export default function SessionForm({ mode, isAdmin, sessionId, initial, onClose
       } else if (mode === 'propose') {
         const res = await apiClient.post('/session-admin/proposals', payload);
         id = res?.data?.data?.id;
+      } else if (mode === 'resubmit') {
+        await apiClient.put(`/session-admin/proposals/${sessionId}`, payload);
       } else {
         await apiClient.put(`/session-admin/sessions/${sessionId}`, payload);
       }
 
-      if (form.photo && id) {
+      if (isAdmin && form.photo && id) {
         try {
           const fd = new FormData();
           fd.append('file', form.photo);
@@ -170,6 +179,8 @@ export default function SessionForm({ mode, isAdmin, sessionId, initial, onClose
 
       if (mode === 'propose') {
         toast.success('Your proposal was sent to the organizers');
+      } else if (mode === 'resubmit') {
+        toast.success('Proposal updated and sent again');
       } else if (mode === 'create') {
         toast.success(form.publish ? 'Session published' : 'Draft saved');
       } else {
@@ -186,6 +197,14 @@ export default function SessionForm({ mode, isAdmin, sessionId, initial, onClose
 
   const inputClass =
     'w-full px-3 py-2.5 border border-slate-300 rounded-lg text-base focus:outline-none focus:ring-2 focus:ring-blue-500';
+
+  const submitLabel = saving
+    ? 'Saving...'
+    : mode === 'propose'
+      ? 'Send proposal'
+      : mode === 'resubmit'
+        ? 'Save and resend'
+        : 'Save';
 
   return (
     <div className="fixed inset-0 bg-black/50 z-[60] flex items-end justify-center" onClick={onClose}>
@@ -281,18 +300,20 @@ export default function SessionForm({ mode, isAdmin, sessionId, initial, onClose
             </div>
           )}
 
-          <div>
-            <label className="text-sm font-semibold text-slate-800 flex items-center gap-2">
-              <ImagePlus size={16} /> Photo (camera or gallery)
-            </label>
-            <input
-              type="file"
-              accept="image/*"
-              onChange={(e) => setForm((f) => ({ ...f, photo: e.target.files?.[0] || null }))}
-              className="mt-1 block w-full text-sm text-slate-700"
-            />
-            <p className="text-xs text-slate-500 mt-1">JPG, PNG, or WEBP, up to 5 MB.</p>
-          </div>
+          {isAdmin && (
+            <div>
+              <label className="text-sm font-semibold text-slate-800 flex items-center gap-2">
+                <ImagePlus size={16} /> Photo (camera or gallery)
+              </label>
+              <input
+                type="file"
+                accept="image/*"
+                onChange={(e) => setForm((f) => ({ ...f, photo: e.target.files?.[0] || null }))}
+                className="mt-1 block w-full text-sm text-slate-700"
+              />
+              <p className="text-xs text-slate-500 mt-1">JPG, PNG, or WEBP, up to 5 MB.</p>
+            </div>
+          )}
 
           {isAdmin && mode === 'create' && (
             <label className="flex items-center gap-2 text-sm text-slate-800">
@@ -305,7 +326,7 @@ export default function SessionForm({ mode, isAdmin, sessionId, initial, onClose
             </label>
           )}
 
-          {!isAdmin && mode === 'propose' && (
+          {!isAdmin && (mode === 'propose' || mode === 'resubmit') && (
             <p className="text-xs text-slate-500">
               Organizers review your proposal. It appears in Sessions once approved.
             </p>
@@ -316,7 +337,7 @@ export default function SessionForm({ mode, isAdmin, sessionId, initial, onClose
             disabled={saving}
             className="w-full rounded-lg bg-[#0000c8] text-white py-3 font-semibold disabled:opacity-50"
           >
-            {saving ? 'Saving...' : mode === 'propose' ? 'Send proposal' : 'Save'}
+            {submitLabel}
           </button>
         </form>
       </div>

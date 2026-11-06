@@ -1,5 +1,5 @@
 // ============================================================================
-// Sessions toolbar: Create (organizer), Propose (speaker), Pending list
+// Sessions toolbar: Create (organizer), Propose (speaker), Pending and My proposals
 // File: src/components/sessions/SessionAdminToolbar.jsx
 // Real API only:
 //   GET  /session-admin/me/roles
@@ -10,7 +10,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
-import { Plus, ClipboardList, X, CheckCircle2, XCircle } from 'lucide-react';
+import { Plus, ClipboardList, X, CheckCircle2, XCircle, Pencil } from 'lucide-react';
 import apiClient from '../../config/apiClient';
 import SessionForm from './SessionForm';
 
@@ -34,17 +34,18 @@ const formatWhen = (iso) => {
   });
 };
 
-const PROPOSAL_STATUS = {
+const STATUS_TEXT = {
   proposed: { text: 'Waiting for approval', className: 'text-amber-600' },
   rejected: { text: 'Not approved', className: 'text-red-600' },
-  published: { text: 'Published', className: 'text-emerald-700' },
+  published: { text: 'Approved and published', className: 'text-emerald-700' },
 };
 
 export default function SessionAdminToolbar({ onChanged }) {
   const [roles, setRoles] = useState({ is_admin: false, is_speaker: false });
   const [loadedRoles, setLoadedRoles] = useState(false);
   const [proposals, setProposals] = useState([]);
-  const [formMode, setFormMode] = useState(null);
+  const [createMode, setCreateMode] = useState(null); // 'create' | 'propose' | null
+  const [editing, setEditing] = useState(null); // proposal being edited by the speaker
   const [listOpen, setListOpen] = useState(false);
   const [busyId, setBusyId] = useState(null);
 
@@ -79,9 +80,19 @@ export default function SessionAdminToolbar({ onChanged }) {
   }, [loadedRoles, roles.is_admin, roles.is_speaker, loadProposals]);
 
   const decide = async (item, action) => {
+    let note = null;
+    if (action === 'reject') {
+      const answer = window.prompt('Reason shown to the speaker (optional):', '');
+      if (answer === null) return;
+      note = answer.trim() || null;
+    }
+
     setBusyId(item.id);
     try {
-      await apiClient.post(`/session-admin/proposals/${item.id}/${action}`);
+      await apiClient.post(
+        `/session-admin/proposals/${item.id}/${action}`,
+        action === 'reject' ? { note } : undefined
+      );
       toast.success(action === 'approve' ? 'Session approved and published' : 'Proposal rejected');
       await loadProposals();
       onChanged?.();
@@ -96,7 +107,7 @@ export default function SessionAdminToolbar({ onChanged }) {
     return null;
   }
 
-  const pendingCount = proposals.length;
+  const pendingCount = proposals.filter((p) => p.publish_status === 'proposed').length;
 
   return (
     <>
@@ -104,7 +115,7 @@ export default function SessionAdminToolbar({ onChanged }) {
         {roles.is_admin && (
           <button
             type="button"
-            onClick={() => setFormMode('create')}
+            onClick={() => setCreateMode('create')}
             className="flex items-center gap-1 rounded-lg bg-[#0000c8] text-white px-3 py-2 text-sm font-semibold"
           >
             <Plus size={16} />
@@ -115,7 +126,7 @@ export default function SessionAdminToolbar({ onChanged }) {
         {roles.is_speaker && !roles.is_admin && (
           <button
             type="button"
-            onClick={() => setFormMode('propose')}
+            onClick={() => setCreateMode('propose')}
             className="flex items-center gap-1 rounded-lg bg-[#0000c8] text-white px-3 py-2 text-sm font-semibold"
           >
             <Plus size={16} />
@@ -129,17 +140,32 @@ export default function SessionAdminToolbar({ onChanged }) {
           className="flex items-center gap-1 rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-800"
         >
           <ClipboardList size={16} />
-          {roles.is_admin ? `Pending (${pendingCount})` : `My proposals (${pendingCount})`}
+          {roles.is_admin ? `Pending (${pendingCount})` : `My proposals (${proposals.length})`}
         </button>
       </div>
 
-      {formMode && (
+      {createMode && (
         <SessionForm
-          mode={formMode}
+          mode={createMode}
           isAdmin={roles.is_admin}
-          onClose={() => setFormMode(null)}
+          onClose={() => setCreateMode(null)}
           onSaved={async () => {
-            setFormMode(null);
+            setCreateMode(null);
+            await loadProposals();
+            onChanged?.();
+          }}
+        />
+      )}
+
+      {editing && (
+        <SessionForm
+          mode="resubmit"
+          isAdmin={false}
+          sessionId={editing.id}
+          initial={editing}
+          onClose={() => setEditing(null)}
+          onSaved={async () => {
+            setEditing(null);
             await loadProposals();
             onChanged?.();
           }}
@@ -169,7 +195,10 @@ export default function SessionAdminToolbar({ onChanged }) {
               )}
 
               {proposals.map((item) => {
-                const badge = PROPOSAL_STATUS[item.publish_status];
+                const status = STATUS_TEXT[item.publish_status];
+                const canEditAsSpeaker =
+                  !roles.is_admin && (item.publish_status === 'proposed' || item.publish_status === 'rejected');
+
                 return (
                   <div key={item.id} className="rounded-xl border border-slate-200 p-4">
                     <p className="text-sm font-semibold text-slate-900">{item.title}</p>
@@ -181,7 +210,18 @@ export default function SessionAdminToolbar({ onChanged }) {
                       <p className="text-sm text-slate-700 mt-2 line-clamp-3">{item.description}</p>
                     )}
 
-                    {roles.is_admin ? (
+                    {status && (
+                      <p className={`text-xs font-semibold mt-3 ${status.className}`}>{status.text}</p>
+                    )}
+
+                    {!roles.is_admin && item.publish_status === 'rejected' && item.rejection_note && (
+                      <div className="mt-2 rounded-lg bg-red-50 p-3">
+                        <p className="text-xs font-semibold text-red-700">Note from the organizers</p>
+                        <p className="text-sm text-red-800 mt-1">{item.rejection_note}</p>
+                      </div>
+                    )}
+
+                    {roles.is_admin && item.publish_status === 'proposed' && (
                       <div className="flex gap-2 mt-3">
                         <button
                           type="button"
@@ -202,8 +242,20 @@ export default function SessionAdminToolbar({ onChanged }) {
                           Reject
                         </button>
                       </div>
-                    ) : (
-                      badge && <p className={`text-xs font-semibold mt-3 ${badge.className}`}>{badge.text}</p>
+                    )}
+
+                    {canEditAsSpeaker && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setListOpen(false);
+                          setEditing(item);
+                        }}
+                        className="flex items-center gap-1 rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-semibold text-slate-800 mt-3"
+                      >
+                        <Pencil size={14} />
+                        {item.publish_status === 'rejected' ? 'Edit and resend' : 'Edit'}
+                      </button>
                     )}
                   </div>
                 );
