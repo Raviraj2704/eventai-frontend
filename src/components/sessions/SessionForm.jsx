@@ -297,6 +297,11 @@ export default function SessionForm({ mode, isAdmin, sessionId, initial, onClose
                   </option>
                 ))}
               </select>
+              {speakers.length === 0 && (
+                <p className="text-xs text-amber-600 mt-1">
+                  No speakers are linked to a user account yet. Link them in the Speakers page.
+                </p>
+              )}
             </div>
           )}
 
