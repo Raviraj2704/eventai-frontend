@@ -12,6 +12,7 @@
 //   GET    /session-hub/sessions/{id}/stream
 //   POST   /session-hub/sessions/{id}/questions
 //   POST   /session-hub/sessions/{id}/feedback
+//   POST   /session-hub/sessions/{id}/live
 // Quiz opens the existing /sessions/:id/quiz screen.
 // ============================================================================
 
@@ -21,6 +22,7 @@ import toast from 'react-hot-toast';
 import {
   ArrowLeft, Bookmark, Share2, Clock, MapPin, Play, Calendar, CheckCircle2,
   ThumbsUp, Hand, Megaphone, HelpCircle, ClipboardList, User, Star, X,
+  Radio, Users, ChevronLeft, ChevronRight,
 } from 'lucide-react';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 import SessionAdminBar from '../../components/sessions/SessionAdminBar';
@@ -63,12 +65,32 @@ export default function SessionDetailScreen() {
   const [loading, setLoading] = useState(true);
   const [item, setItem] = useState(null);
   const [busy, setBusy] = useState('');
-  const [sheet, setSheet] = useState(null); // 'question' | 'feedback' | null
+  const [sheet, setSheet] = useState(null); // 'question' | 'feedback' | 'live' | null
   const [questionText, setQuestionText] = useState('');
   const [rating, setRating] = useState(0);
   const [feedbackText, setFeedbackText] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [expanded, setExpanded] = useState(false);
+
+  // Banner carousel state
+  const [slideIndex, setSlideIndex] = useState(0);
+  const [touchStartX, setTouchStartX] = useState(null);
+
+  // Green Success popup state
+  const [successModal, setSuccessModal] = useState(null); // { title, message } | null
+
+  // Admin Go-Live control state
+  const [streamUrlInput, setStreamUrlInput] = useState('');
+  const [liveToggleInput, setLiveToggleInput] = useState(false);
+
+  // Bookmarked speakers (persisted locally + synced if endpoint exists)
+  const [savedSpeakers, setSavedSpeakers] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem('saved_speakers') || '{}');
+    } catch {
+      return {};
+    }
+  });
 
   useEffect(() => {
     let cancelled = false;
@@ -77,7 +99,15 @@ export default function SessionDetailScreen() {
       setLoading(true);
       try {
         const res = await apiClient.get(`/session-hub/sessions/${id}`);
-        if (!cancelled) setItem(res?.data?.data || null);
+        if (!cancelled) {
+          const data = res?.data?.data || null;
+          setItem(data);
+          setSlideIndex(0);
+          if (data) {
+            setStreamUrlInput(data.stream_url || '');
+            setLiveToggleInput(Boolean(data.is_live));
+          }
+        }
       } catch (err) {
         if (!cancelled) {
           setItem(null);
@@ -138,6 +168,19 @@ export default function SessionDetailScreen() {
     }
   };
 
+  const toggleSpeakerBookmark = (speakerId) => {
+    setSavedSpeakers((prev) => {
+      const next = { ...prev, [speakerId]: !prev[speakerId] };
+      try {
+        localStorage.setItem('saved_speakers', JSON.stringify(next));
+      } catch {
+        // ignore storage errors
+      }
+      toast.success(next[speakerId] ? 'Speaker saved' : 'Speaker removed from saved');
+      return next;
+    });
+  };
+
   const toggleReaction = async (kind) => {
     if (!item || busy) return;
     const active = (item.my_reactions || []).includes(kind);
@@ -162,7 +205,10 @@ export default function SessionDetailScreen() {
     setBusy('checkin');
     try {
       await apiClient.post(`/session-hub/sessions/${id}/check-in`);
-      patch({ is_checked_in: true });
+      patch({
+        is_checked_in: true,
+        checked_in_count: (item.checked_in_count || 0) + 1,
+      });
       toast.success('Checked in');
     } catch (err) {
       toast.error(getErrorMessage(err, 'Could not check you in'));
@@ -182,6 +228,34 @@ export default function SessionDetailScreen() {
       }
     } catch (err) {
       toast.error(getErrorMessage(err, 'This session is not live right now'));
+    }
+  };
+
+  const saveLiveStatus = async () => {
+    const trimmedUrl = streamUrlInput.trim();
+    if (liveToggleInput && !trimmedUrl) {
+      toast.error('Add a stream link before going live');
+      return;
+    }
+    setSubmitting(true);
+    try {
+      const res = await apiClient.post(`/session-hub/sessions/${id}/live`, {
+        is_live: liveToggleInput,
+        stream_url: trimmedUrl || null,
+      });
+      const nowLive = Boolean(res?.data?.data?.is_live);
+      patch({
+        is_live: nowLive,
+        has_stream: nowLive,
+        stream_url: trimmedUrl || null,
+        status: nowLive ? 'live' : item.status === 'live' ? 'upcoming' : item.status,
+      });
+      setSheet(null);
+      toast.success(nowLive ? 'Session is now LIVE!' : 'Live stream ended');
+    } catch (err) {
+      toast.error(getErrorMessage(err, 'Could not update live status'));
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -210,7 +284,10 @@ export default function SessionDetailScreen() {
       await apiClient.post(`/session-hub/sessions/${id}/questions`, { content });
       setQuestionText('');
       setSheet(null);
-      toast.success('Your question has been sent');
+      setSuccessModal({
+        title: 'Success!',
+        message: 'Your question has been submitted to the speaker successfully.',
+      });
     } catch (err) {
       toast.error(getErrorMessage(err, 'Could not send your question'));
     } finally {
@@ -233,7 +310,10 @@ export default function SessionDetailScreen() {
       setRating(0);
       setFeedbackText('');
       setSheet(null);
-      toast.success('Thanks for your feedback');
+      setSuccessModal({
+        title: 'Success!',
+        message: 'Thank you! Your session feedback has been recorded.',
+      });
     } catch (err) {
       toast.error(getErrorMessage(err, 'Could not save your feedback'));
     } finally {
@@ -265,6 +345,14 @@ export default function SessionDetailScreen() {
       </div>
     );
   }
+
+  const gallery = Array.isArray(item.images) && item.images.length > 0
+    ? item.images
+    : item.image_url
+      ? [item.image_url]
+      : [];
+
+  const safeSlide = gallery.length > 0 ? slideIndex % gallery.length : 0;
 
   const reactionCounts = item.reactions || {};
   const myReactions = item.my_reactions || [];
@@ -299,12 +387,93 @@ export default function SessionDetailScreen() {
         </div>
       </div>
 
-            <SessionAdminBar sessionId={id} onChanged={() => window.location.reload()} />
+      <SessionAdminBar sessionId={id} onChanged={() => window.location.reload()} />
 
-      {/* Banner */}
-      <div className="relative h-44 bg-gradient-to-br from-slate-700 to-slate-900 overflow-hidden">
-        {item.image_url && (
-          <img src={item.image_url} alt="" className="absolute inset-0 w-full h-full object-cover" />
+      {/* Admin Live & Attendance Bar */}
+      {item.is_admin_viewer && (
+        <div className="mx-4 mt-3 flex flex-wrap items-center justify-between gap-2 rounded-xl bg-slate-50 border border-slate-200 px-3 py-2.5">
+          <div className="flex items-center gap-2 text-xs font-semibold text-slate-700">
+            <Users size={15} className="text-[#0000c8]" />
+            <span>
+              Checked in: {item.checked_in_count || 0} / {item.attendee_count || 0} scheduled
+            </span>
+            {item.publish_status && item.publish_status !== 'published' && (
+              <span className="ml-1 rounded-full bg-amber-100 text-amber-800 px-2 py-0.5 text-[11px] uppercase">
+                {item.publish_status}
+              </span>
+            )}
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              setStreamUrlInput(item.stream_url || '');
+              setLiveToggleInput(Boolean(item.is_live));
+              setSheet('live');
+            }}
+            className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold ${
+              item.is_live
+                ? 'bg-red-600 text-white'
+                : 'border border-slate-300 bg-white text-slate-800'
+            }`}
+          >
+            <Radio size={14} />
+            {item.is_live ? 'Manage Live Stream' : 'Go Live'}
+          </button>
+        </div>
+      )}
+
+      {/* Multi-photo Swipeable Banner Carousel */}
+      <div
+        className="relative h-48 bg-gradient-to-br from-slate-700 to-slate-900 overflow-hidden mt-2"
+        onTouchStart={(e) => setTouchStartX(e.touches[0]?.clientX ?? null)}
+        onTouchEnd={(e) => {
+          if (touchStartX === null || gallery.length <= 1) return;
+          const delta = (e.changedTouches[0]?.clientX ?? touchStartX) - touchStartX;
+          if (delta < -40) setSlideIndex((i) => (i + 1) % gallery.length);
+          if (delta > 40) setSlideIndex((i) => (i - 1 + gallery.length) % gallery.length);
+          setTouchStartX(null);
+        }}
+      >
+        {gallery.length > 0 && (
+          <img
+            src={gallery[safeSlide]}
+            alt=""
+            className="absolute inset-0 w-full h-full object-cover transition-opacity duration-300"
+          />
+        )}
+
+        {gallery.length > 1 && (
+          <>
+            <button
+              type="button"
+              onClick={() => setSlideIndex((i) => (i - 1 + gallery.length) % gallery.length)}
+              aria-label="Previous slide"
+              className="absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/40 text-white flex items-center justify-center"
+            >
+              <ChevronLeft size={18} />
+            </button>
+            <button
+              type="button"
+              onClick={() => setSlideIndex((i) => (i + 1) % gallery.length)}
+              aria-label="Next slide"
+              className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/40 text-white flex items-center justify-center"
+            >
+              <ChevronRight size={18} />
+            </button>
+            <div className="absolute bottom-2.5 inset-x-0 flex justify-center gap-1.5">
+              {gallery.map((_, idx) => (
+                <button
+                  key={idx}
+                  type="button"
+                  onClick={() => setSlideIndex(idx)}
+                  aria-label={`Slide ${idx + 1}`}
+                  className={`h-2 rounded-full transition-all ${
+                    idx === safeSlide ? 'w-5 bg-white' : 'w-2 bg-white/50'
+                  }`}
+                />
+              ))}
+            </div>
+          </>
         )}
       </div>
 
@@ -331,7 +500,7 @@ export default function SessionDetailScreen() {
               onClick={() => toggleReaction(key)}
               disabled={busy === `reaction-${key}`}
               aria-label={label}
-              className={`flex items-center gap-1.5 text-sm ${active ? 'text-[#0000c8]' : 'text-slate-500'}`}
+              className={`flex items-center gap-1.5 text-sm ${active ? 'text-[#0000c8] font-semibold' : 'text-slate-500'}`}
             >
               <Icon size={18} />
               <span>{reactionCounts[key] || 0}</span>
@@ -344,7 +513,7 @@ export default function SessionDetailScreen() {
       <div className="px-4 pt-4 space-y-2">
         {item.is_live ? (
           <p className="flex items-center gap-1.5 text-sm font-semibold text-red-500">
-            <span className="w-1.5 h-1.5 rounded-full bg-red-500" />
+            <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
             Live and Streaming
           </p>
         ) : item.status === 'ended' ? (
@@ -456,19 +625,50 @@ export default function SessionDetailScreen() {
         </div>
       )}
 
-      {/* Speakers */}
+      {/* Enriched Speakers Section */}
       {(item.speakers || []).length > 0 && (
         <div className="px-4 pt-6">
           <p className="text-sm font-semibold text-slate-900 mb-2">Speakers</p>
-          <div className="space-y-2">
-            {item.speakers.map((sp) => (
-              <div key={sp.id} className="flex items-center gap-3 rounded-xl border border-slate-200 p-3">
-                <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-500">
-                  <User size={18} />
+          <div className="space-y-2.5">
+            {item.speakers.map((sp) => {
+              const isSpSaved = Boolean(savedSpeakers[sp.id]);
+              return (
+                <div
+                  key={sp.id}
+                  className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 p-3 bg-white shadow-sm"
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    {sp.avatar_url ? (
+                      <img
+                        src={sp.avatar_url}
+                        alt={sp.name}
+                        className="w-12 h-12 rounded-full object-cover border border-slate-200 shrink-0"
+                      />
+                    ) : (
+                      <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 shrink-0">
+                        <User size={20} />
+                      </div>
+                    )}
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-slate-900 truncate">{sp.name}</p>
+                      {(sp.designation || sp.company) && (
+                        <p className="text-xs text-slate-500 truncate mt-0.5">
+                          {[sp.designation, sp.company].filter(Boolean).join(' • ')}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => toggleSpeakerBookmark(sp.id)}
+                    aria-label={isSpSaved ? 'Remove speaker bookmark' : 'Bookmark speaker'}
+                    className={`p-1.5 shrink-0 ${isSpSaved ? 'text-amber-500' : 'text-slate-400'}`}
+                  >
+                    <Bookmark size={18} fill={isSpSaved ? 'currentColor' : 'none'} />
+                  </button>
                 </div>
-                <p className="text-sm font-semibold text-slate-900">{sp.name}</p>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}
@@ -550,6 +750,84 @@ export default function SessionDetailScreen() {
               className="w-full mt-3 rounded-lg bg-[#0000c8] text-white py-3 font-semibold disabled:opacity-50"
             >
               {submitting ? 'Sending...' : 'Submit feedback'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Admin Go-Live sheet */}
+      {sheet === 'live' && (
+        <div className="fixed inset-0 bg-black/50 z-[60] flex items-end justify-center" onClick={() => setSheet(null)}>
+          <div
+            className="bg-white w-full max-w-[430px] rounded-t-2xl p-4 mb-16 space-y-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between">
+              <p className="font-semibold text-slate-900">Live Stream Controls</p>
+              <button type="button" onClick={() => setSheet(null)} aria-label="Close" className="text-slate-500">
+                <X size={20} />
+              </button>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">
+                Stream URL (YouTube, Zoom, Vimeo, or meeting link)
+              </label>
+              <input
+                type="url"
+                value={streamUrlInput}
+                onChange={(e) => setStreamUrlInput(e.target.value)}
+                placeholder="https://..."
+                className="w-full border border-slate-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+
+            <label className="flex items-center justify-between rounded-xl border border-slate-200 p-3 cursor-pointer">
+              <div>
+                <p className="text-sm font-semibold text-slate-900">Session is Live Now</p>
+                <p className="text-xs text-slate-500">Attendees will see the red Live badge and Watch button</p>
+              </div>
+              <input
+                type="checkbox"
+                checked={liveToggleInput}
+                onChange={(e) => setLiveToggleInput(e.target.checked)}
+                className="w-5 h-5 accent-red-600"
+              />
+            </label>
+
+            <button
+              type="button"
+              onClick={saveLiveStatus}
+              disabled={submitting}
+              className="w-full rounded-lg bg-[#0000c8] text-white py-3 font-semibold disabled:opacity-50"
+            >
+              {submitting ? 'Saving...' : 'Save Live Settings'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Green "Success!" Modal Popup (matches reference video) */}
+      {successModal && (
+        <div
+          className="fixed inset-0 bg-black/50 z-[70] flex items-center justify-center px-6"
+          onClick={() => setSuccessModal(null)}
+        >
+          <div
+            className="bg-white w-full max-w-[340px] rounded-2xl p-6 text-center shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="w-16 h-16 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto mb-4">
+              <CheckCircle2 size={36} />
+            </div>
+            <h3 className="text-lg font-bold text-slate-900">{successModal.title}</h3>
+            <p className="text-sm text-slate-600 mt-2">{successModal.message}</p>
+            <button
+              type="button"
+              onClick={() => setSuccessModal(null)}
+              className="w-full mt-5 rounded-xl bg-emerald-600 text-white py-2.5 font-semibold"
+            >
+              Okay
             </button>
           </div>
         </div>

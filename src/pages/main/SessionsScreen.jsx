@@ -83,11 +83,10 @@ const normalizeAi = (r) => ({
 });
 
 function StatusLabel({ item }) {
-  if (item.is_live) {
+  if (item.publish_status === 'draft' || item.is_published === false) {
     return (
-      <span className="flex items-center gap-1 text-xs font-semibold text-red-500">
-        <span className="w-1.5 h-1.5 rounded-full bg-red-500" />
-        Live and Streaming
+      <span className="rounded-full bg-amber-100 text-amber-800 px-2.5 py-0.5 text-xs font-semibold">
+        Draft
       </span>
     );
   }
