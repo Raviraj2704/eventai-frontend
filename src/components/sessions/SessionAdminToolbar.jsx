@@ -51,10 +51,25 @@ export default function SessionAdminToolbar({ onChanged }) {
 
   const loadRoles = useCallback(async () => {
     try {
+      // First, try to ask the backend
       const res = await apiClient.get('/session-admin/me/roles');
       setRoles(res?.data?.data || { is_admin: false, is_speaker: false });
     } catch (error) {
-      console.error('Could not load session roles:', error);
+      console.error('Could not load session roles from API, falling back to local storage');
+      
+      // FALLBACK: Read directly from the logged-in user data saved in the browser
+      try {
+        const localUserStr = localStorage.getItem('user'); // Or whatever key you use to store auth
+        if (localUserStr) {
+          const localUser = JSON.parse(localUserStr);
+          setRoles({
+            is_admin: localUser.role === 'admin' || localUser.is_admin === true,
+            is_speaker: localUser.role === 'speaker'
+          });
+        }
+      } catch (parseError) {
+         setRoles({ is_admin: false, is_speaker: false });
+      }
     } finally {
       setLoadedRoles(true);
     }
