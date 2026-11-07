@@ -191,6 +191,8 @@ const MyCalendarIcon = () => (
 );
 
 const EngagementCenterIcon = () => (
+  { label: 'Polls', icon: BarChart3, path: '/engagement-center' },
+  { label: 'Leaderboard', icon: Trophy, path: '/engagement-center?tab=leaderboard' },
   <svg width="48" height="48" viewBox="0 0 48 48" fill="none" className="drop-shadow-md">
     <circle cx="24" cy="24" r="5" fill="#FF007A" />
     <circle cx="12" cy="16" r="3.5" fill="#00E5FF" />
@@ -500,7 +502,7 @@ export default function HubScreen() {
             </div>
             
             <button
-              onClick={() => { setShowEngagementSheet(false); navigate('/polls'); }}
+              onClick={() => { setShowEngagementSheet(false); navigate('/engagement-center'); }}
               className="w-full flex items-center gap-4 p-4 rounded-2xl bg-slate-50 hover:bg-slate-100 transition-colors border border-slate-100"
             >
               <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center font-bold">
@@ -510,7 +512,7 @@ export default function HubScreen() {
             </button>
 
             <button
-              onClick={() => { setShowEngagementSheet(false); navigate('/activity-hub'); }}
+              onClick={() => { setShowEngagementSheet(false); navigate('/engagement-center?tab=leaderboard'); }}
               className="w-full flex items-center gap-4 p-4 rounded-2xl bg-slate-50 hover:bg-slate-100 transition-colors border border-slate-100"
             >
               <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center font-bold">

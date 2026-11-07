@@ -17,7 +17,7 @@ import PrivateRoute from './components/Auth/PrivateRoute';
 import BottomNavigation from './components/layout/BottomNavigation';
 import AIAssistant from './components/ai/AIAssistant';
 import LoadingSpinner from './components/common/LoadingSpinner';
-import PollsScreen from './pages/main/PollsScreen';
+
 
 // ============================================================================
 // LAZY LOADED PAGES (Code Splitting for instant initial load)
@@ -151,7 +151,6 @@ function App() {
           h(Route, { path: '/profile', element: wrapPrivate(ProfileScreen) }),
           h(Route, { path: '/event-info', element: wrapPrivate(EventInfoScreen) }),
           h(Route, { path: '/sessions/:id', element: wrapPrivate(SessionDetailScreen) }),
-          h(Route, { path: '/polls', element: wrapPrivate(PollsScreen) }),
 
           // Engagement Routes
           h(Route, { path: '/social-wall', element: wrapPrivate(SocialWallScreen) }),
@@ -160,6 +159,7 @@ function App() {
           h(Route, { path: '/partners', element: wrapPrivate(PartnersScreen) }),
           h(Route, { path: '/partners/:partnerId', element: wrapPrivate(PartnerDetailScreen) }),
           h(Route, { path: '/briefcase', element: wrapPrivate(BriefcaseScreen) }),
+          h(Route, { path: '/polls', element: h(Navigate, { to: '/engagement-center', replace: true }) }),
 
           // Gamification & Learning Routes
           h(Route, { path: '/ratings', element: wrapPrivate(RatingsScreen) }),
