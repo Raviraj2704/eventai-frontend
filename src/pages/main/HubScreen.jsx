@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { MessageSquare, Bell, ChevronRight, Sparkles } from 'lucide-react';
+import { MessageSquare, Bell, ChevronRight, Sparkles, BarChart3, Trophy } from 'lucide-react';
 
 // ============================================================================
 // 3D GLOSSY / IRIDESCENT ILLUSTRATED ICONS (MATCHING XD PROTOTYPE)

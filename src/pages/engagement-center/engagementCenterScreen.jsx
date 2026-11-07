@@ -1,8 +1,8 @@
 // ============================================================================
 // Engagement Center (matches the reference video)
 // File: src/pages/engagement-center/engagementCenterScreen.jsx
-// Route: /engagement-center            (default tab: Polls)
-//        /engagement-center?tab=leaderboard
+// Routes: /engagement-center            (Polls)
+//         /engagement-center?tab=leaderboard
 // Real API only:
 //   GET    /session-admin/me/roles         is this account an organizer
 //   GET    /engagement/polls               poll list
@@ -16,7 +16,9 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { ArrowLeft, Plus, Trash2, X, CheckCircle2, BarChart3, Trophy } from 'lucide-react';
+import {
+  ArrowLeft, Plus, Trash2, X, CheckCircle2, BarChart3, Trophy, Crown, Bell, MessageSquare,
+} from 'lucide-react';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 import apiClient from '../../config/apiClient';
 
@@ -49,12 +51,62 @@ const readOptions = (poll) =>
     votes: Number(o.vote_count ?? o.votes ?? o.votes_count ?? 0),
   }));
 
-const readMyVote = (poll) => poll.my_vote_option_id ?? poll.user_vote_option_id ?? poll.voted_option_id ?? null;
+const readMyVote = (poll) =>
+  poll.my_vote_option_id ?? poll.user_vote_option_id ?? poll.voted_option_id ?? null;
+
+// ----------------------------------------------------------------------------
+// Leaderboard podium (same layout as the Home screen)
+// ----------------------------------------------------------------------------
+function Podium({ top }) {
+  const order = [top[1], top[0], top[2]];
+  return (
+    <div className="flex items-end justify-center gap-2 pt-6">
+      {order.map((entry, i) => {
+        if (!entry) return <div key={`empty-${i}`} className="flex-1" />;
+        const isFirst = entry.rank === 1;
+        return (
+          <div
+            key={entry.user_id ?? i}
+            className={`flex-1 flex flex-col items-center text-center rounded-2xl px-2 py-4 ${
+              isFirst ? 'bg-[#0000c8] text-white shadow-lg -mt-4' : 'bg-white border border-slate-200 text-slate-900'
+            }`}
+          >
+            <div className="relative">
+              {isFirst && (
+                <Crown size={22} className="absolute -top-5 left-1/2 -translate-x-1/2 text-amber-400 fill-amber-300" />
+              )}
+              {entry.avatar_url ? (
+                <img
+                  src={entry.avatar_url}
+                  alt={entry.name}
+                  className={`${isFirst ? 'w-20 h-20' : 'w-16 h-16'} rounded-full object-cover ring-4 ring-white`}
+                />
+              ) : (
+                <div
+                  className={`${isFirst ? 'w-20 h-20 text-xl' : 'w-16 h-16 text-base'} rounded-full bg-slate-100 text-slate-600 flex items-center justify-center font-semibold ring-4 ring-white`}
+                >
+                  {initialsOf(entry.name)}
+                </div>
+              )}
+            </div>
+            <p className={`mt-2 text-xs font-medium ${isFirst ? 'text-white/85' : 'text-slate-500'}`}>
+              #{entry.rank}
+            </p>
+            <p className="text-sm font-semibold truncate w-full">{entry.name}</p>
+            <p className={`text-sm font-bold ${isFirst ? 'text-white' : 'text-[#0000c8]'}`}>
+              {entry.total_points}
+            </p>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
 
 // ----------------------------------------------------------------------------
 // Polls tab
 // ----------------------------------------------------------------------------
-function PollsTab({ isAdmin, polls, loading, onVote, onDelete, onCreate, busyId }) {
+function PollsTab({ isAdmin, polls, loading, onVote, onDelete, busyId }) {
   if (loading) {
     return (
       <div className="py-16">
@@ -63,23 +115,12 @@ function PollsTab({ isAdmin, polls, loading, onVote, onDelete, onCreate, busyId 
     );
   }
 
+  if (polls.length === 0) {
+    return <p className="text-center text-sm text-slate-500 py-12">No active polls right now.</p>;
+  }
+
   return (
     <div className="px-4 pt-4 space-y-4">
-      {isAdmin && (
-        <button
-          type="button"
-          onClick={onCreate}
-          className="w-full flex items-center justify-center gap-2 rounded-xl bg-[#0000c8] text-white py-3 font-semibold"
-        >
-          <Plus size={18} />
-          Create poll
-        </button>
-      )}
-
-      {polls.length === 0 && (
-        <p className="text-center text-sm text-slate-500 py-12">No polls yet.</p>
-      )}
-
       {polls.map((poll) => {
         const options = readOptions(poll);
         const total = Number(poll.total_votes ?? options.reduce((sum, o) => sum + o.votes, 0));
@@ -91,9 +132,7 @@ function PollsTab({ isAdmin, polls, loading, onVote, onDelete, onCreate, busyId 
             <div className="flex justify-between items-start gap-3">
               <div className="min-w-0">
                 <p className="text-base font-semibold text-slate-900">{poll.question}</p>
-                {poll.description && (
-                  <p className="text-sm text-slate-600 mt-1">{poll.description}</p>
-                )}
+                {poll.description && <p className="text-sm text-slate-600 mt-1">{poll.description}</p>}
               </div>
               {isAdmin && (
                 <button
@@ -111,7 +150,7 @@ function PollsTab({ isAdmin, polls, loading, onVote, onDelete, onCreate, busyId 
             <div className="mt-4 space-y-2">
               {options.map((opt) => {
                 const percent = total > 0 ? Math.round((opt.votes / total) * 100) : 0;
-                const selected = myVote !== null && Number(myVote) === Number(opt.id);
+                const selected = hasVoted && Number(myVote) === Number(opt.id);
 
                 return (
                   <button
@@ -119,16 +158,12 @@ function PollsTab({ isAdmin, polls, loading, onVote, onDelete, onCreate, busyId 
                     type="button"
                     disabled={hasVoted || busyId === poll.id}
                     onClick={() => onVote(poll, opt.id)}
-                    className={`relative w-full overflow-hidden rounded-xl border px-4 py-3 text-left text-sm font-medium ${
+                    className={`relative w-full overflow-hidden rounded-xl border px-4 py-3 text-left text-sm font-medium disabled:cursor-default ${
                       selected ? 'border-[#0000c8] text-[#0000c8]' : 'border-slate-300 text-slate-800'
-                    } disabled:cursor-default`}
+                    }`}
                   >
                     {hasVoted && (
-                      <span
-                        className="absolute inset-y-0 left-0 bg-blue-100"
-                        style={{ width: `${percent}%` }}
-                        aria-hidden="true"
-                      />
+                      <span className="absolute inset-y-0 left-0 bg-blue-100" style={{ width: `${percent}%` }} aria-hidden="true" />
                     )}
                     <span className="relative flex justify-between items-center gap-2">
                       <span className="flex items-center gap-2">
@@ -210,26 +245,28 @@ function LeaderboardTab() {
         </div>
       )}
 
-      {top.length === 0 && (
-        <p className="text-center text-sm text-slate-500 py-12">No points earned yet.</p>
-      )}
+      {top.length >= 3 && <Podium top={top} />}
 
-      <div className="rounded-2xl border border-slate-200 bg-white divide-y divide-slate-200">
-        {top.map((entry) => (
-          <div key={entry.user_id ?? entry.rank} className="flex items-center gap-3 p-4">
-            <span className="w-7 text-center text-sm font-bold text-slate-500">#{entry.rank}</span>
-            {entry.avatar_url ? (
-              <img src={entry.avatar_url} alt={entry.name} className="w-10 h-10 rounded-full object-cover" />
-            ) : (
-              <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-sm font-semibold text-slate-600">
-                {initialsOf(entry.name)}
-              </div>
-            )}
-            <p className="flex-1 min-w-0 text-sm font-semibold text-slate-900 truncate">{entry.name}</p>
-            <p className="text-sm font-bold text-[#0000c8]">{entry.total_points}</p>
-          </div>
-        ))}
-      </div>
+      {top.length === 0 && <p className="text-center text-sm text-slate-500 py-12">No points earned yet.</p>}
+
+      {top.length > 0 && (
+        <div className="rounded-2xl border border-slate-200 bg-white divide-y divide-slate-200">
+          {top.map((entry) => (
+            <div key={entry.user_id ?? entry.rank} className="flex items-center gap-3 p-4">
+              <span className="w-7 text-center text-sm font-bold text-slate-500">#{entry.rank}</span>
+              {entry.avatar_url ? (
+                <img src={entry.avatar_url} alt={entry.name} className="w-10 h-10 rounded-full object-cover" />
+              ) : (
+                <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-sm font-semibold text-slate-600">
+                  {initialsOf(entry.name)}
+                </div>
+              )}
+              <p className="flex-1 min-w-0 text-sm font-semibold text-slate-900 truncate">{entry.name}</p>
+              <p className="text-sm font-bold text-[#0000c8]">{entry.total_points}</p>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -305,22 +342,12 @@ function CreatePollSheet({ onClose, onCreated }) {
         <form onSubmit={submit} className="flex-1 overflow-y-auto p-4 space-y-4">
           <div>
             <label className="text-sm font-semibold text-slate-800">Question</label>
-            <input
-              type="text"
-              value={question}
-              onChange={(e) => setQuestion(e.target.value)}
-              className={`${inputClass} mt-1`}
-            />
+            <input type="text" value={question} onChange={(e) => setQuestion(e.target.value)} className={`${inputClass} mt-1`} />
           </div>
 
           <div>
             <label className="text-sm font-semibold text-slate-800">Description (optional)</label>
-            <textarea
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              rows={2}
-              className={`${inputClass} mt-1`}
-            />
+            <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={2} className={`${inputClass} mt-1`} />
           </div>
 
           <div className="space-y-2">
@@ -436,13 +463,35 @@ export default function EngagementCenterScreen() {
 
   return (
     <div className="min-h-screen bg-white max-w-[430px] mx-auto pb-28">
-      <div className="flex items-center gap-3 px-4 py-4 border-b border-slate-200">
-        <button type="button" onClick={() => navigate('/hub')} aria-label="Back" className="text-slate-700">
-          <ArrowLeft size={22} />
-        </button>
-        <h1 className="text-lg font-semibold text-slate-900">Engagement Center</h1>
+      {/* Header, same style as Hub and Sessions */}
+      <div className="bg-[#0c1b78] text-white px-4 pt-5 pb-4 flex justify-between items-center">
+        <div className="flex items-center gap-3">
+          <button type="button" onClick={() => navigate('/hub')} aria-label="Back" className="text-white">
+            <ArrowLeft size={22} />
+          </button>
+          <h1 className="text-xl font-bold">Engagement Center</h1>
+        </div>
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={() => navigate('/networking')}
+            aria-label="Messages"
+            className="w-10 h-10 rounded-full bg-white/15 flex items-center justify-center"
+          >
+            <MessageSquare size={18} />
+          </button>
+          <button
+            type="button"
+            onClick={() => navigate('/announcements')}
+            aria-label="Notifications"
+            className="w-10 h-10 rounded-full bg-white/15 flex items-center justify-center"
+          >
+            <Bell size={18} />
+          </button>
+        </div>
       </div>
 
+      {/* Tabs */}
       <div className="flex gap-2 px-4 pt-4">
         <button
           type="button"
@@ -466,6 +515,20 @@ export default function EngagementCenterScreen() {
         </button>
       </div>
 
+      {/* Organizer-only Create button, shown on the Polls tab */}
+      {tab === 'polls' && isAdmin && (
+        <div className="px-4 pt-4">
+          <button
+            type="button"
+            onClick={() => setCreateOpen(true)}
+            className="w-full flex items-center justify-center gap-2 rounded-xl bg-[#0000c8] text-white py-3 font-semibold"
+          >
+            <Plus size={18} />
+            Create poll
+          </button>
+        </div>
+      )}
+
       {tab === 'polls' ? (
         <PollsTab
           isAdmin={isAdmin}
@@ -474,7 +537,6 @@ export default function EngagementCenterScreen() {
           busyId={busyId}
           onVote={vote}
           onDelete={removePoll}
-          onCreate={() => setCreateOpen(true)}
         />
       ) : (
         <LeaderboardTab />
