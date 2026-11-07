@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { BarChart2, Plus, Trash2, X, CheckCircle, ArrowLeft, Loader } from 'lucide-react';
+import { Search, Bell, User, Menu, Plus, Trash2, X, CheckCircle, BarChart2, Loader } from 'lucide-react';
 import toast from 'react-hot-toast';
 import apiClient from '../../config/apiClient';
 
@@ -10,7 +10,6 @@ export default function PollsScreen() {
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
 
-  // Create Poll Modal State
   const [showCreate, setShowCreate] = useState(false);
   const [newQuestion, setNewQuestion] = useState('');
   const [newOptions, setNewOptions] = useState(['', '']);
@@ -26,35 +25,30 @@ export default function PollsScreen() {
       const res = await apiClient.get('/users/me');
       const user = res.data?.data || res.data;
       setIsAdmin(user?.role === 'admin' || user?.is_admin === true);
-    } catch (err) {
-      console.error('Failed to check admin status', err);
-    }
+    } catch (err) { }
   };
 
   const fetchPolls = async () => {
     try {
-      // Adjust this endpoint if your backend uses a different path like /activity/polls
       const res = await apiClient.get('/session-hub/polls'); 
       const data = res.data?.data || res.data || [];
       setPolls(Array.isArray(data) ? data : []);
     } catch (err) {
       console.error('Failed to fetch polls', err);
-      toast.error('Failed to load polls');
     } finally {
       setLoading(false);
     }
   };
 
   const handleVote = async (pollId, optionIndex) => {
-    // Optimistic UI update
     const updatedPolls = polls.map(p => {
       if (p.id === pollId && !p.has_voted) {
-        const newTotal = (p.total_votes || 0) + 1;
         const newOptions = [...p.options];
         newOptions[optionIndex] = {
           ...newOptions[optionIndex],
           votes: (newOptions[optionIndex].votes || 0) + 1
         };
+        const newTotal = newOptions.reduce((acc, curr) => acc + (curr.votes || 0), 0);
         return { ...p, has_voted: true, selected_option: optionIndex, total_votes: newTotal, options: newOptions };
       }
       return p;
@@ -64,21 +58,18 @@ export default function PollsScreen() {
     try {
       await apiClient.post(`/session-hub/polls/${pollId}/vote`, { option_index: optionIndex });
     } catch (err) {
-      console.error('Vote failed', err);
       toast.error('Failed to record vote');
-      fetchPolls(); // Revert on failure
+      fetchPolls();
     }
   };
 
   const handleDelete = async (pollId) => {
-    if (!window.confirm('Are you sure you want to delete this poll?')) return;
-    
+    if (!window.confirm('Delete this poll?')) return;
     try {
       await apiClient.delete(`/session-hub/polls/${pollId}`);
       setPolls(polls.filter(p => p.id !== pollId));
       toast.success('Poll deleted');
     } catch (err) {
-      console.error('Delete failed', err);
       toast.error('Failed to delete poll');
     }
   };
@@ -86,206 +77,133 @@ export default function PollsScreen() {
   const handleCreateSubmit = async (e) => {
     e.preventDefault();
     const validOptions = newOptions.filter(o => o.trim() !== '');
-    if (!newQuestion.trim() || validOptions.length < 2) {
-      toast.error('Question and at least 2 options are required');
-      return;
-    }
-
+    if (!newQuestion.trim() || validOptions.length < 2) return toast.error('Need question and 2 options');
+    
     setCreating(true);
     try {
-      await apiClient.post('/session-hub/polls', {
-        question: newQuestion,
-        options: validOptions
-      });
-      toast.success('Poll created successfully!');
+      await apiClient.post('/session-hub/polls', { question: newQuestion, options: validOptions });
+      toast.success('Poll created!');
       setShowCreate(false);
       setNewQuestion('');
       setNewOptions(['', '']);
       fetchPolls();
     } catch (err) {
-      console.error('Create failed', err);
-      toast.error('Failed to create poll');
+      toast.error('Creation failed');
     } finally {
       setCreating(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 pb-20">
-      {/* Header */}
-      <div className="bg-[#0000c8] text-white p-4 sticky top-0 z-10 shadow-md flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <button onClick={() => navigate(-1)} className="p-1 hover:bg-white/20 rounded-full transition-colors">
-            <ArrowLeft size={24} />
-          </button>
-          <h1 className="text-xl font-bold">Community Polls</h1>
+    <div className="min-h-screen bg-slate-50 pb-20">
+      {/* EventAI Standard Top Navbar */}
+      <div className="flex items-center justify-between p-4 bg-white border-b border-slate-100 sticky top-0 z-20">
+        <div className="flex items-center gap-2">
+          <div className="w-8 h-8 bg-blue-500 rounded-lg flex items-center justify-center text-white font-bold text-lg shadow-sm">
+            E
+          </div>
+          <span className="font-bold text-lg text-slate-800 tracking-tight">EventAI</span>
         </div>
-        {isAdmin && (
-          <button 
-            onClick={() => setShowCreate(true)}
-            className="flex items-center gap-1 bg-white text-[#0000c8] px-3 py-1.5 rounded-lg text-sm font-semibold hover:bg-blue-50 transition-colors"
-          >
-            <Plus size={16} />
-            Create
-          </button>
-        )}
+        <div className="flex items-center gap-4 text-blue-400">
+          <Search size={22} className="hover:text-blue-600 transition-colors" />
+          <Bell size={22} className="hover:text-blue-600 transition-colors" />
+          <div className="w-8 h-8 bg-blue-400 rounded-full flex items-center justify-center text-white shadow-inner">
+            <User size={18} />
+          </div>
+          <Menu size={24} className="hover:text-blue-600 transition-colors" />
+        </div>
+      </div>
+
+      {/* Blue Theme Banner */}
+      <div className="bg-gradient-to-r from-blue-500 to-indigo-500 text-white p-6 shadow-md">
+        <div className="flex justify-between items-start">
+          <div>
+            <h1 className="text-2xl font-bold mb-1">Community Polls</h1>
+            <p className="text-blue-100 text-sm font-medium">Vote and see what others think</p>
+          </div>
+          {isAdmin && (
+            <button onClick={() => setShowCreate(true)} className="bg-white/20 hover:bg-white/30 backdrop-blur-sm p-2 rounded-xl transition-all">
+              <Plus size={24} />
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Main Content */}
-      <div className="p-4 max-w-2xl mx-auto space-y-4">
+      <div className="p-4 space-y-4 max-w-2xl mx-auto mt-2">
         {loading ? (
-          <div className="flex flex-col items-center justify-center py-20 text-slate-500">
-            <Loader size={32} className="animate-spin mb-3 text-[#0000c8]" />
-            <p>Loading polls...</p>
-          </div>
+          <div className="flex justify-center py-10"><Loader size={32} className="animate-spin text-blue-500" /></div>
         ) : polls.length === 0 ? (
-          <div className="text-center py-16 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
-            <BarChart2 size={48} className="mx-auto text-slate-300 mb-3" />
-            <h3 className="text-lg font-bold text-slate-800 dark:text-white">No Active Polls</h3>
-            <p className="text-sm text-slate-500 mt-1">Check back later for new community questions.</p>
+          <div className="text-center py-12 bg-white rounded-2xl border border-slate-200 shadow-sm">
+            <BarChart2 size={40} className="mx-auto text-slate-300 mb-2" />
+            <h3 className="font-bold text-slate-700">No Active Polls</h3>
           </div>
         ) : (
-          polls.map((poll) => (
-            <div key={poll.id} className="bg-white dark:bg-slate-900 rounded-2xl p-5 shadow-sm border border-slate-200 dark:border-slate-800 relative">
-              {isAdmin && (
-                <button 
-                  onClick={() => handleDelete(poll.id)}
-                  className="absolute top-4 right-4 text-slate-400 hover:text-red-500 hover:bg-red-50 p-1.5 rounded-lg transition-colors"
-                >
-                  <Trash2 size={18} />
-                </button>
-              )}
-              
-              <h2 className="text-lg font-bold text-slate-900 dark:text-white mb-4 pr-8 leading-snug">
-                {poll.question}
-              </h2>
-              
-              <div className="space-y-3">
-                {poll.options.map((opt, idx) => {
-                  const total = poll.total_votes || 0;
-                  const votes = opt.votes || 0;
-                  const percentage = total > 0 ? Math.round((votes / total) * 100) : 0;
-                  const isSelected = poll.selected_option === idx;
-
-                  return (
-                    <div key={idx} className="relative">
-                      {poll.has_voted ? (
-                        // Voted State - Show Progress Bars
-                        <div className="relative overflow-hidden rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 p-3 flex justify-between items-center z-0">
-                          <div 
-                            className={`absolute top-0 left-0 h-full -z-10 transition-all duration-1000 ease-out ${isSelected ? 'bg-blue-100 dark:bg-blue-900/40' : 'bg-slate-200 dark:bg-slate-700/50'}`}
-                            style={{ width: `${percentage}%` }}
-                          />
-                          <div className="flex items-center gap-2">
-                            <span className={`text-sm font-semibold ${isSelected ? 'text-[#0000c8] dark:text-blue-400' : 'text-slate-700 dark:text-slate-300'}`}>
-                              {opt.text || opt}
-                            </span>
-                            {isSelected && <CheckCircle size={14} className="text-[#0000c8] dark:text-blue-400" />}
+          polls.map((poll) => {
+            const totalVotes = poll.options.reduce((acc, curr) => acc + (curr.votes || 0), 0);
+            return (
+              <div key={poll.id} className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 relative">
+                {isAdmin && (
+                  <button onClick={() => handleDelete(poll.id)} className="absolute top-4 right-4 text-slate-300 hover:text-red-500">
+                    <Trash2 size={18} />
+                  </button>
+                )}
+                <h2 className="text-lg font-bold text-slate-800 mb-4 pr-6 leading-tight">{poll.question}</h2>
+                <div className="space-y-3">
+                  {poll.options.map((opt, idx) => {
+                    const percentage = totalVotes > 0 ? Math.round(((opt.votes || 0) / totalVotes) * 100) : 0;
+                    const isSelected = poll.selected_option === idx;
+                    return (
+                      <div key={idx} className="relative">
+                        {poll.has_voted ? (
+                          <div className="relative overflow-hidden rounded-xl border border-slate-100 bg-slate-50 p-3 flex justify-between items-center z-0">
+                            <div className={`absolute top-0 left-0 h-full -z-10 transition-all duration-1000 ${isSelected ? 'bg-blue-100' : 'bg-slate-200'}`} style={{ width: `${percentage}%` }} />
+                            <div className="flex items-center gap-2">
+                              <span className={`text-sm font-bold ${isSelected ? 'text-blue-700' : 'text-slate-600'}`}>{opt.text}</span>
+                              {isSelected && <CheckCircle size={14} className="text-blue-600" />}
+                            </div>
+                            <span className="text-sm font-bold text-slate-600">{percentage}%</span>
                           </div>
-                          <span className="text-sm font-bold text-slate-700 dark:text-slate-300">{percentage}%</span>
-                        </div>
-                      ) : (
-                        // Unvoted State - Clickable Buttons
-                        <button
-                          onClick={() => handleVote(poll.id, idx)}
-                          className="w-full text-left p-3 rounded-xl border-2 border-slate-200 dark:border-slate-700 hover:border-[#0000c8] dark:hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 text-sm font-semibold text-slate-700 dark:text-slate-300 transition-all"
-                        >
-                          {opt.text || opt}
-                        </button>
-                      )}
-                    </div>
-                  );
-                })}
+                        ) : (
+                          <button onClick={() => handleVote(poll.id, idx)} className="w-full text-left p-3 rounded-xl border-2 border-slate-100 hover:border-blue-500 hover:bg-blue-50 text-sm font-bold text-slate-700 transition-all">
+                            {opt.text}
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+                <p className="text-xs font-semibold text-slate-400 mt-4 text-right">{totalVotes} {totalVotes === 1 ? 'vote' : 'votes'}</p>
               </div>
-              <p className="text-xs text-slate-400 mt-4 text-right">
-                {poll.total_votes || 0} {(poll.total_votes === 1) ? 'vote' : 'votes'}
-              </p>
-            </div>
-          ))
+            )
+          })
         )}
       </div>
 
-      {/* Admin Create Poll Modal */}
+      {/* Admin Modal */}
       {showCreate && (
-        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-md overflow-hidden shadow-2xl">
-            <div className="flex justify-between items-center p-4 border-b border-slate-100 dark:border-slate-800">
-              <h3 className="font-bold text-lg text-slate-900 dark:text-white">Create New Poll</h3>
-              <button onClick={() => setShowCreate(false)} className="text-slate-400 hover:text-slate-600">
-                <X size={20} />
-              </button>
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl w-full max-w-md overflow-hidden shadow-2xl">
+            <div className="flex justify-between items-center p-5 border-b border-slate-100 bg-slate-50">
+              <h3 className="font-bold text-lg text-slate-800">New Poll</h3>
+              <button onClick={() => setShowCreate(false)} className="text-slate-400"><X size={20} /></button>
             </div>
-            
-            <form onSubmit={handleCreateSubmit} className="p-4 space-y-4">
-              <div>
-                <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1">Question</label>
-                <input 
-                  type="text"
-                  value={newQuestion}
-                  onChange={(e) => setNewQuestion(e.target.value)}
-                  placeholder="e.g., Which AI tool do you use most?"
-                  className="w-full p-2.5 rounded-lg border border-slate-300 dark:border-slate-700 dark:bg-slate-800 text-sm focus:ring-2 focus:ring-[#0000c8] outline-none"
-                  required
-                />
+            <form onSubmit={handleCreateSubmit} className="p-5 space-y-4">
+              <input type="text" value={newQuestion} onChange={(e) => setNewQuestion(e.target.value)} placeholder="What's your question?" className="w-full p-3 rounded-xl border-2 border-slate-100 font-semibold text-slate-800 focus:border-blue-500 outline-none" required />
+              <div className="space-y-2">
+                {newOptions.map((opt, idx) => (
+                  <div key={idx} className="flex gap-2">
+                    <input type="text" value={opt} onChange={(e) => { const updated = [...newOptions]; updated[idx] = e.target.value; setNewOptions(updated); }} placeholder={`Option ${idx + 1}`} className="flex-1 p-3 rounded-xl border-2 border-slate-100 font-medium text-slate-700 focus:border-blue-500 outline-none" required={idx < 2} />
+                    {idx >= 2 && <button type="button" onClick={() => setNewOptions(newOptions.filter((_, i) => i !== idx))} className="p-3 text-red-500 bg-red-50 rounded-xl"><Trash2 size={18} /></button>}
+                  </div>
+                ))}
               </div>
-
-              <div>
-                <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1">Options</label>
-                <div className="space-y-2">
-                  {newOptions.map((opt, idx) => (
-                    <div key={idx} className="flex gap-2">
-                      <input 
-                        type="text"
-                        value={opt}
-                        onChange={(e) => {
-                          const updated = [...newOptions];
-                          updated[idx] = e.target.value;
-                          setNewOptions(updated);
-                        }}
-                        placeholder={`Option ${idx + 1}`}
-                        className="flex-1 p-2.5 rounded-lg border border-slate-300 dark:border-slate-700 dark:bg-slate-800 text-sm outline-none"
-                        required={idx < 2}
-                      />
-                      {idx >= 2 && (
-                        <button 
-                          type="button"
-                          onClick={() => setNewOptions(newOptions.filter((_, i) => i !== idx))}
-                          className="p-2.5 text-red-500 bg-red-50 rounded-lg"
-                        >
-                          <Trash2 size={16} />
-                        </button>
-                      )}
-                    </div>
-                  ))}
-                </div>
-                {newOptions.length < 5 && (
-                  <button 
-                    type="button"
-                    onClick={() => setNewOptions([...newOptions, ''])}
-                    className="mt-2 text-sm text-[#0000c8] font-semibold flex items-center gap-1"
-                  >
-                    <Plus size={16} /> Add Option
-                  </button>
-                )}
-              </div>
-
-              <div className="pt-4 border-t border-slate-100 dark:border-slate-800 flex gap-3">
-                <button 
-                  type="button"
-                  onClick={() => setShowCreate(false)}
-                  className="flex-1 py-2.5 rounded-xl border border-slate-300 text-slate-700 font-semibold"
-                >
-                  Cancel
-                </button>
-                <button 
-                  type="submit"
-                  disabled={creating}
-                  className="flex-1 py-2.5 rounded-xl bg-[#0000c8] text-white font-semibold flex justify-center items-center gap-2 disabled:opacity-70"
-                >
-                  {creating && <Loader size={16} className="animate-spin" />}
-                  Publish Poll
-                </button>
-              </div>
+              {newOptions.length < 5 && (
+                <button type="button" onClick={() => setNewOptions([...newOptions, ''])} className="text-sm text-blue-600 font-bold flex items-center gap-1"><Plus size={16} /> Add Option</button>
+              )}
+              <button type="submit" disabled={creating} className="w-full mt-4 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold flex justify-center items-center gap-2">
+                {creating && <Loader size={16} className="animate-spin" />} Publish Poll
+              </button>
             </form>
           </div>
         </div>
