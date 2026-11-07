@@ -1,593 +1,494 @@
 // ============================================================================
-// Engagement Center Screen - WHITE THEME + FIXED ALL ERRORS
+// Engagement Center (matches the reference video)
+// File: src/pages/engagement-center/engagementCenterScreen.jsx
+// Route: /engagement-center            (default tab: Polls)
+//        /engagement-center?tab=leaderboard
+// Real API only:
+//   GET    /session-admin/me/roles         is this account an organizer
+//   GET    /engagement/polls               poll list
+//   POST   /engagement/polls               create poll (organizer)
+//   DELETE /engagement/polls/{id}          delete poll (organizer)
+//   POST   /engagement/polls/{id}/vote     vote once per poll
+//   GET    /activity/leaderboard/top       top 10 with photos
+//   GET    /leaderboard/me                 your own rank and points
 // ============================================================================
-// File: src/pages/engagement-center/EngagementCenterScreen.jsx
-// Status: Production Ready ✅
 
-import React, { useEffect, useState, useCallback } from 'react'
-import { MessageSquare, HelpCircle, CheckSquare, Plus, Trash2, Loader } from 'lucide-react'
-import toast from 'react-hot-toast'
-import { apiGet, apiPost, apiDelete } from '../../services/api'
+import { useCallback, useEffect, useState } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import toast from 'react-hot-toast';
+import { ArrowLeft, Plus, Trash2, X, CheckCircle2, BarChart3, Trophy } from 'lucide-react';
+import LoadingSpinner from '../../components/common/LoadingSpinner';
+import apiClient from '../../config/apiClient';
 
-export default function EngagementCenterScreen() {
-  const [loading, setLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState('polls')
-  const [polls, setPolls] = useState([])
-  const [quizzes, setQuizzes] = useState([])
-  const [activities, setActivities] = useState([])
-  const [summary, setSummary] = useState(null)
-  const [votingPoll, setVotingPoll] = useState(null)
-  const [selectedQuiz, setSelectedQuiz] = useState(null)
-  const [quizAnswers, setQuizAnswers] = useState({})
-  const [submittingQuiz, setSubmittingQuiz] = useState(false)
-  const [completingActivity, setCompletingActivity] = useState(null)
-  const [error, setError] = useState(null)
+const MIN_OPTIONS = 2;
+const MAX_OPTIONS = 6;
 
-  // Modal / Create State
-  const [showCreateModal, setShowCreateModal] = useState(false)
-  const [isCreating, setIsCreating] = useState(false)
-  const [createForm, setCreateForm] = useState({
-    title: '',
-    description: '',
-    option1: 'Yes',
-    option2: 'No',
-    difficulty: 'intermediate',
-    priority: 'medium',
-    points_reward: 50,
-    question1: ''
-  })
+const getErrorMessage = (error, fallback) =>
+  error?.data?.detail || error?.response?.data?.detail || error?.message || fallback;
 
-  const loadEngagementData = useCallback(async () => {
-    setLoading(true)
-    setError(null)
-    try {
-      const summaryData = await apiGet('/engagement/summary')
-      setSummary(summaryData?.data || summaryData)
+const unwrapList = (body) => {
+  if (Array.isArray(body)) return body;
+  if (Array.isArray(body?.data)) return body.data;
+  return [];
+};
 
-      if (activeTab === 'polls') {
-        const pollsData = await apiGet('/engagement/polls?limit=20')
-        setPolls(Array.isArray(pollsData?.data) ? pollsData.data : [])
-      } else if (activeTab === 'quizzes') {
-        const quizzesData = await apiGet('/engagement/quizzes?limit=20')
-        setQuizzes(Array.isArray(quizzesData?.data) ? quizzesData.data : [])
-      } else if (activeTab === 'activities') {
-        const activitiesData = await apiGet('/engagement/activities?limit=20')
-        setActivities(Array.isArray(activitiesData?.data) ? activitiesData.data : [])
-      }
-    } catch (err) {
-      console.error('Load error:', err)
-      setError('Failed to load data')
-    } finally {
-      setLoading(false)
-    }
-  }, [activeTab])
+const initialsOf = (name) =>
+  (name || 'A')
+    .split(' ')
+    .filter(Boolean)
+    .map((p) => p[0])
+    .join('')
+    .slice(0, 2)
+    .toUpperCase() || 'A';
 
-  useEffect(() => {
-    loadEngagementData()
-  }, [loadEngagementData])
+// Reads options in whichever shape the backend returns them
+const readOptions = (poll) =>
+  (Array.isArray(poll.options) ? poll.options : []).map((o) => ({
+    id: o.id ?? o.option_id,
+    text: o.option_text ?? o.text ?? o.label ?? '',
+    votes: Number(o.vote_count ?? o.votes ?? o.votes_count ?? 0),
+  }));
 
-  const handleCreateSubmit = async (e) => {
-    e.preventDefault()
-    if (!createForm.title.trim()) {
-      toast.error('Title required')
-      return
-    }
+const readMyVote = (poll) => poll.my_vote_option_id ?? poll.user_vote_option_id ?? poll.voted_option_id ?? null;
 
-    setIsCreating(true)
-    try {
-      if (activeTab === 'polls') {
-        await apiPost('/engagement/polls', {
-          question: createForm.title,
-          description: createForm.description,
-          options: [createForm.option1, createForm.option2]
-        })
-        toast.success('Poll created! 🎉')
-      } else if (activeTab === 'quizzes') {
-        await apiPost('/engagement/quizzes', {
-          title: createForm.title,
-          description: createForm.description,
-          difficulty: createForm.difficulty,
-          points_reward: parseInt(createForm.points_reward) || 50,
-          question1: createForm.question1
-        })
-        toast.success('Quiz created! 🎉')
-      } else if (activeTab === 'activities') {
-        await apiPost('/engagement/activities', {
-          title: createForm.title,
-          description: createForm.description,
-          priority: createForm.priority,
-          points_reward: parseInt(createForm.points_reward) || 50
-        })
-        toast.success('Activity created! 🎉')
-      }
-
-      setShowCreateModal(false)
-      setCreateForm({
-        title: '',
-        description: '',
-        option1: 'Yes',
-        option2: 'No',
-        difficulty: 'intermediate',
-        priority: 'medium',
-        points_reward: 50,
-        question1: ''
-      })
-      loadEngagementData()
-    } catch (err) {
-      console.error('Create error:', err)
-      toast.error('Failed to create')
-    } finally {
-      setIsCreating(false)
-    }
-  }
-
-  const handleDeleteItem = async (type, id) => {
-    if (!window.confirm(`Delete this ${type}?`)) return
-
-    try {
-      if (type === 'poll') {
-        await apiDelete(`/engagement/polls/${id}`)
-        toast.success('Poll deleted')
-      } else if (type === 'quiz') {
-        await apiDelete(`/engagement/quizzes/${id}`)
-        toast.success('Quiz deleted')
-      } else if (type === 'activity') {
-        await apiDelete(`/engagement/activities/${id}`)
-        toast.success('Activity deleted')
-      }
-      loadEngagementData()
-    } catch (err) {
-      console.error('Delete error:', err)
-      toast.error('Failed to delete')
-    }
-  }
-
-  const handleVotePoll = async (pollId, optionId) => {
-    setVotingPoll(pollId)
-    try {
-      await apiPost(`/engagement/polls/${pollId}/vote`, { option_id: optionId })
-      toast.success('Vote recorded! +2 points')
-      loadEngagementData()
-    } catch (err) {
-      console.error('Vote error:', err)
-      toast.error('Vote failed')
-    } finally {
-      setVotingPoll(null)
-    }
-  }
-
-  const handleSelectAnswer = (questionId, answer) => {
-    setQuizAnswers(prev => ({ ...prev, [questionId]: answer }))
-  }
-
-  const handleSubmitQuiz = async (quizId) => {
-    const answers = Object.entries(quizAnswers).map(([questionId, answer]) => ({
-      question_id: parseInt(questionId),
-      answer
-    }))
-
-    if (answers.length === 0) {
-      toast.error('Answer at least one question')
-      return
-    }
-
-    setSubmittingQuiz(true)
-    try {
-      const response = await apiPost(`/engagement/quizzes/${quizId}/submit`, { answers })
-      toast.success(
-        response.passed
-          ? `Completed! Score: ${response.percentage.toFixed(1)}% +${response.points_earned} pts`
-          : `Completed! Score: ${response.percentage.toFixed(1)}%`
-      )
-      setSelectedQuiz(null)
-      setQuizAnswers({})
-      loadEngagementData()
-    } catch (err) {
-      console.error('Submit error:', err)
-      toast.error('Submit failed')
-    } finally {
-      setSubmittingQuiz(false)
-    }
-  }
-
-  const handleCompleteActivity = async (activityId) => {
-    setCompletingActivity(activityId)
-    try {
-      const response = await apiPost(`/engagement/activities/${activityId}/complete`, {})
-      toast.success(`Activity complete! +${response.points_earned || 50} pts`)
-      loadEngagementData()
-    } catch (err) {
-      console.error('Complete error:', err)
-      toast.error('Failed to complete')
-    } finally {
-      setCompletingActivity(null)
-    }
-  }
-
-  if (loading && !summary) {
+// ----------------------------------------------------------------------------
+// Polls tab
+// ----------------------------------------------------------------------------
+function PollsTab({ isAdmin, polls, loading, onVote, onDelete, onCreate, busyId }) {
+  if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-white">
-        <Loader className="w-8 h-8 animate-spin text-blue-500 mr-3" />
-        <span className="text-gray-700">Loading...</span>
+      <div className="py-16">
+        <LoadingSpinner />
       </div>
-    )
+    );
   }
 
   return (
-    <div className="min-h-screen bg-white pb-20">
-      <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white py-8 px-6 shadow-sm">
-        <div className="max-w-6xl mx-auto">
-          <h1 className="text-3xl font-bold mb-2">Engagement Center</h1>
-          <p className="text-blue-50">Participate in polls, quizzes, and activities to earn points</p>
-        </div>
-      </div>
+    <div className="px-4 pt-4 space-y-4">
+      {isAdmin && (
+        <button
+          type="button"
+          onClick={onCreate}
+          className="w-full flex items-center justify-center gap-2 rounded-xl bg-[#0000c8] text-white py-3 font-semibold"
+        >
+          <Plus size={18} />
+          Create poll
+        </button>
+      )}
 
-      <div className="max-w-6xl mx-auto px-6 py-8">
-        {error && (
-          <div className="mb-6 bg-red-50 border border-red-200 text-red-700 p-4 rounded-lg flex items-center justify-between">
-            <span>⚠️ {error}</span>
-            <button onClick={loadEngagementData} className="underline text-sm font-semibold hover:text-red-800">Retry</button>
-          </div>
-        )}
+      {polls.length === 0 && (
+        <p className="text-center text-sm text-slate-500 py-12">No polls yet.</p>
+      )}
 
-        {summary && (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-            <div className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
-              <p className="text-xs text-gray-600 mb-1">Active Polls</p>
-              <p className="text-2xl font-bold text-gray-900">{summary.data?.active_polls || 0}</p>
-            </div>
-            <div className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
-              <p className="text-xs text-gray-600 mb-1">Quizzes</p>
-              <p className="text-2xl font-bold text-gray-900">{summary.data?.quizzes_completed || 0}</p>
-            </div>
-            <div className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
-              <p className="text-xs text-gray-600 mb-1">Activities</p>
-              <p className="text-2xl font-bold text-gray-900">{summary.data?.activities_completed || 0}</p>
-            </div>
-            <div className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
-              <p className="text-xs text-gray-600 mb-1">Points</p>
-              <p className="text-2xl font-bold text-blue-600">+{summary.data?.total_points_this_week || 0}</p>
-            </div>
-          </div>
-        )}
+      {polls.map((poll) => {
+        const options = readOptions(poll);
+        const total = Number(poll.total_votes ?? options.reduce((sum, o) => sum + o.votes, 0));
+        const myVote = readMyVote(poll);
+        const hasVoted = myVote !== null && myVote !== undefined;
 
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-gray-200 mb-8 pb-4">
-          <div className="flex gap-2 overflow-x-auto w-full sm:w-auto">
-            {[
-              { value: 'polls', label: '🗳️ Polls' },
-              { value: 'quizzes', label: '❓ Quizzes' },
-              { value: 'activities', label: '✓ Activities' }
-            ].map(tab => (
-              <button
-                key={tab.value}
-                onClick={() => {
-                  setActiveTab(tab.value)
-                  setSelectedQuiz(null)
-                }}
-                className={`px-4 py-2 font-medium border-b-2 transition-colors whitespace-nowrap ${
-                  activeTab === tab.value
-                    ? 'border-blue-600 text-blue-600'
-                    : 'border-transparent text-gray-600 hover:text-gray-900'
-                }`}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
-
-          <button
-            onClick={() => setShowCreateModal(true)}
-            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors shadow-sm"
-          >
-            <Plus className="w-4 h-4" />
-            Create {activeTab === 'polls' ? 'Poll' : activeTab === 'quizzes' ? 'Quiz' : 'Activity'}
-          </button>
-        </div>
-
-        {activeTab === 'polls' && (
-          <div className="space-y-6">
-            {loading ? (
-              <div className="text-center py-12 text-gray-500">Loading polls...</div>
-            ) : polls.length > 0 ? (
-              polls.map(poll => (
-                <div key={poll.id} className="bg-white border border-gray-200 rounded-lg p-6 relative shadow-sm hover:shadow-md transition-shadow">
-                  <button
-                    onClick={() => handleDeleteItem('poll', poll.id)}
-                    className="absolute top-4 right-4 text-gray-400 hover:text-red-600 transition-colors"
-                    title="Delete poll"
-                  >
-                    <Trash2 className="w-5 h-5" />
-                  </button>
-
-                  <h3 className="text-lg font-bold text-gray-900 mb-2 pr-8">{poll.question || poll.title}</h3>
-                  {poll.description && <p className="text-gray-600 text-sm mb-4">{poll.description}</p>}
-
-                  <div className="space-y-3 mb-6">
-                    {poll.options?.map(option => (
-                      <button
-                        key={option.id}
-                        onClick={() => handleVotePoll(poll.id, option.id)}
-                        disabled={votingPoll === poll.id || poll.user_voted}
-                        className="w-full text-left bg-gray-50 hover:bg-gray-100 disabled:opacity-70 p-4 rounded-lg border border-gray-200 transition-all cursor-pointer"
-                      >
-                        <div className="flex items-center justify-between mb-2">
-                          <span className="font-medium text-gray-900">{option.text}</span>
-                          <span className="text-sm text-blue-600 font-semibold">{(option.percentage || 0).toFixed(0)}%</span>
-                        </div>
-                        <div className="w-full bg-gray-300 rounded-full h-2 mb-2">
-                          <div
-                            className={`h-2 rounded-full transition-all ${option.user_selected ? 'bg-blue-600' : 'bg-gray-400'}`}
-                            style={{ width: `${option.percentage || 0}%` }}
-                          />
-                        </div>
-                        <p className="text-xs text-gray-500">{option.vote_count || 0} votes</p>
-                      </button>
-                    ))}
-                  </div>
-
-                  <div className="text-xs text-gray-500">
-                    {poll.user_voted ? <p className="text-green-600 font-medium">✓ You voted</p> : <p>Total: {poll.total_votes || 0}</p>}
-                  </div>
-                </div>
-              ))
-            ) : (
-              <div className="bg-gray-50 border border-gray-200 rounded-lg p-12 text-center text-gray-500">
-                <MessageSquare className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                <p>No active polls</p>
+        return (
+          <div key={poll.id} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+            <div className="flex justify-between items-start gap-3">
+              <div className="min-w-0">
+                <p className="text-base font-semibold text-slate-900">{poll.question}</p>
+                {poll.description && (
+                  <p className="text-sm text-slate-600 mt-1">{poll.description}</p>
+                )}
               </div>
-            )}
-          </div>
-        )}
-
-        {activeTab === 'quizzes' && (
-          <div className="space-y-6">
-            {loading ? (
-              <div className="text-center py-12 text-gray-500">Loading quizzes...</div>
-            ) : selectedQuiz ? (
-              <div className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm">
+              {isAdmin && (
                 <button
-                  onClick={() => {
-                    setSelectedQuiz(null)
-                    setQuizAnswers({})
-                  }}
-                  className="text-blue-600 hover:text-blue-700 font-medium mb-4"
+                  type="button"
+                  onClick={() => onDelete(poll)}
+                  disabled={busyId === poll.id}
+                  aria-label="Delete poll"
+                  className="text-red-600 disabled:opacity-50"
                 >
-                  ← Back to Quizzes
+                  <Trash2 size={18} />
                 </button>
+              )}
+            </div>
 
-                <h2 className="text-2xl font-bold text-gray-900 mb-2">{selectedQuiz.title}</h2>
-                {selectedQuiz.description && <p className="text-gray-600 mb-6">{selectedQuiz.description}</p>}
+            <div className="mt-4 space-y-2">
+              {options.map((opt) => {
+                const percent = total > 0 ? Math.round((opt.votes / total) * 100) : 0;
+                const selected = myVote !== null && Number(myVote) === Number(opt.id);
 
-                <form onSubmit={(e) => { e.preventDefault(); handleSubmitQuiz(selectedQuiz.id) }}>
-                  <div className="space-y-8 mb-8">
-                    {selectedQuiz.questions?.map((question, idx) => (
-                      <div key={question.id} className="pb-6 border-b border-gray-200">
-                        <div className="flex items-start gap-3 mb-4">
-                          <span className="font-bold text-blue-600 text-lg">{idx + 1}.</span>
-                          <h4 className="text-lg font-semibold text-gray-900 flex-1">{question.text}</h4>
-                        </div>
-
-                        {question.type === 'multiple_choice' && question.options && (
-                          <div className="space-y-2 ml-8">
-                            {question.options.map((option, optIdx) => (
-                              <button
-                                type="button"
-                                key={optIdx}
-                                onClick={() => handleSelectAnswer(question.id, option)}
-                                className={`w-full text-left p-3 rounded-lg border-2 transition-all ${
-                                  quizAnswers[question.id] === option
-                                    ? 'border-blue-600 bg-blue-50'
-                                    : 'border-gray-200 bg-gray-50 hover:border-gray-300'
-                                }`}
-                              >
-                                <span className="text-gray-900">{option}</span>
-                              </button>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-
+                return (
                   <button
-                    type="submit"
-                    disabled={submittingQuiz}
-                    className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-lg font-medium flex items-center justify-center gap-2 transition-colors shadow-sm"
+                    key={opt.id}
+                    type="button"
+                    disabled={hasVoted || busyId === poll.id}
+                    onClick={() => onVote(poll, opt.id)}
+                    className={`relative w-full overflow-hidden rounded-xl border px-4 py-3 text-left text-sm font-medium ${
+                      selected ? 'border-[#0000c8] text-[#0000c8]' : 'border-slate-300 text-slate-800'
+                    } disabled:cursor-default`}
                   >
-                    {submittingQuiz ? (
-                      <>
-                        <Loader className="w-5 h-5 animate-spin" />
-                        Submitting...
-                      </>
-                    ) : (
-                      'Submit Quiz'
+                    {hasVoted && (
+                      <span
+                        className="absolute inset-y-0 left-0 bg-blue-100"
+                        style={{ width: `${percent}%` }}
+                        aria-hidden="true"
+                      />
                     )}
-                  </button>
-                </form>
-              </div>
-            ) : quizzes.length > 0 ? (
-              quizzes.map(quiz => (
-                <div key={quiz.id} className="bg-white border border-gray-200 rounded-lg p-6 relative shadow-sm hover:shadow-md transition-all">
-                  <button
-                    onClick={() => handleDeleteItem('quiz', quiz.id)}
-                    className="absolute top-4 right-4 text-gray-400 hover:text-red-600 transition-colors"
-                    title="Delete quiz"
-                  >
-                    <Trash2 className="w-5 h-5" />
-                  </button>
-
-                  <div className="flex items-center gap-3 mb-2 pr-8">
-                    <h3 className="text-lg font-bold text-gray-900">{quiz.title}</h3>
-                    <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-700 border border-blue-300">
-                      {quiz.difficulty || 'Intermediate'}
+                    <span className="relative flex justify-between items-center gap-2">
+                      <span className="flex items-center gap-2">
+                        {selected && <CheckCircle2 size={16} />}
+                        {opt.text}
+                      </span>
+                      {hasVoted && <span>{percent}%</span>}
                     </span>
-                  </div>
-
-                  {quiz.description && <p className="text-gray-600 text-sm mb-4">{quiz.description}</p>}
-
-                  <div className="grid grid-cols-3 gap-4 mb-6 text-sm bg-gray-50 p-3 rounded-lg border border-gray-200">
-                    <div>
-                      <p className="text-gray-600 text-xs">Questions</p>
-                      <p className="font-bold text-gray-900">{quiz.question_count || 2}</p>
-                    </div>
-                    <div>
-                      <p className="text-gray-600 text-xs">Time</p>
-                      <p className="font-bold text-gray-900">5 min</p>
-                    </div>
-                    <div>
-                      <p className="text-gray-600 text-xs">Reward</p>
-                      <p className="font-bold text-blue-600">+{quiz.points_reward || 50}</p>
-                    </div>
-                  </div>
-
-                  {quiz.user_attempt && (
-                    <div className="bg-green-50 border border-green-300 text-green-800 rounded-lg p-3 mb-4 text-sm">
-                      ✓ Completed - Score: {quiz.user_attempt.percentage.toFixed(1)}%
-                    </div>
-                  )}
-
-                  <button
-                    onClick={() => setSelectedQuiz(quiz)}
-                    disabled={quiz.user_attempt}
-                    className={`w-full py-2.5 rounded-lg font-medium transition-colors ${
-                      quiz.user_attempt
-                        ? 'bg-gray-200 text-gray-600 opacity-50 cursor-not-allowed'
-                        : 'bg-blue-600 hover:bg-blue-700 text-white shadow-sm'
-                    }`}
-                  >
-                    {quiz.user_attempt ? 'Completed' : 'Take Quiz'}
                   </button>
-                </div>
-              ))
-            ) : (
-              <div className="bg-gray-50 border border-gray-200 rounded-lg p-12 text-center text-gray-500">
-                <HelpCircle className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                <p>No quizzes available</p>
-              </div>
-            )}
+                );
+              })}
+            </div>
+
+            <p className="text-xs text-slate-500 mt-3">
+              {total} {total === 1 ? 'vote' : 'votes'}
+              {hasVoted ? ' | You voted' : ''}
+            </p>
           </div>
-        )}
+        );
+      })}
+    </div>
+  );
+}
 
-        {activeTab === 'activities' && (
-          <div className="space-y-4">
-            {loading ? (
-              <div className="text-center py-12 text-gray-500">Loading activities...</div>
-            ) : activities.length > 0 ? (
-              activities.map(activity => (
-                <div key={activity.id} className="bg-white border border-gray-200 rounded-lg p-6 relative shadow-sm hover:shadow-md transition-all">
-                  <button
-                    onClick={() => handleDeleteItem('activity', activity.id)}
-                    className="absolute top-4 right-4 text-gray-400 hover:text-red-600 transition-colors"
-                    title="Delete activity"
-                  >
-                    <Trash2 className="w-5 h-5" />
-                  </button>
+// ----------------------------------------------------------------------------
+// Leaderboard tab
+// ----------------------------------------------------------------------------
+function LeaderboardTab() {
+  const [top, setTop] = useState([]);
+  const [me, setMe] = useState(null);
+  const [loading, setLoading] = useState(true);
 
-                  <div className="flex items-start justify-between mb-3 pr-8">
-                    <div className="flex-1">
-                      <h3 className="text-lg font-bold text-gray-900 mb-1">{activity.title}</h3>
-                      <p className="text-gray-600 text-sm">{activity.description}</p>
-                    </div>
-                    <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-800 border border-amber-300 uppercase">
-                      {activity.priority || 'medium'}
-                    </span>
-                  </div>
+  useEffect(() => {
+    let cancelled = false;
 
-                  <div className="flex items-center justify-between mt-4 pt-3 border-t border-gray-200">
-                    <span className="text-sm font-semibold text-blue-600">+{activity.points_reward || 50} pts</span>
+    const load = async () => {
+      setLoading(true);
+      try {
+        const [topRes, meRes] = await Promise.all([
+          apiClient.get('/activity/leaderboard/top', { params: { limit: 10 } }),
+          apiClient.get('/leaderboard/me').catch(() => null),
+        ]);
+        if (cancelled) return;
+        setTop(unwrapList(topRes?.data));
+        setMe(meRes?.data?.data || null);
+      } catch (error) {
+        if (!cancelled) toast.error(getErrorMessage(error, 'Could not load the leaderboard'));
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
 
-                    <button
-                      onClick={() => handleCompleteActivity(activity.id)}
-                      disabled={activity.is_completed_by_user || completingActivity === activity.id}
-                      className={`px-6 py-2 rounded-lg font-medium transition-colors ${
-                        activity.is_completed_by_user
-                          ? 'bg-gray-200 text-gray-600 opacity-50 cursor-not-allowed'
-                          : 'bg-blue-600 hover:bg-blue-700 text-white shadow-sm'
-                      }`}
-                    >
-                      {completingActivity === activity.id
-                        ? 'Completing...'
-                        : activity.is_completed_by_user
-                        ? '✓ Completed'
-                        : 'Mark Complete'}
-                    </button>
-                  </div>
-                </div>
-              ))
-            ) : (
-              <div className="bg-gray-50 border border-gray-200 rounded-lg p-12 text-center text-gray-500">
-                <CheckSquare className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                <p>No activities available</p>
-              </div>
-            )}
-          </div>
-        )}
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="py-16">
+        <LoadingSpinner />
       </div>
+    );
+  }
 
-      {showCreateModal && (
-        <div className="fixed inset-0 bg-black/30 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
-          <div className="bg-white border border-gray-200 rounded-xl max-w-md w-full p-6 shadow-xl">
-            <h3 className="text-xl font-bold text-gray-900 mb-4">
-              Create New {activeTab === 'polls' ? 'Poll' : activeTab === 'quizzes' ? 'Quiz' : 'Activity'}
-            </h3>
-            <form onSubmit={handleCreateSubmit} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  {activeTab === 'polls' ? 'Poll Question' : activeTab === 'quizzes' ? 'Quiz Title' : 'Activity Title'}
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={createForm.title}
-                  onChange={e => setCreateForm({ ...createForm, title: e.target.value })}
-                  placeholder={activeTab === 'polls' ? 'e.g., Which topic?' : activeTab === 'quizzes' ? 'e.g., FastAPI Quiz' : 'e.g., Visit booths'}
-                  className="w-full border border-gray-300 bg-white text-gray-900 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
-                <textarea
-                  value={createForm.description}
-                  onChange={e => setCreateForm({ ...createForm, description: e.target.value })}
-                  placeholder="Optional..."
-                  className="w-full border border-gray-300 bg-white text-gray-900 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  rows="3"
-                />
-              </div>
-
-              {activeTab === 'polls' && (
-                <div className="space-y-3">
-                  <label className="block text-sm font-medium text-gray-700">Options</label>
-                  <input type="text" required value={createForm.option1} onChange={e => setCreateForm({ ...createForm, option1: e.target.value })} placeholder="Option 1" className="w-full border border-gray-300 bg-white text-gray-900 rounded-lg p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
-                  <input type="text" required value={createForm.option2} onChange={e => setCreateForm({ ...createForm, option2: e.target.value })} placeholder="Option 2" className="w-full border border-gray-300 bg-white text-gray-900 rounded-lg p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
-                </div>
-              )}
-
-              {activeTab === 'quizzes' && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Points</label>
-                  <input type="number" value={createForm.points_reward} onChange={e => setCreateForm({ ...createForm, points_reward: e.target.value })} className="w-full border border-gray-300 bg-white text-gray-900 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-blue-500" />
-                </div>
-              )}
-
-              {activeTab === 'activities' && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Points</label>
-                  <input type="number" value={createForm.points_reward} onChange={e => setCreateForm({ ...createForm, points_reward: e.target.value })} className="w-full border border-gray-300 bg-white text-gray-900 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-blue-500" />
-                </div>
-              )}
-
-              <div className="flex justify-end gap-3 pt-4 border-t border-gray-200">
-                <button type="button" onClick={() => setShowCreateModal(false)} className="px-4 py-2 text-gray-700 hover:text-gray-900">Cancel</button>
-                <button type="submit" disabled={isCreating} className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white px-6 py-2 rounded-lg font-medium">
-                  {isCreating ? 'Creating...' : 'Create'}
-                </button>
-              </div>
-            </form>
+  return (
+    <div className="px-4 pt-4 space-y-4">
+      {me && (
+        <div className="rounded-2xl bg-[#0000c8] text-white p-4 flex justify-between items-center">
+          <div>
+            <p className="text-xs text-white/80">Your rank</p>
+            <p className="text-2xl font-bold">#{me.rank ?? '-'}</p>
+          </div>
+          <div className="text-right">
+            <p className="text-xs text-white/80">Points</p>
+            <p className="text-2xl font-bold">{me.total_points ?? 0}</p>
           </div>
         </div>
       )}
+
+      {top.length === 0 && (
+        <p className="text-center text-sm text-slate-500 py-12">No points earned yet.</p>
+      )}
+
+      <div className="rounded-2xl border border-slate-200 bg-white divide-y divide-slate-200">
+        {top.map((entry) => (
+          <div key={entry.user_id ?? entry.rank} className="flex items-center gap-3 p-4">
+            <span className="w-7 text-center text-sm font-bold text-slate-500">#{entry.rank}</span>
+            {entry.avatar_url ? (
+              <img src={entry.avatar_url} alt={entry.name} className="w-10 h-10 rounded-full object-cover" />
+            ) : (
+              <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-sm font-semibold text-slate-600">
+                {initialsOf(entry.name)}
+              </div>
+            )}
+            <p className="flex-1 min-w-0 text-sm font-semibold text-slate-900 truncate">{entry.name}</p>
+            <p className="text-sm font-bold text-[#0000c8]">{entry.total_points}</p>
+          </div>
+        ))}
+      </div>
     </div>
-  )
+  );
+}
+
+// ----------------------------------------------------------------------------
+// Create poll sheet (organizer)
+// ----------------------------------------------------------------------------
+function CreatePollSheet({ onClose, onCreated }) {
+  const [question, setQuestion] = useState('');
+  const [description, setDescription] = useState('');
+  const [options, setOptions] = useState(['', '']);
+  const [saving, setSaving] = useState(false);
+
+  const setOption = (index, value) =>
+    setOptions((prev) => prev.map((o, i) => (i === index ? value : o)));
+
+  const addOption = () => {
+    if (options.length < MAX_OPTIONS) setOptions((prev) => [...prev, '']);
+  };
+
+  const removeOption = (index) => {
+    if (options.length > MIN_OPTIONS) setOptions((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const submit = async (e) => {
+    e.preventDefault();
+    if (saving) return;
+
+    const cleanQuestion = question.trim();
+    const cleanOptions = options.map((o) => o.trim()).filter(Boolean);
+
+    if (cleanQuestion.length < 3) {
+      toast.error('Write the poll question');
+      return;
+    }
+    if (cleanOptions.length < MIN_OPTIONS) {
+      toast.error(`Add at least ${MIN_OPTIONS} options`);
+      return;
+    }
+
+    setSaving(true);
+    try {
+      await apiClient.post('/engagement/polls', {
+        question: cleanQuestion,
+        description: description.trim() || null,
+        options: cleanOptions.map((text) => ({ option_text: text })),
+      });
+      toast.success('Poll created');
+      onCreated();
+    } catch (error) {
+      toast.error(getErrorMessage(error, 'Could not create the poll'));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const inputClass =
+    'w-full px-3 py-2.5 border border-slate-300 rounded-lg text-base focus:outline-none focus:ring-2 focus:ring-blue-500';
+
+  return (
+    <div className="fixed inset-0 bg-black/50 z-[60] flex items-end justify-center" onClick={onClose}>
+      <div
+        className="bg-white w-full max-w-[430px] max-h-[90vh] rounded-t-2xl flex flex-col mb-16"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200">
+          <p className="font-semibold text-slate-900">Create poll</p>
+          <button type="button" onClick={onClose} aria-label="Close" className="text-slate-500">
+            <X size={20} />
+          </button>
+        </div>
+
+        <form onSubmit={submit} className="flex-1 overflow-y-auto p-4 space-y-4">
+          <div>
+            <label className="text-sm font-semibold text-slate-800">Question</label>
+            <input
+              type="text"
+              value={question}
+              onChange={(e) => setQuestion(e.target.value)}
+              className={`${inputClass} mt-1`}
+            />
+          </div>
+
+          <div>
+            <label className="text-sm font-semibold text-slate-800">Description (optional)</label>
+            <textarea
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              rows={2}
+              className={`${inputClass} mt-1`}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-sm font-semibold text-slate-800">Options</label>
+            {options.map((opt, index) => (
+              <div key={index} className="flex gap-2">
+                <input
+                  type="text"
+                  value={opt}
+                  onChange={(e) => setOption(index, e.target.value)}
+                  placeholder={`Option ${index + 1}`}
+                  className={inputClass}
+                />
+                {options.length > MIN_OPTIONS && (
+                  <button
+                    type="button"
+                    onClick={() => removeOption(index)}
+                    aria-label={`Remove option ${index + 1}`}
+                    className="shrink-0 w-11 h-11 rounded-lg border border-slate-300 text-slate-600 flex items-center justify-center"
+                  >
+                    <X size={16} />
+                  </button>
+                )}
+              </div>
+            ))}
+            {options.length < MAX_OPTIONS && (
+              <button type="button" onClick={addOption} className="text-sm font-semibold text-[#0000c8]">
+                + Add option
+              </button>
+            )}
+          </div>
+
+          <button
+            type="submit"
+            disabled={saving}
+            className="w-full rounded-lg bg-[#0000c8] text-white py-3 font-semibold disabled:opacity-50"
+          >
+            {saving ? 'Creating...' : 'Create poll'}
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+// ----------------------------------------------------------------------------
+// Screen
+// ----------------------------------------------------------------------------
+export default function EngagementCenterScreen() {
+  const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tab = searchParams.get('tab') === 'leaderboard' ? 'leaderboard' : 'polls';
+
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [polls, setPolls] = useState([]);
+  const [loadingPolls, setLoadingPolls] = useState(true);
+  const [busyId, setBusyId] = useState(null);
+  const [createOpen, setCreateOpen] = useState(false);
+
+  const setTab = (next) => setSearchParams(next === 'leaderboard' ? { tab: 'leaderboard' } : {});
+
+  const loadPolls = useCallback(async () => {
+    setLoadingPolls(true);
+    try {
+      const res = await apiClient.get('/engagement/polls', { params: { limit: 50 } });
+      setPolls(unwrapList(res?.data));
+    } catch (error) {
+      toast.error(getErrorMessage(error, 'Could not load polls'));
+      setPolls([]);
+    } finally {
+      setLoadingPolls(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    apiClient
+      .get('/session-admin/me/roles')
+      .then((res) => setIsAdmin(Boolean(res?.data?.data?.is_admin)))
+      .catch(() => setIsAdmin(false));
+  }, []);
+
+  useEffect(() => {
+    if (tab === 'polls') loadPolls();
+  }, [tab, loadPolls]);
+
+  const vote = async (poll, optionId) => {
+    if (busyId !== null) return;
+    setBusyId(poll.id);
+    try {
+      await apiClient.post(`/engagement/polls/${poll.id}/vote`, { option_id: optionId });
+      toast.success('Thanks for voting');
+      await loadPolls();
+    } catch (error) {
+      toast.error(getErrorMessage(error, 'Could not record your vote'));
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const removePoll = async (poll) => {
+    if (!window.confirm('Delete this poll and its votes?')) return;
+    setBusyId(poll.id);
+    try {
+      await apiClient.delete(`/engagement/polls/${poll.id}`);
+      toast.success('Poll deleted');
+      await loadPolls();
+    } catch (error) {
+      toast.error(getErrorMessage(error, 'Could not delete the poll'));
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-white max-w-[430px] mx-auto pb-28">
+      <div className="flex items-center gap-3 px-4 py-4 border-b border-slate-200">
+        <button type="button" onClick={() => navigate('/hub')} aria-label="Back" className="text-slate-700">
+          <ArrowLeft size={22} />
+        </button>
+        <h1 className="text-lg font-semibold text-slate-900">Engagement Center</h1>
+      </div>
+
+      <div className="flex gap-2 px-4 pt-4">
+        <button
+          type="button"
+          onClick={() => setTab('polls')}
+          className={`flex-1 flex items-center justify-center gap-2 rounded-xl py-2.5 text-sm font-semibold border ${
+            tab === 'polls' ? 'bg-[#0000c8] text-white border-[#0000c8]' : 'border-slate-300 text-slate-800'
+          }`}
+        >
+          <BarChart3 size={16} />
+          Polls
+        </button>
+        <button
+          type="button"
+          onClick={() => setTab('leaderboard')}
+          className={`flex-1 flex items-center justify-center gap-2 rounded-xl py-2.5 text-sm font-semibold border ${
+            tab === 'leaderboard' ? 'bg-[#0000c8] text-white border-[#0000c8]' : 'border-slate-300 text-slate-800'
+          }`}
+        >
+          <Trophy size={16} />
+          Leaderboard
+        </button>
+      </div>
+
+      {tab === 'polls' ? (
+        <PollsTab
+          isAdmin={isAdmin}
+          polls={polls}
+          loading={loadingPolls}
+          busyId={busyId}
+          onVote={vote}
+          onDelete={removePoll}
+          onCreate={() => setCreateOpen(true)}
+        />
+      ) : (
+        <LeaderboardTab />
+      )}
+
+      {createOpen && (
+        <CreatePollSheet
+          onClose={() => setCreateOpen(false)}
+          onCreated={async () => {
+            setCreateOpen(false);
+            await loadPolls();
+          }}
+        />
+      )}
+    </div>
+  );
 }
