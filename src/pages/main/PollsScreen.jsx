@@ -22,10 +22,25 @@ export default function PollsScreen() {
 
   const checkAdminStatus = async () => {
     try {
+      // First check standard user profile
       const res = await apiClient.get('/users/me');
       const user = res.data?.data || res.data;
-      setIsAdmin(user?.role === 'admin' || user?.is_admin === true);
-    } catch (err) { }
+      let hasAdminRights = user?.role === 'admin' || user?.role === 'organizer' || user?.is_admin === true;
+      
+      // Fallback check against the specific roles endpoint if needed
+      if (!hasAdminRights) {
+        try {
+          const roleRes = await apiClient.get('/session-admin/me/roles');
+          const roles = roleRes.data?.roles || [];
+          if (roles.includes('admin') || roles.includes('organizer')) {
+            hasAdminRights = true;
+          }
+        } catch (e) {}
+      }
+      setIsAdmin(hasAdminRights);
+    } catch (err) { 
+      console.error("Failed to verify admin status", err);
+    }
   };
 
   const fetchPolls = async () => {
@@ -96,21 +111,24 @@ export default function PollsScreen() {
 
   return (
     <div className="min-h-screen bg-slate-50 pb-20">
-      {/* EventAI Standard Top Navbar */}
+      {/* EventAI Standard Top Navbar - Now with active links! */}
       <div className="flex items-center justify-between p-4 bg-white border-b border-slate-100 sticky top-0 z-20">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 cursor-pointer" onClick={() => navigate('/hub')}>
           <div className="w-8 h-8 bg-blue-500 rounded-lg flex items-center justify-center text-white font-bold text-lg shadow-sm">
             E
           </div>
           <span className="font-bold text-lg text-slate-800 tracking-tight">EventAI</span>
         </div>
         <div className="flex items-center gap-4 text-blue-400">
-          <Search size={22} className="hover:text-blue-600 transition-colors" />
-          <Bell size={22} className="hover:text-blue-600 transition-colors" />
-          <div className="w-8 h-8 bg-blue-400 rounded-full flex items-center justify-center text-white shadow-inner">
+          <Search size={22} className="cursor-pointer hover:text-blue-600 transition-colors" onClick={() => navigate('/search')} />
+          <Bell size={22} className="cursor-pointer hover:text-blue-600 transition-colors" onClick={() => navigate('/notifications')} />
+          <div 
+            onClick={() => navigate('/profile')}
+            className="w-8 h-8 bg-blue-400 rounded-full flex items-center justify-center text-white shadow-inner cursor-pointer"
+          >
             <User size={18} />
           </div>
-          <Menu size={24} className="hover:text-blue-600 transition-colors" />
+          <Menu size={24} className="cursor-pointer hover:text-blue-600 transition-colors" onClick={() => navigate('/menu')} />
         </div>
       </div>
 
@@ -121,6 +139,7 @@ export default function PollsScreen() {
             <h1 className="text-2xl font-bold mb-1">Community Polls</h1>
             <p className="text-blue-100 text-sm font-medium">Vote and see what others think</p>
           </div>
+          {/* This button will now correctly show up for you! */}
           {isAdmin && (
             <button onClick={() => setShowCreate(true)} className="bg-white/20 hover:bg-white/30 backdrop-blur-sm p-2 rounded-xl transition-all">
               <Plus size={24} />
@@ -180,7 +199,7 @@ export default function PollsScreen() {
         )}
       </div>
 
-      {/* Admin Modal */}
+      {/* Admin Create Modal */}
       {showCreate && (
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl w-full max-w-md overflow-hidden shadow-2xl">
