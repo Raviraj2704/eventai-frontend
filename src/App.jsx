@@ -17,6 +17,7 @@ import PrivateRoute from './components/Auth/PrivateRoute';
 import BottomNavigation from './components/layout/BottomNavigation';
 import AIAssistant from './components/ai/AIAssistant';
 import LoadingSpinner from './components/common/LoadingSpinner';
+import PollsScreen from './pages/main/PollsScreen';
 
 // ============================================================================
 // LAZY LOADED PAGES (Code Splitting for instant initial load)
@@ -38,6 +39,7 @@ const ProfileScreen = lazy(() => import('./pages/main/ProfileScreen'));
 const SessionQuizPage = lazy(() => import('./pages/main/SessionQuizPage'));
 const EventInfoScreen = lazy(() => import('./pages/main/EventInfoScreen'));
 const SessionDetailScreen = lazy(() => import('./pages/main/SessionDetailScreen'));
+
 
 // Pages - Engagement
 const SocialWallScreen = lazy(() => import('./pages/engagement/SocialWallScreen'));
@@ -149,13 +151,14 @@ function App() {
           h(Route, { path: '/profile', element: wrapPrivate(ProfileScreen) }),
           h(Route, { path: '/event-info', element: wrapPrivate(EventInfoScreen) }),
           h(Route, { path: '/sessions/:id', element: wrapPrivate(SessionDetailScreen) }),
+          h(Route, { path: '/polls', element: wrapPrivate(PollsScreen) }),
 
           // Engagement Routes
           h(Route, { path: '/social-wall', element: wrapPrivate(SocialWallScreen) }),
           h(Route, { path: '/activity-hub', element: wrapPrivate(ActivityHubScreen) }),
           h(Route, { path: '/ai-matches', element: wrapPrivate(AIMatchesScreen) }),
           h(Route, { path: '/partners', element: wrapPrivate(PartnersScreen) }),
-                    h(Route, { path: '/partners/:partnerId', element: wrapPrivate(PartnerDetailScreen) }),
+          h(Route, { path: '/partners/:partnerId', element: wrapPrivate(PartnerDetailScreen) }),
           h(Route, { path: '/briefcase', element: wrapPrivate(BriefcaseScreen) }),
 
           // Gamification & Learning Routes
