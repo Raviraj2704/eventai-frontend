@@ -122,7 +122,7 @@ const AIQuizGenerator = ({ sessionId, sessionTitle }) => {
     return (
       <div className="min-h-screen bg-white dark:bg-slate-950 flex items-center justify-center">
         <div className="text-center">
-          <Loader className="text-[#0000c8] mx-auto mb-4 animate-spin" size="{48}"/>
+          <Loader className="text-[#0000c8] mx-auto mb-4 animate-spin" size={48}/>
           <p className="text-base text-slate-600 dark:text-slate-400">Loading quiz...</p>
         </div>
       </div>
@@ -385,7 +385,7 @@ const AIQuizGenerator = ({ sessionId, sessionTitle }) => {
             <div className="flex items-center justify-between p-4 border-b border-slate-200 dark:border-slate-800">
               <h3 className="font-bold text-slate-900 dark:text-white text-base">Edit Quiz Questions</h3>
               <button onClick={() => setEditingMode(false)} className="text-slate-400 hover:text-slate-600">
-                <X size="{20}"/>
+                <X size={20}/>
               </button>
             </div>
 
@@ -399,7 +399,7 @@ const AIQuizGenerator = ({ sessionId, sessionTitle }) => {
                       onClick={() => setEditQuestions(editQuestions.filter((_, i) => i !== qIndex))}
                       className="text-red-500 p-1 hover:bg-red-50 rounded"
                     >
-                      <Trash2 size="{15}"/>
+                      <Trash2 size={15}/>
                     </button>
                   </div>
                   <input
@@ -461,7 +461,7 @@ const AIQuizGenerator = ({ sessionId, sessionTitle }) => {
                 }
                 className="w-full py-2.5 border-2 border-dashed border-slate-300 rounded-xl text-xs font-semibold text-slate-600 flex items-center justify-center gap-1.5"
               >
-                <Plus size="{15}"/> Add Question
+                <Plus size={15}/> Add Question
               </button>
             </div>
 
@@ -478,7 +478,7 @@ const AIQuizGenerator = ({ sessionId, sessionTitle }) => {
                 onClick={handleSaveManualQuiz}
                 className="px-4 py-2 bg-[#0000c8] text-white rounded-lg text-xs font-semibold flex items-center gap-1.5"
               >
-                <Save size="{14}"/> Save Quiz
+                <Save size={14}/> Save Quiz
               </button>
             </div>
           </div>
