@@ -14,6 +14,7 @@
 
 import ConnectionButton from '../../components/networking/ConnectionButton';
 import BlockButton from '../../components/networking/BlockButton';
+import ScheduleMeetingSheet from '../../components/networking/ScheduleMeetingSheet';
 import { useNavigate } from 'react-router-dom';
 import { useEffect, useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
@@ -51,6 +52,7 @@ const NetworkingScreen = () => {
   const [designationFilter, setDesignationFilter] = useState('all');
   const [designationOpen, setDesignationOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [meetingWith, setMeetingWith] = useState(null);
   const navigate = useNavigate();
 
   // Inbox
@@ -232,6 +234,9 @@ const NetworkingScreen = () => {
           className="mt-3 rounded-lg bg-white/15 px-3 py-1.5 text-sm font-semibold text-white">
         My Contacts
         </button>
+        <button type="button" onClick={() => navigate('/my-meetings')} className="mt-3 ml-2 rounded-lg bg-white/15 px-3 py-1.5 text-sm font-semibold text-white">
+        My Meetings
+        </button>
         </div>
         <button
           onClick={openInbox}
@@ -272,6 +277,9 @@ const NetworkingScreen = () => {
                 designationFilter === 'all' ? 'font-semibold text-[#1d1fb8]' : 'text-neutral-800'
               }`}
             >
+            <button type="button" onClick={() => setMeetingWith(person.id)} className="w-full rounded-xl border border-[#0000c8] text-[#0000c8] py-3 text-sm font-semibold">
+                Schedule 1-2-1
+            </button>
               All job titles
             </button>
             {designations.map((title) => (
@@ -290,6 +298,13 @@ const NetworkingScreen = () => {
             ))}
           </div>
         )}
+        {meetingWith && (
+       <ScheduleMeetingSheet
+       userId={meetingWith}
+       onClose={() => setMeetingWith(null)}
+       onSaved={() => setMeetingWith(null)}
+      />
+      )}
       </div>
 
       {/* Error */}

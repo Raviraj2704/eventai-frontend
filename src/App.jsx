@@ -43,6 +43,7 @@ const EventInfoScreen = lazy(() => import('./pages/main/EventInfoScreen'));
 const SessionDetailScreen = lazy(() => import('./pages/main/SessionDetailScreen'));
 const MyCalendarScreen = lazy(() => import('./pages/main/MyCalendarScreen'));
 const MyContactsScreen = lazy(() => import('./pages/main/MyContactsScreen'));
+const MyMeetingsScreen = lazy(() => import('./pages/main/MyMeetingsScreen'));
 
 
 // Pages - Engagement
@@ -158,6 +159,8 @@ function App() {
           h(Route, { path: '/feedback', element: wrapPrivate(FeedbackScreen) }),
           h(Route, { path: '/my-calendar', element: wrapPrivate(MyCalendarScreen) }),
           h(Route, { path: '/my-contacts', element: wrapPrivate(MyContactsScreen) }),
+          h(Route, { path: '/my-meetings', element: wrapPrivate(MyMeetingsScreen) }),
+        
           // Engagement Routes
           h(Route, { path: '/social-wall', element: wrapPrivate(SocialWallScreen) }),
           h(Route, { path: '/activity-hub', element: wrapPrivate(ActivityHubScreen) }),
