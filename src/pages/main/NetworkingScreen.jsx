@@ -2,11 +2,11 @@
 // Networking Screen
 // File: src/pages/main/NetworkingScreen.jsx
 // Design: Representatives list from the video (search, filter, rows with
-//         avatar, name, designation, company, and a message action)
+//         avatar, name, designation, company, and actions)
 // Data:   Real API only
 //   GET  /users?limit=100            list attendees
 //   GET  /users/designations         job titles for the filter
-//   GET  /auth/me                    logged-in user (to hide Message on yourself)
+//   GET  /auth/me                    logged-in user (to hide actions on yourself)
 //   GET  /chat/inbox                 your conversations
 //   GET  /chat/users/{id}/messages   conversation with a user
 //   POST /chat/users/{id}/messages   send a message to a user
@@ -19,7 +19,7 @@ import { useNavigate } from 'react-router-dom';
 import { useEffect, useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
 import {
-  Search, SlidersHorizontal, MessageCircle, MessageSquare, X, Send, Briefcase, MapPin, Trash2
+  Search, SlidersHorizontal, MessageSquare, X, Send, Briefcase, MapPin, Trash2, CalendarPlus
 } from 'lucide-react';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 import apiClient from '../../config/apiClient';
@@ -219,7 +219,7 @@ const NetworkingScreen = () => {
     } catch (err) {
       toast.error(getErrorMessage(err, 'Could not delete conversation'));
     }
-  };4
+  };
 
   return (
     <div className="min-h-screen bg-white max-w-[430px] mx-auto pb-28">
@@ -228,17 +228,25 @@ const NetworkingScreen = () => {
         <div>
           <h1 className="text-2xl font-bold">Networking</h1>
           <p className="text-sm text-white/80">Connect with fellow attendees</p>
-          <button
-          type="button"
-          onClick={() => navigate('/my-contacts')}
-          className="mt-3 rounded-lg bg-white/15 px-3 py-1.5 text-sm font-semibold text-white">
-        My Contacts
-        </button>
-        <button type="button" onClick={() => navigate('/my-meetings')} className="mt-3 ml-2 rounded-lg bg-white/15 px-3 py-1.5 text-sm font-semibold text-white">
-        My Meetings
-        </button>
+          <div className="flex flex-wrap gap-2 mt-3">
+            <button
+              type="button"
+              onClick={() => navigate('/my-contacts')}
+              className="rounded-lg bg-white/15 px-3 py-1.5 text-sm font-semibold text-white"
+            >
+              My Contacts
+            </button>
+            <button
+              type="button"
+              onClick={() => navigate('/my-meetings')}
+              className="rounded-lg bg-white/15 px-3 py-1.5 text-sm font-semibold text-white"
+            >
+              My Meetings
+            </button>
+          </div>
         </div>
         <button
+          type="button"
           onClick={openInbox}
           className="flex items-center gap-1 bg-white/15 text-white px-3 py-2 rounded-lg text-sm font-semibold"
         >
@@ -259,6 +267,7 @@ const NetworkingScreen = () => {
           />
         </div>
         <button
+          type="button"
           onClick={() => setDesignationOpen((open) => !open)}
           aria-label="Filter by job title"
           className="w-11 h-11 border border-neutral-300 rounded-lg flex items-center justify-center text-neutral-700"
@@ -269,6 +278,7 @@ const NetworkingScreen = () => {
         {designationOpen && (
           <div className="absolute top-full right-4 mt-2 w-56 max-h-64 overflow-y-auto bg-white border border-neutral-300 rounded-lg shadow-lg z-50">
             <button
+              type="button"
               onClick={() => {
                 setDesignationFilter('all');
                 setDesignationOpen(false);
@@ -277,13 +287,11 @@ const NetworkingScreen = () => {
                 designationFilter === 'all' ? 'font-semibold text-[#1d1fb8]' : 'text-neutral-800'
               }`}
             >
-            <button type="button" onClick={() => setMeetingWith(person.id)} className="w-full rounded-xl border border-[#0000c8] text-[#0000c8] py-3 text-sm font-semibold">
-                Schedule 1-2-1
-            </button>
               All job titles
             </button>
             {designations.map((title) => (
               <button
+                type="button"
                 key={title}
                 onClick={() => {
                   setDesignationFilter(title);
@@ -298,20 +306,13 @@ const NetworkingScreen = () => {
             ))}
           </div>
         )}
-        {meetingWith && (
-       <ScheduleMeetingSheet
-       userId={meetingWith}
-       onClose={() => setMeetingWith(null)}
-       onSaved={() => setMeetingWith(null)}
-      />
-      )}
       </div>
 
       {/* Error */}
       {error && (
         <div className="mx-4 mt-4 p-4 bg-red-100 border border-red-300 text-red-700 rounded-lg">
           {error}
-          <button onClick={loadUsers} className="ml-3 underline font-medium">
+          <button type="button" onClick={loadUsers} className="ml-3 underline font-medium">
             Try Again
           </button>
         </div>
@@ -358,9 +359,16 @@ const NetworkingScreen = () => {
                   </span>
                 ) : (
                   <div className="flex flex-col items-end gap-1.5">
-                  <ConnectionButton userId={u.id} onChat={() => openChat(u.id, getFullName(u))} />
-                  <BlockButton userId={u.id} onBlocked={loadUsers} />
-                </div>
+                    <ConnectionButton userId={u.id} onChat={() => openChat(u.id, getFullName(u))} />
+                    <button
+                      type="button"
+                      onClick={() => setMeetingWith(u.id)}
+                      className="flex items-center justify-center gap-1 w-full rounded-xl border border-[#0000c8] text-[#0000c8] py-2 px-3 text-xs font-semibold"
+                    >
+                      <CalendarPlus size={14} /> Schedule 1-2-1
+                    </button>
+                    <BlockButton userId={u.id} onBlocked={loadUsers} />
+                  </div>
                 )}
               </div>
             ))}
@@ -376,6 +384,7 @@ const NetworkingScreen = () => {
             </p>
             {(searchQuery || designationFilter !== 'all') && (
               <button
+                type="button"
                 onClick={() => {
                   setSearchQuery('');
                   setDesignationFilter('all');
@@ -395,7 +404,12 @@ const NetworkingScreen = () => {
           <div className="bg-white w-full max-w-[430px] h-[70vh] rounded-t-2xl flex flex-col mb-16">
             <div className="flex items-center justify-between px-4 py-3 border-b border-neutral-200">
               <p className="font-semibold text-neutral-900">Messages</p>
-              <button onClick={() => setInboxOpen(false)} aria-label="Close inbox" className="text-neutral-500">
+              <button
+                type="button"
+                onClick={() => setInboxOpen(false)}
+                aria-label="Close inbox"
+                className="text-neutral-500"
+              >
                 <X size={20} />
               </button>
             </div>
@@ -408,6 +422,7 @@ const NetworkingScreen = () => {
               ) : (
                 inboxItems.map((item) => (
                   <button
+                    type="button"
                     key={item.partner_user_id}
                     onClick={() => openChat(item.partner_user_id, item.name)}
                     className="w-full text-left px-4 py-3 hover:bg-neutral-50"
@@ -440,7 +455,12 @@ const NetworkingScreen = () => {
                     <Trash2 size={18} />
                   </button>
                 )}
-                <button onClick={closeChat} aria-label="Close chat" className="text-neutral-500">
+                <button
+                  type="button"
+                  onClick={closeChat}
+                  aria-label="Close chat"
+                  className="text-neutral-500"
+                >
                   <X size={20} />
                 </button>
               </div>
@@ -501,6 +521,15 @@ const NetworkingScreen = () => {
             </form>
           </div>
         </div>
+      )}
+
+      {/* Schedule 1-2-1 sheet */}
+      {meetingWith && (
+        <ScheduleMeetingSheet
+          userId={meetingWith}
+          onClose={() => setMeetingWith(null)}
+          onSaved={() => setMeetingWith(null)}
+        />
       )}
     </div>
   );
