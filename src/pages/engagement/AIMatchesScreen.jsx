@@ -7,6 +7,7 @@
 //   GET  /ai/networking/matches                 attendee matches
 //   GET  /partners?limit=50                     exhibitors
 //   GET  /ai/recommendations/sessions           recommended sessions
+//   GET  /session-hub/me/schedule               scheduled sessions check
 //   POST /session-hub/sessions/{id}/schedule    add a session to My Schedule
 // ============================================================================
 
@@ -119,10 +120,11 @@ export default function AIMatchesScreen() {
 
     const load = async () => {
       setLoading(true);
-      const [att, exh, ses] = await Promise.allSettled([
+      const [att, exh, ses, sched] = await Promise.allSettled([
         apiClient.get('/ai/networking/matches'),
         apiClient.get('/partners', { params: { limit: 50 } }),
         apiClient.get('/ai/recommendations/sessions'),
+        apiClient.get('/session-hub/me/schedule'),
       ]);
       if (cancelled) return;
 
@@ -140,8 +142,24 @@ export default function AIMatchesScreen() {
         nextErrors.exhibitors = getErrorMessage(exh.reason, 'Could not load exhibitors');
       }
 
+      // Collect IDs of sessions already in user schedule
+      const scheduledIds = new Set();
+      if (sched.status === 'fulfilled') {
+        const scheduleList = unwrapList(sched.value?.data);
+        scheduleList.forEach((item) => {
+          const sid = item.session_id ?? item.id;
+          if (sid != null) scheduledIds.add(sid);
+        });
+      }
+
       if (ses.status === 'fulfilled') {
-        setSessions(unwrapList(ses.value?.data).map(normalizeSession));
+        const normalized = unwrapList(ses.value?.data).map(normalizeSession);
+        setSessions(
+          normalized.map((s) => ({
+            ...s,
+            isScheduled: s.isScheduled || scheduledIds.has(s.id),
+          }))
+        );
       } else {
         nextErrors.sessions = getErrorMessage(ses.reason, 'Could not load sessions');
       }
