@@ -13,7 +13,7 @@
 // ============================================================================
 
 import ConnectionButton from '../../components/networking/ConnectionButton';
-import BlockButton from '../components/networking/BlockButton';
+import BlockButton from '../../components/networking/BlockButton';
 import { useEffect, useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
 import {
