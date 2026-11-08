@@ -16,7 +16,7 @@ import ConnectionButton from '../../components/networking/ConnectionButton';
 import { useEffect, useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
 import {
-  Search, SlidersHorizontal, MessageCircle, MessageSquare, X, Send, Briefcase, MapPin,
+  Search, SlidersHorizontal, MessageCircle, MessageSquare, X, Send, Briefcase, MapPin, Trash2
 } from 'lucide-react';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 import apiClient from '../../config/apiClient';
@@ -193,6 +193,28 @@ const NetworkingScreen = () => {
       setSending(false);
     }
   };
+
+  const handleDeleteMessage = async (messageId) => {
+    try {
+      await apiClient.delete(`/chat/messages/${messageId}`);
+      setMessages((prev) => prev.filter((m) => m.id !== messageId));
+      toast.success('Message deleted');
+    } catch (err) {
+      toast.error(getErrorMessage(err, 'Could not delete message'));
+    }
+  };
+
+  const handleClearChat = async () => {
+    if (!chatPartner || !window.confirm(`Delete entire conversation with ${chatPartner.title}?`)) return;
+    try {
+      await apiClient.delete(`/chat/users/${chatPartner.userId}/messages`);
+      setMessages([]);
+      setInboxItems((prev) => prev.filter((item) => item.partner_user_id !== chatPartner.userId));
+      toast.success('Conversation deleted');
+    } catch (err) {
+      toast.error(getErrorMessage(err, 'Could not delete conversation'));
+    }
+  };4
 
   return (
     <div className="min-h-screen bg-white max-w-[430px] mx-auto pb-28">
@@ -379,9 +401,22 @@ const NetworkingScreen = () => {
           <div className="bg-white w-full max-w-[430px] h-[70vh] rounded-t-2xl flex flex-col mb-16">
             <div className="flex items-center justify-between px-4 py-3 border-b border-neutral-200">
               <p className="font-semibold text-neutral-900 truncate">{chatPartner.title}</p>
-              <button onClick={closeChat} aria-label="Close chat" className="text-neutral-500">
-                <X size={20} />
-              </button>
+              <div className="flex items-center gap-3">
+                {messages.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={handleClearChat}
+                    aria-label="Delete conversation"
+                    title="Delete entire conversation"
+                    className="text-neutral-400 hover:text-red-600 transition-colors"
+                  >
+                    <Trash2 size={18} />
+                  </button>
+                )}
+                <button onClick={closeChat} aria-label="Close chat" className="text-neutral-500">
+                  <X size={20} />
+                </button>
+              </div>
             </div>
 
             <div className="flex-1 overflow-y-auto px-4 py-3 space-y-2">
@@ -395,11 +430,25 @@ const NetworkingScreen = () => {
                   return (
                     <div
                       key={m.id}
-                      className={`max-w-[75%] px-3 py-2 rounded-xl text-sm ${
-                        mine ? 'ml-auto bg-[#1d1fb8] text-white' : 'bg-neutral-100 text-neutral-900'
+                      className={`group flex items-center gap-2 max-w-[80%] ${
+                        mine ? 'ml-auto flex-row-reverse' : ''
                       }`}
                     >
-                      {m.content}
+                      <div
+                        className={`px-3 py-2 rounded-xl text-sm break-words ${
+                          mine ? 'bg-[#1d1fb8] text-white' : 'bg-neutral-100 text-neutral-900'
+                        }`}
+                      >
+                        {m.content}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteMessage(m.id)}
+                        aria-label="Delete message"
+                        className="text-neutral-300 hover:text-red-500 transition-colors p-1 shrink-0"
+                      >
+                        <Trash2 size={14} />
+                      </button>
                     </div>
                   );
                 })
