@@ -12,6 +12,7 @@
 //   POST /chat/users/{id}/messages   send a message to a user
 // ============================================================================
 
+import ConnectionButton from '../../components/networking/ConnectionButton';
 import { useEffect, useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
 import {
@@ -310,13 +311,7 @@ const NetworkingScreen = () => {
                     You
                   </span>
                 ) : (
-                  <button
-                    onClick={() => openChat(u.id, getFullName(u))}
-                    aria-label={`Message ${getFullName(u)}`}
-                    className="w-10 h-10 rounded-full bg-[#1d1fb8] text-white flex items-center justify-center shrink-0"
-                  >
-                    <MessageCircle size={18} />
-                  </button>
+                  <ConnectionButton userId={u.id} onChat={() => openChat(u.id, getFullName(u))} />
                 )}
               </div>
             ))}
