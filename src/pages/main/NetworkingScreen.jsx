@@ -13,6 +13,7 @@
 // ============================================================================
 
 import ConnectionButton from '../../components/networking/ConnectionButton';
+import BlockButton from '../components/networking/BlockButton';
 import { useEffect, useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
 import {
@@ -333,7 +334,10 @@ const NetworkingScreen = () => {
                     You
                   </span>
                 ) : (
+                  <div className="flex flex-col items-end gap-1.5">
                   <ConnectionButton userId={u.id} onChat={() => openChat(u.id, getFullName(u))} />
+                  <BlockButton userId={u.id} onBlocked={loadUsers} />
+                </div>
                 )}
               </div>
             ))}
