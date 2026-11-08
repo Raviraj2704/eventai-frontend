@@ -14,6 +14,7 @@
 
 import ConnectionButton from '../../components/networking/ConnectionButton';
 import BlockButton from '../../components/networking/BlockButton';
+import { useNavigate } from 'react-router-dom';
 import { useEffect, useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
 import {
@@ -50,6 +51,7 @@ const NetworkingScreen = () => {
   const [designationFilter, setDesignationFilter] = useState('all');
   const [designationOpen, setDesignationOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const navigate = useNavigate();
 
   // Inbox
   const [inboxOpen, setInboxOpen] = useState(false);
@@ -224,6 +226,12 @@ const NetworkingScreen = () => {
         <div>
           <h1 className="text-2xl font-bold">Networking</h1>
           <p className="text-sm text-white/80">Connect with fellow attendees</p>
+          <button
+          type="button"
+          onClick={() => navigate('/my-contacts')}
+          className="mt-3 rounded-lg bg-white/15 px-3 py-1.5 text-sm font-semibold text-white">
+        My Contacts
+        </button>
         </div>
         <button
           onClick={openInbox}
