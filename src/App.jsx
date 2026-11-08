@@ -19,6 +19,7 @@ import AIAssistant from './components/ai/AIAssistant';
 import LoadingSpinner from './components/common/LoadingSpinner';
 
 
+
 // ============================================================================
 // LAZY LOADED PAGES (Code Splitting for instant initial load)
 // ============================================================================
@@ -29,6 +30,7 @@ const LoginScreen = lazy(() => import('./pages/auth/LoginScreen'));
 const RegisterScreen = lazy(() => import('./pages/auth/RegisterScreen'));
 const VerifyEmailScreen = lazy(() => import('./pages/auth/VerifyEmailScreen'));
 const CompleteProfileScreen = lazy(() => import('./pages/auth/CompleteProfileScreen'));
+const FeedbackScreen = lazy(() => import('./pages/main/FeedbackScreen'));
 
 // Pages - Main
 const HomeScreen = lazy(() => import('./pages/main/HomeScreen'));
@@ -151,6 +153,7 @@ function App() {
           h(Route, { path: '/profile', element: wrapPrivate(ProfileScreen) }),
           h(Route, { path: '/event-info', element: wrapPrivate(EventInfoScreen) }),
           h(Route, { path: '/sessions/:id', element: wrapPrivate(SessionDetailScreen) }),
+          h(Route, { path: '/feedback', element: wrapPrivate(FeedbackScreen) }),
 
           // Engagement Routes
           h(Route, { path: '/social-wall', element: wrapPrivate(SocialWallScreen) }),

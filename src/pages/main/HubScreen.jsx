@@ -461,7 +461,7 @@ export default function HubScreen() {
 
         {/* ROW 9: Feedback (Full-width banner) */}
         <button
-          onClick={() => navigate('/ratings')}
+          onClick={() => navigate('/feedback')}
           className="w-full bg-[#E9F3FC] rounded-[22px] px-5 py-4 flex items-center justify-between hover:scale-[1.01] active:scale-[0.99] transition-all shadow-[0_2px_10px_rgba(0,102,255,0.04)] border border-white"
         >
           <span className="text-[16px] font-bold text-[#0f172a]">Feedback</span>
