@@ -15,7 +15,8 @@ export default function BriefcaseScreen() {
   const fetchBriefcase = async () => {
     try {
       // Adjust this endpoint to match where you placed the backend route
-      const res = await apiClient.get('/briefcase'); 
+      // Change this line:
+      const res = await apiClient.get('/session-interactions/briefcase');
       const data = res.data?.data || res.data || [];
       setItems(Array.isArray(data) ? data : []);
     } catch (err) {
