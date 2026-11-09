@@ -32,13 +32,13 @@ const TABS = [
   { key: 'leaderboard', label: 'Leaderboard' },
 ];
 
-const getErrorMessage = (error, fallback) =>
-  error?.data?.detail || error?.response?.data?.detail || error?.message || fallback;
-
-const unwrap = (body) => {
-  if (Array.isArray(body)) return body;
-  if (Array.isArray(body?.data)) return body.data;
-  return [];
+const getErrorMessage = (error, fallback) => {
+  const detail = error?.data?.detail ?? error?.response?.data?.detail;
+  if (typeof detail === 'string') return detail;
+  if (Array.isArray(detail)) {
+    return detail.map((d) => `${(d.loc || []).slice(1).join('.')}: ${d.msg}`).join(', ') || fallback;
+  }
+  return error?.message || fallback;
 };
 
 const initialsOf = (name) =>
@@ -438,24 +438,25 @@ export default function ActivityHubScreen() {
     }
   };
 
-  const joinChallenge = async (challenge) => {
+    const joinChallenge = async (challenge) => {
     setJoiningId(challenge.id);
     try {
       await apiClient.post(`/challenges/${challenge.id}/join`);
       toast.success('Joined challenge');
-      setChallenges((prev) =>
-        prev.map((c) =>
-          c.id === challenge.id
-            ? { ...c, user_joined: true, participant_count: (c.participant_count || 0) + 1 }
-            : c
-        )
-      );
-      loadStats();
     } catch (error) {
-      toast.error(getErrorMessage(error, 'Could not join this challenge'));
-    } finally {
-      setJoiningId(null);
+      if (error?.status === 409) {
+        toast('You already joined this challenge');
+      } else {
+        toast.error(getErrorMessage(error, 'Could not join this challenge'));
+        setJoiningId(null);
+        return;
+      }
     }
+    setChallenges((prev) =>
+      prev.map((c) => (c.id === challenge.id ? { ...c, user_joined: true } : c))
+    );
+    setJoiningId(null);
+    loadStats();
   };
 
   const removeItem = async (item, kind) => {

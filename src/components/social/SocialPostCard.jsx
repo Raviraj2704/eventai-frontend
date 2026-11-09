@@ -21,13 +21,13 @@ export const REACTIONS = {
   haha: { label: 'Haha', Icon: Smile, color: 'text-[#f7b125]', bg: 'bg-[#f7b125]' },
 };
 
-const getErrorMessage = (error, fallback) =>
-  error?.data?.detail || error?.response?.data?.detail || error?.message || fallback;
-
-const listOf = (body) => {
-  if (Array.isArray(body)) return body;
-  if (Array.isArray(body?.data)) return body.data;
-  return [];
+const getErrorMessage = (error, fallback) => {
+  const detail = error?.data?.detail ?? error?.response?.data?.detail;
+  if (typeof detail === 'string') return detail;
+  if (Array.isArray(detail)) {
+    return detail.map((d) => `${(d.loc || []).slice(1).join('.')}: ${d.msg}`).join(', ') || fallback;
+  }
+  return error?.message || fallback;
 };
 
 export const timeAgo = (iso) => {
