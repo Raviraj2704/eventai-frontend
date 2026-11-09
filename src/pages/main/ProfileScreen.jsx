@@ -504,6 +504,21 @@ export default function ProfileScreen() {
           >
             <LogOut className="w-5 h-5" />
             Sign Out
+                      <button
+            type="button"
+            onClick={() => navigate('/my-badges')}
+            className="w-full py-3.5 bg-white border border-neutral-200 text-neutral-800 rounded-xl font-bold hover:border-blue-600 hover:text-blue-600 flex items-center justify-center gap-2 transition-all shadow-sm"
+          >
+            My Badge
+          </button>
+
+          <button
+            type="button"
+            onClick={() => navigate('/my-favourites')}
+            className="w-full py-3.5 bg-white border border-neutral-200 text-neutral-800 rounded-xl font-bold hover:border-blue-600 hover:text-blue-600 flex items-center justify-center gap-2 transition-all shadow-sm"
+          >
+            My Favourites
+          </button>
           </button>
         </div>
 
