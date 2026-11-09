@@ -330,7 +330,7 @@ const authService = {
 
       const token = getAuthToken();
       if (token) {
-        await apiClient.post('/api/v1/auth/logout');
+         await apiClient.post('/auth/logout');
       }
 
       // Remove the cached profile so the next user doesn't see it
