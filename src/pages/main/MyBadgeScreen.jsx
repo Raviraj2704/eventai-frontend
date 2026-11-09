@@ -79,7 +79,7 @@ export default function MyBadgeScreen() {
       try {
         const [earnedRes, allRes] = await Promise.all([
           apiClient.get('/badges/earned'),
-          apiClient.get('/badges'),
+          apiClient.get('/badges', { params: { limit: 50 } }),
         ]);
         if (cancelled) return;
         setEarned(listFrom(earnedRes?.data, 'badges'));
