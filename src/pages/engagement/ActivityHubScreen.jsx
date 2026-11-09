@@ -98,113 +98,130 @@ function CreateSheet({ kind, onClose, onCreated }) {
   const [points, setPoints] = useState(isChallenge ? 50 : 25);
   const [days, setDays] = useState(7);
   const [saving, setSaving] = useState(false);
+  const [objectives, setObjectives] = useState('');
+  const [startDate, setStartDate] = useState(new Date().toISOString().slice(0, 10));
 
   const submit = async (e) => {
     e.preventDefault();
     if (saving) return;
     if (title.trim().length < 3) {
       toast.error('Enter a title');
-      return;
-    }
+       return;
+     }
 
-    setSaving(true);
-    try {
-      if (isChallenge) {
-        await apiClient.post('/challenges', {
-          title: title.trim(),
-          description: description.trim(),
+     setSaving(true);
+     try {
+       if (isChallenge) {
+         const start = new Date(startDate);
+         const end = new Date(start);
+         end.setDate(end.getDate() + (Number(days) || 7));
+         await apiClient.post('/challenges', {
+           title: title.trim(),
+           description: description.trim(),
+          objectives: objectives.trim() || description.trim() || title.trim(),
           difficulty: level,
-          points_reward: Number(points) || 50,
-          duration_days: Number(days) || 7,
-        });
-      } else {
-        await apiClient.post('/engagement/activities', {
-          title: title.trim(),
-          description: description.trim(),
-          priority: level,
-          points_reward: Number(points) || 25,
-        });
-      }
-      toast.success(isChallenge ? 'Challenge created' : 'Activity created');
-      onCreated();
-    } catch (error) {
-      toast.error(getErrorMessage(error, 'Could not save. Please try again.'));
-    } finally {
-      setSaving(false);
+           points_reward: Number(points) || 50,
+           start_date: startDate,
+           end_date: end.toISOString().slice(0, 10),
+         });
+     } else {
+         await apiClient.post('/engagement/activities', {
+           title: title.trim(),
+           description: description.trim(),
+           priority: level,
+           points_reward: Number(points) || 25,
+         });
+       }
+     toast.success(isChallenge ? 'Challenge created' : 'Activity created');
+     onCreated();
+   } catch (error) {
+     toast.error(getErrorMessage(error, 'Could not save. Please try again.'));
+   } finally {
+     setSaving(false);
     }
-  };
+   };
 
-  const inputClass =
+   const inputClass =
     'w-full px-3 py-2.5 border border-slate-300 rounded-lg text-base focus:outline-none focus:ring-2 focus:ring-blue-500';
 
   return (
-    <div className="fixed inset-0 bg-black/50 z-[60] flex items-end justify-center" onClick={onClose}>
-      <div
-        className="bg-white w-full max-w-[430px] max-h-[90vh] rounded-t-2xl flex flex-col mb-16"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200">
-          <p className="font-semibold text-slate-900">{isChallenge ? 'New challenge' : 'New activity'}</p>
-          <button type="button" onClick={onClose} aria-label="Close" className="text-slate-500">
-            <X size={20} />
-          </button>
-        </div>
+     <div className="fixed inset-0 bg-black/50 z-[60] flex items-end justify-center" onClick={onClose}>
+       <div
+         className="bg-white w-full max-w-[430px] max-h-[90vh] rounded-t-2xl flex flex-col mb-16"
+         onClick={(e) => e.stopPropagation()}
+       >
+         <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200">
+           <p className="font-semibold text-slate-900">{isChallenge ? 'New challenge' : 'New activity'}</p>
+           <button type="button" onClick={onClose} aria-label="Close" className="text-slate-500">
+             <X size={20} />
+           </button>
+         </div>
 
-        <form onSubmit={submit} className="flex-1 overflow-y-auto p-4 space-y-4">
-          <div>
-            <label className="text-sm font-semibold text-slate-800">Title</label>
-            <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} className={`${inputClass} mt-1`} />
-          </div>
+         <form onSubmit={submit} className="flex-1 overflow-y-auto p-4 space-y-4">
+           <div>
+             <label className="text-sm font-semibold text-slate-800">Title</label>
+             <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} className={`${inputClass} mt-1`} />
+           </div>
 
-          <div>
+           <div>
             <label className="text-sm font-semibold text-slate-800">Description</label>
-            <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={3} className={`${inputClass} mt-1`} />
-          </div>
+             <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={3} className={`${inputClass} mt-1`} />
+           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="text-sm font-semibold text-slate-800">{isChallenge ? 'Difficulty' : 'Priority'}</label>
-              <select value={level} onChange={(e) => setLevel(e.target.value)} className={`${inputClass} mt-1`}>
-                {isChallenge ? (
-                  <>
+           <div className="grid grid-cols-2 gap-3">
+             <div>
+               <label className="text-sm font-semibold text-slate-800">{isChallenge ? 'Difficulty' : 'Priority'}</label>
+               <select value={level} onChange={(e) => setLevel(e.target.value)} className={`${inputClass} mt-1`}>
+                 {isChallenge ? (
+                   <>
                     <option value="Easy">Easy</option>
-                    <option value="Medium">Medium</option>
-                    <option value="Hard">Hard</option>
-                  </>
-                ) : (
-                  <>
-                    <option value="low">Low</option>
-                    <option value="medium">Medium</option>
-                    <option value="high">High</option>
-                  </>
-                )}
-              </select>
-            </div>
-            <div>
-              <label className="text-sm font-semibold text-slate-800">Points</label>
-              <input type="number" value={points} onChange={(e) => setPoints(e.target.value)} className={`${inputClass} mt-1`} />
-            </div>
-          </div>
+                     <option value="Medium">Medium</option>
+                     <option value="Hard">Hard</option>
+                   </>
+                 ) : (
+                   <>
+                     <option value="low">Low</option>
+                     <option value="medium">Medium</option>
+                     <option value="high">High</option>
+                   </>
+                 )}
+               </select>
+             </div>
+             <div>
+               <label className="text-sm font-semibold text-slate-800">Points</label>
+               <input type="number" value={points} onChange={(e) => setPoints(e.target.value)} className={`${inputClass} mt-1`} />
+             </div>
+           </div>
 
-          {isChallenge && (
-            <div>
-              <label className="text-sm font-semibold text-slate-800">Duration (days)</label>
-              <input type="number" value={days} onChange={(e) => setDays(e.target.value)} className={`${inputClass} mt-1`} />
-            </div>
-          )}
+           {isChallenge && (
+             <>
+               <div>
+                 <label className="text-sm font-semibold text-slate-800">Objectives</label>
+                 <textarea value={objectives} onChange={(e) => setObjectives(e.target.value)} rows={2} className={`${inputClass} mt-1`} />
+               </div>
+               <div>
+                 <label className="text-sm font-semibold text-slate-800">Start date</label>
+                 <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className={`${inputClass} mt-1`} />
+               </div>
+               <div>
+                 <label className="text-sm font-semibold text-slate-800">Duration (days)</label>
+                 <input type="number" value={days} onChange={(e) => setDays(e.target.value)} className={`${inputClass} mt-1`} />
+               </div>
+             </>
+           )}
 
           <button
-            type="submit"
-            disabled={saving}
-            className="w-full rounded-lg bg-[#0000c8] text-white py-3 font-semibold disabled:opacity-50"
-          >
-            {saving ? 'Saving...' : 'Save'}
-          </button>
-        </form>
-      </div>
+             type="submit"
+             disabled={saving}
+             className="w-full rounded-lg bg-[#0000c8] text-white py-3 font-semibold disabled:opacity-50"
+           >
+             {saving ? 'Saving...' : 'Save'}
+           </button>
+         </form>
+       </div>
     </div>
-  );
-}
+   );
+  }
 
 // ----------------------------------------------------------------------------
 // Challenges tab
