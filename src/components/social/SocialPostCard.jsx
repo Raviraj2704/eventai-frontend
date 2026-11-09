@@ -30,6 +30,12 @@ const getErrorMessage = (error, fallback) => {
   return error?.message || fallback;
 };
 
+const unwrap = (body) => {
+  if (Array.isArray(body)) return body;
+  if (Array.isArray(body?.data)) return body.data;
+  return [];
+};
+
 export const timeAgo = (iso) => {
   if (!iso) return '';
   // Backend stores UTC without a timezone marker, so mark it as UTC
