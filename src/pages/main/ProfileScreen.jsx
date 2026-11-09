@@ -496,15 +496,9 @@ export default function ProfileScreen() {
           </div>
         </div>
 
-        {/* NEW: Sign Out Button */}
-        <div className="mt-8 mb-4">
+        {/* Profile actions: stacked, full width, with space between each */}
+        <div className="mt-8 mb-4 flex flex-col gap-3">
           <button
-            onClick={handleLogout}
-            className="w-full py-3.5 bg-white border border-red-200 text-red-600 rounded-xl font-bold hover:bg-red-50 hover:border-red-300 flex items-center justify-center gap-2 transition-all shadow-sm"
-          >
-            <LogOut className="w-5 h-5" />
-            Sign Out
-                      <button
             type="button"
             onClick={() => navigate('/my-badges')}
             className="w-full py-3.5 bg-white border border-neutral-200 text-neutral-800 rounded-xl font-bold hover:border-blue-600 hover:text-blue-600 flex items-center justify-center gap-2 transition-all shadow-sm"
@@ -519,6 +513,14 @@ export default function ProfileScreen() {
           >
             My Favourites
           </button>
+
+          <button
+            type="button"
+            onClick={handleLogout}
+            className="w-full py-3.5 bg-white border border-red-200 text-red-600 rounded-xl font-bold hover:bg-red-50 hover:border-red-300 flex items-center justify-center gap-2 transition-all shadow-sm"
+          >
+            <LogOut className="w-5 h-5" />
+            Sign Out
           </button>
         </div>
 
