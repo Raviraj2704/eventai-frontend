@@ -17,6 +17,7 @@ import PrivateRoute from './components/Auth/PrivateRoute';
 import BottomNavigation from './components/layout/BottomNavigation';
 import AIAssistant from './components/ai/AIAssistant';
 import LoadingSpinner from './components/common/LoadingSpinner';
+import NotificationsScreen from './pages/main/NotificationsScreen';
 
 
 
@@ -46,6 +47,7 @@ const MyContactsScreen = lazy(() => import('./pages/main/MyContactsScreen'));
 const MyMeetingsScreen = lazy(() => import('./pages/main/MyMeetingsScreen'));
 const MyBadgeScreen = lazy(() => import('./pages/main/MyBadgeScreen'));
 const MyFavouritesScreen = lazy(() => import('./pages/main/MyFavouritesScreen'));
+
 
 
 // Pages - Engagement
@@ -164,6 +166,7 @@ function App() {
           h(Route, { path: '/my-meetings', element: wrapPrivate(MyMeetingsScreen) }),
           h(Route, { path: '/my-badges', element: wrapPrivate(MyBadgeScreen) }),
           h(Route, { path: '/my-favourites', element: wrapPrivate(MyFavouritesScreen) }),
+          h(Route, { path: '/notifications', element: wrapPrivate(NotificationsScreen) }),
         
           // Engagement Routes
           h(Route, { path: '/social-wall', element: wrapPrivate(SocialWallScreen) }),
