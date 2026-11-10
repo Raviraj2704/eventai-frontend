@@ -1,535 +1,248 @@
 // ============================================================================
-// Announcements Screen
+// Announcements (same layout as Notifications)
+// Tabs: General = announcements from /announcements
+//       Personal = empty until a notifications API is connected
+// Admins see a "+" button to post a new announcement.
 // ============================================================================
-// File: src/pages/gamification/AnnouncementsScreen.jsx
-// Purpose: Browse, create, and delete event announcements (useFeatureManagement)
-// Status: Production-Ready ✅
 
-import React, { useEffect, useState } from 'react';
-import { Megaphone, AlertCircle, Info, CheckCircle, Bell, Search, Plus, Trash2, X, ChevronDown, ArrowRight } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import Header from '../../components/layout/Header';
+import { ArrowLeft, Plus, X } from 'lucide-react';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 import apiClient from '../../config/apiClient';
-import { useFeatureManagement, CreateDeleteButtons } from '../../hooks/useFeatureManagement';
 
-const AnnouncementsScreen = () => {
-  // Integrate useFeatureManagement('announcements')
-  const {
-    items: managedAnnouncements,
-    loading: hookLoading,
-    canCreate,
-    canDelete,
-    fetchItems,
-    createItem,
-    deleteItem,
-    isCreating,
-    isDeleting
-  } = useFeatureManagement('announcements');
+const errMsg = (e, fallback) => e?.response?.data?.detail || e?.message || fallback;
 
+const listFrom = (body) => {
+  if (Array.isArray(body)) return body;
+  if (Array.isArray(body?.data)) return body.data;
+  if (Array.isArray(body?.data?.data)) return body.data.data;
+  if (Array.isArray(body?.announcements)) return body.announcements;
+  return [];
+};
+
+const normalize = (a) => ({
+  id: a.id,
+  title: a.title || 'Announcement',
+  message: a.message ?? a.content ?? a.description ?? '',
+  created_at: a.created_at ?? a.published_at ?? null,
+  link: a.action_url ?? a.link ?? null,
+});
+
+const ordinal = (n) => {
+  if (n % 100 >= 11 && n % 100 <= 13) return 'th';
+  return ['th', 'st', 'nd', 'rd'][n % 10] || 'th';
+};
+
+const dayLabel = (iso) => {
+  const d = new Date(iso);
+  if (!iso || isNaN(d)) return 'Unknown date';
+  const day = d.getDate();
+  return `${day}${ordinal(day)} ${d.toLocaleString('en-US', { month: 'long' })}`;
+};
+
+const timeLabel = (iso) => {
+  const d = new Date(iso);
+  if (!iso || isNaN(d)) return '';
+  return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+};
+
+export default function AnnouncementsScreen() {
+  const navigate = useNavigate();
+  const [tab, setTab] = useState('general');
+  const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [announcements, setAnnouncements] = useState([]);
-  const [filteredAnnouncements, setFilteredAnnouncements] = useState([]);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState('');
-  const [expandedId, setExpandedId] = useState(null);
-  const [categories, setCategories] = useState([]);
-  const [showCreateModal, setShowCreateModal] = useState(false);
-  const [newAnnouncement, setNewAnnouncement] = useState({
-    title: '',
-    content: '',
-    category: 'General',
-    priority: 'medium',
-    action_url: ''
-  });
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [showCreate, setShowCreate] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [form, setForm] = useState({ title: '', message: '', link: '' });
 
-  useEffect(() => {
-    if (fetchItems) {
-      fetchItems();
-    }
-    loadAnnouncements();
-  }, [selectedCategory, fetchItems]);
-
-  useEffect(() => {
-    filterAnnouncements();
-  }, [searchQuery, announcements, managedAnnouncements]);
-
-  const loadAnnouncements = async () => {
-    setLoading(true);
+  const load = async () => {
     try {
-      const params = {
-        limit: 50,
-        ...(selectedCategory && { category: selectedCategory })
-      };
-
-      const response = await apiClient.get('/announcements', { params });
-      const rawData = response?.data;
-      const data = Array.isArray(rawData)
-        ? rawData
-        : rawData?.data || rawData?.announcements || [];
-
-      setAnnouncements(data);
-      setFilteredAnnouncements(data);
-
-      const uniqueCategories = [...new Set(data.map((a) => a.category).filter(Boolean))];
-      setCategories(uniqueCategories);
-    } catch (error) {
-      console.error('Error loading announcements:', error);
-      toast.error('Failed to load announcements');
-      setAnnouncements([]);
-      setFilteredAnnouncements([]);
+      const res = await apiClient.get('/announcements');
+      const list = listFrom(res?.data).map(normalize);
+      list.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
+      setItems(list);
+    } catch (e) {
+      toast.error(errMsg(e, 'Could not load announcements'));
     } finally {
       setLoading(false);
     }
   };
 
-  const filterAnnouncements = () => {
-    const baseList = announcements.length > 0 ? announcements : managedAnnouncements || [];
-    if (!searchQuery) {
-      setFilteredAnnouncements(baseList);
-      return;
-    }
+  useEffect(() => {
+    load();
+    apiClient
+      .get('/auth/me')
+      .then((res) => {
+        const body = res?.data;
+        const me = body?.data ?? body?.user ?? body;
+        setIsAdmin(Boolean(me?.is_admin));
+      })
+      .catch(() => setIsAdmin(false));
+  }, []);
 
-    const query = searchQuery.toLowerCase();
-    const filtered = baseList.filter(
-      (announcement) =>
-        (announcement.title || '').toLowerCase().includes(query) ||
-        (announcement.content || '').toLowerCase().includes(query)
-    );
+  const groups = useMemo(() => {
+    const map = new Map();
+    items.forEach((item) => {
+      const key = dayLabel(item.created_at);
+      if (!map.has(key)) map.set(key, []);
+      map.get(key).push(item);
+    });
+    return [...map.entries()];
+  }, [items]);
 
-    setFilteredAnnouncements(filtered);
-  };
-
-  const handleCreateAnnouncement = async (e) => {
+  const submit = async (e) => {
     e.preventDefault();
-    if (!newAnnouncement.title.trim() || !newAnnouncement.content.trim()) {
-      toast.error('Title and content are required');
+    if (!form.title.trim() || !form.message.trim()) {
+      toast.error('Title and message are required');
       return;
     }
-
+    setSaving(true);
     try {
-      let created = null;
-      if (createItem) {
-        created = await createItem(newAnnouncement);
-      } else {
-        const response = await apiClient.post('/announcements', newAnnouncement);
-        created = response?.data?.data || response?.data;
-      }
-
-      const itemToAdd = created || {
-        ...newAnnouncement,
-        id: Date.now(),
-        created_at: new Date().toISOString()
-      };
-
-      const updated = [itemToAdd, ...announcements];
-      setAnnouncements(updated);
-      setFilteredAnnouncements(updated);
-      toast.success('Announcement posted!');
-    } catch (error) {
-      const fallbackItem = {
-        ...newAnnouncement,
-        id: Date.now(),
-        created_at: new Date().toISOString()
-      };
-      const updated = [fallbackItem, ...announcements];
-      setAnnouncements(updated);
-      setFilteredAnnouncements(updated);
-      toast.success('Announcement added!');
-    } finally {
-      setShowCreateModal(false);
-      setNewAnnouncement({
-        title: '',
-        content: '',
-        category: 'General',
-        priority: 'medium',
-        action_url: ''
+      await apiClient.post('/announcements', {
+        title: form.title.trim(),
+        content: form.message.trim(),
+        message: form.message.trim(),
+        action_url: form.link.trim() || null,
       });
-    }
-  };
-
-  const handleDeleteAnnouncement = async (e, id) => {
-    e.stopPropagation();
-    if (!window.confirm('Delete this announcement?')) return;
-
-    try {
-      if (deleteItem) {
-        await deleteItem(id);
-      } else {
-        await apiClient.delete('/announcements/' + id);
-      }
-    } catch (error) {
-      console.warn('Delete announcement fallback:', error);
+      toast.success('Announcement posted');
+      setForm({ title: '', message: '', link: '' });
+      setShowCreate(false);
+      await load();
+    } catch (e) {
+      toast.error(errMsg(e, 'Could not post announcement'));
     } finally {
-      const updated = announcements.filter((a) => a.id !== id);
-      setAnnouncements(updated);
-      setFilteredAnnouncements(updated);
-      toast.success('Announcement removed!');
+      setSaving(false);
     }
   };
 
-  const getCategoryIcon = (category) => {
-    switch (category?.toLowerCase()) {
-      case 'urgent':
-        return React.createElement(AlertCircle, { className: 'w-5 h-5 text-red-600' });
-      case 'event':
-        return React.createElement(Megaphone, { className: 'w-5 h-5 text-primary-600' });
-      case 'schedule':
-        return React.createElement(Info, { className: 'w-5 h-5 text-blue-600' });
-      case 'general':
-        return React.createElement(Bell, { className: 'w-5 h-5 text-neutral-600' });
-      default:
-        return React.createElement(CheckCircle, { className: 'w-5 h-5 text-green-600' });
-    }
-  };
+  const personalItems = [];
 
-  const getCategoryColor = (category) => {
-    switch (category?.toLowerCase()) {
-      case 'urgent':
-        return 'bg-red-100 text-red-900 border-red-300';
-      case 'event':
-        return 'bg-primary-100 text-primary-900 border-primary-300';
-      case 'schedule':
-        return 'bg-blue-100 text-blue-900 border-blue-300';
-      case 'general':
-        return 'bg-neutral-100 text-neutral-900 border-neutral-300';
-      default:
-        return 'bg-green-100 text-green-900 border-green-300';
-    }
-  };
+  return (
+    <div className="min-h-screen bg-white max-w-[430px] mx-auto pb-28">
+      {/* Header */}
+      <div className="flex items-center justify-between px-4 pt-5 pb-3">
+        <div className="flex items-center gap-3">
+          <button type="button" onClick={() => navigate(-1)} aria-label="Back" className="text-slate-800">
+            <ArrowLeft size={22} />
+          </button>
+          <h1 className="text-xl font-semibold text-slate-900">Announcements</h1>
+        </div>
+        {isAdmin && (
+          <button
+            type="button"
+            onClick={() => setShowCreate(true)}
+            aria-label="New announcement"
+            className="p-2 rounded-full bg-[#0000c8] text-white"
+          >
+            <Plus size={18} />
+          </button>
+        )}
+      </div>
 
-  const getPriorityColor = (priority) => {
-    switch (priority?.toLowerCase()) {
-      case 'high':
-        return 'border-l-4 border-l-red-600';
-      case 'medium':
-        return 'border-l-4 border-l-yellow-600';
-      default:
-        return 'border-l-4 border-l-green-600';
-    }
-  };
+      {/* Tabs */}
+      <div className="flex border-b border-slate-200 px-4">
+        <button
+          type="button"
+          onClick={() => setTab('general')}
+          className={`flex-1 py-3 text-sm font-medium ${
+            tab === 'general' ? 'text-[#0000c8] border-b-2 border-[#0000c8]' : 'text-slate-500'
+          }`}
+        >
+          General
+        </button>
+        <button
+          type="button"
+          onClick={() => setTab('personal')}
+          className={`flex-1 py-3 text-sm font-medium flex items-center justify-center gap-1 ${
+            tab === 'personal' ? 'text-[#0000c8] border-b-2 border-[#0000c8]' : 'text-slate-500'
+          }`}
+        >
+          Personal
+          {personalItems.length > 0 && <span className="text-xs">{personalItems.length}</span>}
+        </button>
+      </div>
 
-  return React.createElement(
-    React.Fragment,
-    null,
-    React.createElement(Header, null),
-    React.createElement(
-      'main',
-      { className: 'pb-20 md:pb-0' },
-      React.createElement(
-        'div',
-        { className: 'bg-gradient-to-r from-primary-600 to-secondary-600 text-white' },
-        React.createElement(
-          'div',
-          { className: 'container-max py-8 flex items-center justify-between flex-wrap gap-4' },
-          React.createElement(
-            'div',
-            null,
-            React.createElement('h1', { className: 'text-3xl md:text-4xl font-bold mb-2' }, 'Announcements'),
-            React.createElement('p', { className: 'text-white/80' }, 'Stay updated with the latest event news')
-          ),
-          (canCreate !== false) &&
-            React.createElement(
-              'button',
-              {
-                onClick: () => setShowCreateModal(true),
-                disabled: isCreating,
-                className: 'btn bg-white text-primary-600 hover:bg-neutral-100 flex items-center gap-2 font-semibold px-4 py-2 rounded-lg'
-              },
-              React.createElement(Plus, { className: 'w-5 h-5' }),
-              'Post Announcement'
-            )
-        )
-      ),
-      React.createElement(
-        'div',
-        { className: 'container-max py-8' },
-        CreateDeleteButtons &&
-          React.createElement(
-            'div',
-            { className: 'mb-4' },
-            React.createElement(CreateDeleteButtons, {
-              featureKey: 'announcements',
-              canCreate: canCreate,
-              canDelete: true,
-              onCreate: () => setShowCreateModal(true),
-              isCreating: isCreating,
-              isDeleting: isDeleting
-            })
-          ),
-        showCreateModal &&
-          React.createElement(
-            'div',
-            { className: 'bg-white rounded-lg border border-neutral-200 p-6 mb-8 shadow-md' },
-            React.createElement(
-              'div',
-              { className: 'flex items-center justify-between mb-4' },
-              React.createElement('h3', { className: 'text-lg font-bold text-neutral-900' }, 'Create New Announcement'),
-              React.createElement(
-                'button',
-                { onClick: () => setShowCreateModal(false), className: 'text-neutral-500 hover:text-neutral-800' },
-                React.createElement(X, { className: 'w-5 h-5' })
-              )
-            ),
-            React.createElement(
-              'form',
-              { onSubmit: handleCreateAnnouncement, className: 'space-y-4' },
-              React.createElement('input', {
-                type: 'text',
-                placeholder: 'Announcement Title',
-                value: newAnnouncement.title,
-                onChange: (e) => setNewAnnouncement({ ...newAnnouncement, title: e.target.value }),
-                className: 'w-full p-2 border border-neutral-300 rounded-lg',
-                required: true
-              }),
-              React.createElement('textarea', {
-                placeholder: 'Announcement Content...',
-                value: newAnnouncement.content,
-                onChange: (e) => setNewAnnouncement({ ...newAnnouncement, content: e.target.value }),
-                className: 'w-full p-2 border border-neutral-300 rounded-lg',
-                rows: 3,
-                required: true
-              }),
-              React.createElement(
-                'div',
-                { className: 'grid grid-cols-1 md:grid-cols-3 gap-4' },
-                React.createElement(
-                  'select',
-                  {
-                    value: newAnnouncement.category,
-                    onChange: (e) => setNewAnnouncement({ ...newAnnouncement, category: e.target.value }),
-                    className: 'p-2 border border-neutral-300 rounded-lg bg-white'
-                  },
-                  React.createElement('option', { value: 'General' }, 'General'),
-                  React.createElement('option', { value: 'Event' }, 'Event'),
-                  React.createElement('option', { value: 'Schedule' }, 'Schedule'),
-                  React.createElement('option', { value: 'Urgent' }, 'Urgent')
-                ),
-                React.createElement(
-                  'select',
-                  {
-                    value: newAnnouncement.priority,
-                    onChange: (e) => setNewAnnouncement({ ...newAnnouncement, priority: e.target.value }),
-                    className: 'p-2 border border-neutral-300 rounded-lg bg-white'
-                  },
-                  React.createElement('option', { value: 'low' }, 'Low Priority'),
-                  React.createElement('option', { value: 'medium' }, 'Medium Priority'),
-                  React.createElement('option', { value: 'high' }, 'High Priority')
-                ),
-                React.createElement('input', {
-                  type: 'url',
-                  placeholder: 'Action URL (optional)',
-                  value: newAnnouncement.action_url,
-                  onChange: (e) => setNewAnnouncement({ ...newAnnouncement, action_url: e.target.value }),
-                  className: 'p-2 border border-neutral-300 rounded-lg'
-                })
-              ),
-              React.createElement(
-                'div',
-                { className: 'flex justify-end gap-2' },
-                React.createElement(
-                  'button',
-                  { type: 'button', onClick: () => setShowCreateModal(false), className: 'btn btn-outline px-4 py-2' },
-                  'Cancel'
-                ),
-                React.createElement(
-                  'button',
-                  { type: 'submit', disabled: isCreating, className: 'btn btn-primary px-4 py-2' },
-                  isCreating ? 'Publishing...' : 'Publish'
-                )
-              )
-            )
-          ),
-        React.createElement(
-          'div',
-          { className: 'space-y-4 mb-8' },
-          React.createElement(
-            'div',
-            { className: 'relative' },
-            React.createElement(Search, { className: 'absolute left-4 top-3 w-5 h-5 text-neutral-400' }),
-            React.createElement('input', {
-              type: 'text',
-              placeholder: 'Search announcements...',
-              value: searchQuery,
-              onChange: (e) => setSearchQuery(e.target.value),
-              className: 'pl-12 bg-white w-full py-2 border border-neutral-300 rounded-md shadow-sm'
-            })
-          ),
-          categories.length > 0 &&
-            React.createElement(
-              'div',
-              { className: 'flex gap-2 flex-wrap' },
-              React.createElement(
-                'button',
-                {
-                  onClick: () => setSelectedCategory(''),
-                  className:
-                    'px-4 py-2 rounded-full text-sm font-medium transition-colors ' +
-                    (selectedCategory === ''
-                      ? 'bg-primary-600 text-white'
-                      : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200')
-                },
-                'All'
-              ),
-              categories.map((cat) =>
-                React.createElement(
-                  'button',
-                  {
-                    key: cat,
-                    onClick: () => setSelectedCategory(cat),
-                    className:
-                      'px-4 py-2 rounded-full text-sm font-medium transition-colors ' +
-                      (selectedCategory === cat
-                        ? 'bg-primary-600 text-white'
-                        : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200')
-                  },
-                  cat
-                )
-              )
-            )
-        ),
-        loading && hookLoading
-          ? React.createElement(LoadingSpinner, null)
-          : filteredAnnouncements.length > 0
-          ? React.createElement(
-              'div',
-              { className: 'space-y-4' },
-              filteredAnnouncements.map((announcement) =>
-                React.createElement(
-                  'div',
-                  {
-                    key: announcement.id,
-                    className:
-                      'bg-white rounded-lg border border-neutral-200 overflow-hidden hover:shadow-md transition-shadow ' +
-                      getPriorityColor(announcement.priority)
-                  },
-                  React.createElement(
-                    'div',
-                    {
-                      onClick: () => setExpandedId(expandedId === announcement.id ? null : announcement.id),
-                      className: 'w-full px-6 py-4 hover:bg-neutral-50 transition-colors text-left cursor-pointer'
-                    },
-                    React.createElement(
-                      'div',
-                      { className: 'flex items-start gap-4' },
-                      React.createElement(
-                        'div',
-                        { className: 'flex-shrink-0 mt-1' },
-                        getCategoryIcon(announcement.category)
-                      ),
-                      React.createElement(
-                        'div',
-                        { className: 'flex-1 min-w-0' },
-                        React.createElement(
-                          'div',
-                          { className: 'flex items-start justify-between mb-2 gap-4' },
-                          React.createElement(
-                            'h3',
-                            { className: 'text-lg font-bold text-neutral-900' },
-                            announcement.title
-                          ),
-                          React.createElement(
-                            'div',
-                            { className: 'flex items-center gap-2 flex-shrink-0' },
-                            announcement.category &&
-                              React.createElement(
-                                'span',
-                                {
-                                  className:
-                                    'px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap border ' +
-                                    getCategoryColor(announcement.category)
-                                },
-                                announcement.category
-                              ),
-                            React.createElement(
-                              'button',
-                              {
-                                type: 'button',
-                                onClick: (e) => handleDeleteAnnouncement(e, announcement.id),
-                                disabled: isDeleting,
-                                className: 'btn-delete p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors',
-                                title: 'Delete Announcement'
-                              },
-                              React.createElement(Trash2, { className: 'w-4 h-4' })
-                            )
-                          )
-                        ),
-                        React.createElement(
-                          'p',
-                          { className: 'text-neutral-600 text-sm mb-2 line-clamp-2' },
-                          announcement.content
-                        ),
-                        React.createElement(
-                          'p',
-                          { className: 'text-xs text-neutral-500' },
-                          announcement.created_at
-                            ? new Date(announcement.created_at).toLocaleDateString() +
-                                ' at ' +
-                                new Date(announcement.created_at).toLocaleTimeString([], {
-                                  hour: '2-digit',
-                                  minute: '2-digit'
-                                })
-                            : 'Just now'
-                        )
-                      ),
-                      React.createElement(
-                        'div',
-                        { className: 'flex-shrink-0 text-neutral-400 mt-1' },
-                        React.createElement(ChevronDown, {
-                          className:
-                            'w-5 h-5 transition-transform ' +
-                            (expandedId === announcement.id ? 'rotate-180' : '')
-                        })
-                      )
-                    )
-                  ),
-                  expandedId === announcement.id &&
-                    React.createElement(
-                      'div',
-                      { className: 'px-6 py-4 bg-neutral-50 border-t border-neutral-200' },
-                      React.createElement(
-                        'p',
-                        { className: 'text-neutral-700 whitespace-pre-wrap mb-4' },
-                        announcement.content
-                      ),
-                      announcement.action_url &&
-                        React.createElement(
-                          'a',
-                          {
-                            href: announcement.action_url,
-                            target: '_blank',
-                            rel: 'noopener noreferrer',
-                            className:
-                              'inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-primary-600 text-white hover:bg-primary-700 transition-colors'
-                          },
-                          'Learn More',
-                          React.createElement(ArrowRight, { className: 'w-4 h-4' })
-                        )
-                    )
-                )
-              )
-            )
-          : React.createElement(
-              'div',
-              { className: 'bg-neutral-50 rounded-lg border border-neutral-200 p-12 text-center' },
-              React.createElement(Megaphone, {
-                className: 'w-12 h-12 text-neutral-400 mx-auto mb-4 opacity-50'
-              }),
-              React.createElement(
-                'p',
-                { className: 'text-neutral-600 mb-4' },
-                searchQuery ? 'No announcements match your search' : 'No announcements yet'
-              ),
-              searchQuery &&
-                React.createElement(
-                  'button',
-                  { onClick: () => setSearchQuery(''), className: 'btn btn-primary' },
-                  'Clear Search'
-                )
-            )
-      )
-    )
+      {/* List */}
+      <div className="px-4 pt-2">
+        {loading && tab === 'general' ? (
+          <div className="py-16">
+            <LoadingSpinner />
+          </div>
+        ) : tab === 'general' ? (
+          groups.length === 0 ? (
+            <p className="text-center text-sm text-slate-500 py-16">No announcements yet.</p>
+          ) : (
+            groups.map(([day, list]) => (
+              <div key={day}>
+                <p className="text-sm text-slate-500 pt-4 pb-2">{day}</p>
+                {list.map((item) => (
+                  <div key={item.id} className="rounded-2xl border border-slate-200 p-4 mb-3 bg-white">
+                    <p className="text-xs text-slate-400">{timeLabel(item.created_at)}</p>
+                    <p className="text-sm font-semibold text-slate-900 mt-1">{item.title}</p>
+                    {item.message && (
+                      <p className="text-xs text-slate-600 mt-1 leading-relaxed">{item.message}</p>
+                    )}
+                    {item.link && (
+                      <button
+                        type="button"
+                        onClick={() => window.open(item.link, '_blank', 'noopener')}
+                        className="text-xs font-semibold text-[#0000c8] mt-3"
+                      >
+                        Know More
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            ))
+          )
+        ) : personalItems.length === 0 ? (
+          <p className="text-center text-sm text-slate-500 py-16">No personal notifications yet.</p>
+        ) : null}
+      </div>
+
+      {/* Create sheet (admins only) */}
+      {showCreate && (
+        <div className="fixed inset-0 z-50 bg-black/40 flex items-end justify-center">
+          <form onSubmit={submit} className="w-full max-w-[430px] bg-white rounded-t-2xl p-5 flex flex-col gap-3">
+            <div className="flex items-center justify-between">
+              <p className="text-base font-semibold text-slate-900">New Announcement</p>
+              <button type="button" onClick={() => setShowCreate(false)} aria-label="Close">
+                <X size={18} />
+              </button>
+            </div>
+            <input
+              value={form.title}
+              onChange={(e) => setForm({ ...form, title: e.target.value })}
+              placeholder="Title"
+              className="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm"
+            />
+            <textarea
+              value={form.message}
+              onChange={(e) => setForm({ ...form, message: e.target.value })}
+              placeholder="Message"
+              rows={4}
+              className="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm"
+            />
+            <input
+              value={form.link}
+              onChange={(e) => setForm({ ...form, link: e.target.value })}
+              placeholder="Link (optional)"
+              className="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm"
+            />
+            <button
+              type="submit"
+              disabled={saving}
+              className="w-full rounded-xl bg-[#0000c8] text-white py-3 text-sm font-semibold disabled:opacity-60"
+            >
+              {saving ? 'Posting...' : 'Post Announcement'}
+            </button>
+          </form>
+        </div>
+      )}
+    </div>
   );
-};
-
-export default AnnouncementsScreen;
+}
