@@ -10,8 +10,9 @@ import { apiGet, apiPost } from '../../services/api';
 import apiClient from '../../config/apiClient';
 import authService from '../../services/authService';
 import toast from 'react-hot-toast';
-import {
-  Settings, Edit2, Bookmark, Calendar, UserSquare2, Briefcase, Camera, LogOut, CheckCircle2, Globe, Bell, X, Check
+import { 
+  ArrowLeft, Mail, Phone, Briefcase, Building, FileText, Info, 
+  Shield, Calendar, Edit2, Save, X, Camera, User as UserIcon, LogOut, Settings, Bookmark, Users, CheckCircle
 } from 'lucide-react';
 
 const getProfileKey = () => {
