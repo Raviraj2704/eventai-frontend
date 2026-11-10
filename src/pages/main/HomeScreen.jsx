@@ -1,19 +1,40 @@
+// ============================================================================
+// Home Screen (matches the reference screenshots)
+// File: src/pages/main/HomeScreen.jsx
+// Route: /home
+// Real API only:
+//   GET  /ai/recommendations/sessions    Recommended For You
+//   GET  /activity/leaderboard/top       Leaderboard podium
+//   GET  /social/wall                    #DreamcastAnnual24 posts and Activity Hub preview
+// ============================================================================
+
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import {
   Bell, MessageSquare, MapPin, Sparkles, User, Users, Award, Bookmark,
-  Building2, Mic, CalendarDays, ChevronRight, Clock, Crown, ThumbsUp, MessageCircle,
+  Building2, Mic, CalendarDays, ChevronRight, Clock, Crown, Globe,
 } from 'lucide-react';
 import apiClient from '../../config/apiClient';
+import SocialPostCard, { CommentsSheet } from '../../components/social/SocialPostCard';
 
-// Edit these values to match your event.
+// Edit these to match your event.
 const EVENT = {
   name: 'EventAI',
   dates: '26 - 27 Nov, 2026',
   venue: 'HI-TECH CITY, HYDERABAD',
   start: '2026-11-26T09:00:00+05:30',
 };
+
+// Add your real social links here. Empty means "not set yet".
+const SOCIAL_LINKS = [
+  { label: 'Facebook', mark: 'f', url: '' },
+  { label: 'X', mark: 'X', url: '' },
+  { label: 'Instagram', mark: 'IG', url: '' },
+  { label: 'LinkedIn', mark: 'in', url: '' },
+  { label: 'YouTube', mark: '▶', url: '' },
+  { label: 'Website', icon: Globe, url: '' },
+];
 
 // Real event photos in public/images/home/
 const SLIDES = [
@@ -25,8 +46,8 @@ const SLIDES = [
 const QUICK_ACTIONS = [
   { label: 'My Profile', icon: User, path: '/profile' },
   { label: 'My Meetings', icon: Users, path: '/my-meetings' },
-  { label: 'My Favourites', icon: Bookmark, path: '/briefcase' },
-  { label: 'My Badge', icon: Award, path: '/profile' },
+  { label: 'My Favourites', icon: Bookmark, path: '/my-favourites' },
+  { label: 'My Badge', icon: Award, path: '/my-badges' },
 ];
 
 const FEATURES = [
@@ -47,18 +68,14 @@ const getTimeLeft = (target) => {
   };
 };
 
-const getErrorMessage = (error, fallback) =>
-  error?.response?.data?.detail || error?.data?.detail || error?.message || fallback;
-
-const initialsOf = (name) =>
-  name.split(' ').filter(Boolean).map((p) => p[0]).join('').slice(0, 2).toUpperCase() || 'A';
-
-const formatWhen = (iso) => {
-  if (!iso) return '';
-  return new Date(iso).toLocaleString('en-IN', {
-    day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit',
-  });
+const getErrorMessage = (error, fallback) => {
+  const detail = error?.data?.detail ?? error?.response?.data?.detail;
+  if (typeof detail === 'string') return detail;
+  return error?.message || fallback;
 };
+
+const initialsOf = (name = '') =>
+  name.split(' ').filter(Boolean).map((p) => p[0]).join('').slice(0, 2).toUpperCase() || 'A';
 
 const Avatar = ({ src, name, size = 'w-14 h-14', text = 'text-base', ring = false }) =>
   src ? (
@@ -75,14 +92,33 @@ const Avatar = ({ src, name, size = 'w-14 h-14', text = 'text-base', ring = fals
     </div>
   );
 
+// Date circle used for session cards that have no photo
+function DateBadge({ iso }) {
+  const d = iso ? new Date(iso) : null;
+  const day = d && !isNaN(d) ? d.toLocaleDateString('en-IN', { day: '2-digit' }) : '--';
+  const month = d && !isNaN(d) ? d.toLocaleDateString('en-IN', { month: 'short' }) : '';
+  const time = d && !isNaN(d)
+    ? d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })
+    : '';
+  return (
+    <div className="w-36 h-36 bg-neutral-100 flex flex-col items-center justify-center gap-2">
+      <div className="w-20 h-20 rounded-full border-2 border-purple-600 flex flex-col items-center justify-center text-center leading-tight">
+        <span className="text-sm font-semibold text-neutral-900">{day}</span>
+        <span className="text-sm font-semibold text-neutral-900">{month}</span>
+      </div>
+      <span className="text-[11px] text-neutral-600">{time}</span>
+    </div>
+  );
+}
+
 export default function HomeScreen() {
   const navigate = useNavigate();
   const [slide, setSlide] = useState(0);
   const [time, setTime] = useState(() => getTimeLeft(EVENT.start));
   const [recommended, setRecommended] = useState([]);
   const [podium, setPodium] = useState([]);
-  const [feed, setFeed] = useState([]);
-  const [likedIds, setLikedIds] = useState([]);
+  const [wall, setWall] = useState([]);
+  const [commentPost, setCommentPost] = useState(null);
   const touchX = useRef(null);
 
   // Countdown
@@ -97,14 +133,23 @@ export default function HomeScreen() {
     return () => clearInterval(t);
   }, []);
 
-  // Load Recommended, Leaderboard top 3, and Activity Hub preview from real routes
+  const loadWall = async () => {
+    try {
+      const res = await apiClient.get('/social/wall', { params: { page: 1, limit: 10 } });
+      setWall(res?.data?.data || []);
+    } catch (error) {
+      console.error('Could not load social wall:', error);
+    }
+  };
+
+  // Load everything once
   useEffect(() => {
     let cancelled = false;
 
     const loadRecommended = async () => {
       try {
-        const response = await apiClient.get('/ai/recommendations/sessions');
-        const raw = response?.data;
+        const res = await apiClient.get('/ai/recommendations/sessions');
+        const raw = res?.data;
         const list = Array.isArray(raw) ? raw : raw?.data || raw?.recommendations || [];
         if (!cancelled) setRecommended(list.slice(0, 10));
       } catch (error) {
@@ -114,45 +159,38 @@ export default function HomeScreen() {
 
     const loadPodium = async () => {
       try {
-        const response = await apiClient.get('/activity/leaderboard/top', { params: { limit: 3 } });
-        const list = response?.data?.data || [];
-        if (!cancelled) setPodium(list);
+        const res = await apiClient.get('/activity/leaderboard/top', { params: { limit: 3 } });
+        if (!cancelled) setPodium(res?.data?.data || []);
       } catch (error) {
         console.error('Could not load leaderboard:', error);
       }
     };
 
-    const loadFeed = async () => {
+    const loadWallOnce = async () => {
       try {
-        const response = await apiClient.get('/activity/feed', { params: { limit: 3 } });
-        const raw = response?.data;
-        const list = Array.isArray(raw) ? raw : raw?.data || [];
-        if (!cancelled) setFeed(list);
+        const res = await apiClient.get('/social/wall', { params: { page: 1, limit: 10 } });
+        if (!cancelled) setWall(res?.data?.data || []);
       } catch (error) {
-        console.error('Could not load activity feed:', error);
+        console.error('Could not load social wall:', error);
       }
     };
 
     loadRecommended();
     loadPodium();
-    loadFeed();
+    loadWallOnce();
     return () => {
       cancelled = true;
     };
   }, []);
 
-  const handleLike = async (post) => {
-    if (likedIds.includes(post.id)) return;
-    try {
-      const response = await apiClient.post(`/social/posts/${post.id}/like`);
-      const likeCount = response?.data?.like_count ?? post.like_count + 1;
-      setFeed((prev) =>
-        prev.map((p) => (p.id === post.id ? { ...p, like_count: likeCount } : p))
-      );
-      setLikedIds((prev) => [...prev, post.id]);
-    } catch (error) {
-      toast.error(getErrorMessage(error, 'Could not like this post'));
-    }
+  const bumpComments = (postId, delta) =>
+    setWall((prev) =>
+      prev.map((p) => (p.id === postId ? { ...p, comment_count: Math.max(0, (p.comment_count || 0) + delta) } : p))
+    );
+
+  const openSocialLink = (link) => {
+    if (link.url) window.open(link.url, '_blank', 'noopener');
+    else toast(`${link.label} link coming soon`);
   };
 
   const onTouchStart = (e) => {
@@ -169,8 +207,11 @@ export default function HomeScreen() {
   };
 
   const current = SLIDES[slide];
+  const withPhotos = wall.filter((p) => p.image_url);
+  const dreamcastPosts = (withPhotos.length ? withPhotos : wall).slice(0, 2);
+  const activityPost = wall[0];
 
-  // Video layout: #2 on the left, #1 in the center (blue card with crown), #3 on the right
+  // Video layout: #2 left, #1 center (blue card with crown), #3 right
   const podiumOrder = [podium[1], podium[0], podium[2]];
 
   return (
@@ -181,6 +222,7 @@ export default function HomeScreen() {
           <span className="font-bold text-lg">{EVENT.name}</span>
           <div className="flex gap-2">
             <button
+              type="button"
               onClick={() => navigate('/networking')}
               aria-label="Messages"
               className="w-10 h-10 rounded-full bg-white/15 flex items-center justify-center"
@@ -188,6 +230,7 @@ export default function HomeScreen() {
               <MessageSquare size={18} />
             </button>
             <button
+              type="button"
               onClick={() => navigate('/announcements')}
               aria-label="Notifications"
               className="w-10 h-10 rounded-full bg-white/15 flex items-center justify-center"
@@ -234,26 +277,30 @@ export default function HomeScreen() {
         </div>
       </div>
 
-      {/* Quick actions */}
-      <div className="px-4 pt-5 grid grid-cols-4 gap-2">
+      {/* Quick actions: blue tiles with label under each */}
+      <div className="px-4 pt-6 grid grid-cols-4 gap-3">
         {QUICK_ACTIONS.map(({ label, icon: Icon, path }) => (
           <button
+            type="button"
             key={label}
             onClick={() => navigate(path)}
-            className="bg-[#1d1fb8] text-white rounded-xl py-4 flex flex-col items-center gap-2 text-[11px] font-medium"
+            className="flex flex-col items-center gap-2"
           >
-            <Icon size={22} />
-            {label}
+            <span className="w-14 h-14 rounded-2xl bg-[#0000c8] text-white flex items-center justify-center shadow-sm">
+              <Icon size={22} />
+            </span>
+            <span className="text-[11px] text-neutral-800 text-center leading-tight">{label}</span>
           </button>
         ))}
       </div>
 
-      {/* Features */}
+      {/* Features: purple gradient tiles */}
       <div className="px-4 pt-6">
         <h2 className="text-lg font-semibold text-neutral-800">Features</h2>
         <div className="grid grid-cols-4 gap-2 pt-3">
           {FEATURES.map(({ label, icon: Icon, path }) => (
             <button
+              type="button"
               key={label}
               onClick={() => navigate(path)}
               className="h-[72px] rounded-lg bg-gradient-to-br from-[#7e22ce] to-[#a21caf] text-white flex flex-col items-center justify-center gap-1 text-[11px] font-medium shadow-sm"
@@ -264,6 +311,7 @@ export default function HomeScreen() {
           ))}
         </div>
         <button
+          type="button"
           onClick={() => navigate('/hub')}
           className="w-full text-center text-sm text-neutral-700 py-4 flex items-center justify-center gap-1"
         >
@@ -271,39 +319,62 @@ export default function HomeScreen() {
         </button>
       </div>
 
+      {/* #DreamcastAnnual24: posts in a light card, same card as Social Wall */}
+      {dreamcastPosts.length > 0 && (
+        <div className="px-4 pt-2">
+          <h2 className="text-lg font-semibold text-neutral-900">#DreamcastAnnual24</h2>
+          <div className="mt-3 rounded-2xl bg-slate-100 p-4 space-y-5">
+            {dreamcastPosts.map((post) => (
+              <SocialPostCard
+                key={post.id}
+                post={post}
+                variant="wall"
+                onChanged={loadWall}
+                onComment={setCommentPost}
+                onDeleted={() => {}}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Recommended For You */}
       {recommended.length > 0 && (
-        <div className="pt-2">
-          <div className="px-4 flex justify-between items-center">
-            <h2 className="text-lg font-semibold text-neutral-800">Recommended For You</h2>
-            <button onClick={() => navigate('/ai-matches')} className="text-sm text-[#1d1fb8] font-medium">
+        <div className="px-4 pt-8">
+          <div className="flex justify-between items-center">
+            <h2 className="text-lg font-semibold text-neutral-900">Recommended For You</h2>
+            <button type="button" onClick={() => navigate('/ai-matches')} className="text-sm text-[#0000c8] font-medium">
               View All
             </button>
           </div>
-          <div className="flex gap-3 overflow-x-auto px-4 pt-3 pb-2 hide-scrollbar">
+          <div className="flex gap-3 overflow-x-auto pt-3 pb-2 hide-scrollbar">
             {recommended.map((item, index) => {
               const title = item.title || item.name || 'Recommended';
               const type = item.type || 'Session';
-              const when = item.start_time || item.date || '';
+              const subtitle = item.company || item.organization || item.subtitle || '';
               const image = item.image_url || item.avatar_url || null;
+              const isSession = type.toLowerCase() === 'session';
               return (
                 <button
+                  type="button"
                   key={item.id ?? index}
-                  onClick={() => navigate(type.toLowerCase() === 'session' ? '/sessions' : '/ai-matches')}
-                  className="shrink-0 w-44 rounded-xl border border-neutral-200 overflow-hidden text-left shadow-sm"
+                  onClick={() => navigate(isSession ? '/sessions' : '/ai-matches')}
+                  className="shrink-0 w-36 text-left"
                 >
-                  <div className="h-24 bg-neutral-200">
-                    {image && <img src={image} alt="" className="w-full h-full object-cover" />}
-                  </div>
-                  <div className="p-3">
-                    <p className="text-[11px] font-semibold uppercase text-[#1d1fb8]">{type}</p>
-                    <p className="text-sm font-semibold text-neutral-900 line-clamp-2">{title}</p>
-                    {when && (
-                      <p className="text-xs text-neutral-500 flex items-center gap-1 mt-1">
-                        <Clock size={12} /> {when}
-                      </p>
+                  <div className="w-36 h-36 rounded-xl overflow-hidden bg-neutral-100">
+                    {image ? (
+                      <img src={image} alt="" className="w-full h-full object-cover" />
+                    ) : isSession ? (
+                      <DateBadge iso={item.start_time || item.date} />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-2xl font-semibold text-neutral-500">
+                        {initialsOf(title)}
+                      </div>
                     )}
                   </div>
+                  <p className="text-sm text-[#0000c8] mt-2 capitalize">{type.toLowerCase()}</p>
+                  <p className="text-sm font-medium text-neutral-900 line-clamp-2">{title}</p>
+                  {subtitle && <p className="text-xs text-neutral-500 truncate">{subtitle}</p>}
                 </button>
               );
             })}
@@ -311,12 +382,12 @@ export default function HomeScreen() {
         </div>
       )}
 
-      {/* Leaderboard (top 3 with profile photos) */}
+      {/* Leaderboard podium */}
       {podium.length > 0 && (
-        <div className="px-4 pt-6">
+        <div className="px-4 pt-8">
           <div className="flex justify-between items-center">
-            <h2 className="text-lg font-semibold text-neutral-800">Leaderboard</h2>
-            <button onClick={() => navigate('/engagement-center')} className="text-sm text-[#1d1fb8] font-medium">
+            <h2 className="text-lg font-semibold text-neutral-900">Leaderboard</h2>
+            <button type="button" onClick={() => navigate('/engagement-center')} className="text-sm text-[#0000c8] font-medium">
               View All
             </button>
           </div>
@@ -326,10 +397,10 @@ export default function HomeScreen() {
               const isFirst = entry.rank === 1;
               return (
                 <div
-                  key={entry.user_id}
+                  key={entry.user_id ?? i}
                   className={`flex-1 flex flex-col items-center text-center rounded-2xl px-2 py-4 ${
                     isFirst
-                      ? 'bg-[#1d1fb8] text-white shadow-lg -mt-4'
+                      ? 'bg-[#0000c8] text-white shadow-lg -mt-4'
                       : 'bg-white border border-neutral-200 text-neutral-900'
                   }`}
                 >
@@ -349,7 +420,7 @@ export default function HomeScreen() {
                     #{entry.rank}
                   </p>
                   <p className="text-sm font-semibold truncate w-full">{entry.name}</p>
-                  <p className={`text-sm font-bold ${isFirst ? 'text-white' : 'text-[#1d1fb8]'}`}>
+                  <p className={`text-sm font-bold ${isFirst ? 'text-white' : 'text-[#0000c8]'}`}>
                     {entry.total_points}
                   </p>
                 </div>
@@ -359,61 +430,62 @@ export default function HomeScreen() {
         </div>
       )}
 
-      {/* Activity Hub preview */}
-      {feed.length > 0 && (
-        <div className="px-4 pt-6">
+      {/* Activity Hub preview: latest post with the same reactions as Activity Hub */}
+      {activityPost && (
+        <div className="px-4 pt-8">
           <div className="flex justify-between items-center">
-            <h2 className="text-lg font-semibold text-neutral-800">Activity Hub</h2>
-            <button onClick={() => navigate('/activity-hub')} className="text-sm text-[#1d1fb8] font-medium">
+            <h2 className="text-lg font-semibold text-neutral-900">Activity Hub</h2>
+            <button type="button" onClick={() => navigate('/activity-hub')} className="text-sm text-[#0000c8] font-medium">
               View All
             </button>
           </div>
-          <div className="mt-3 space-y-4">
-            {feed.map((post) => {
-              const liked = likedIds.includes(post.id);
-              return (
-                <div key={post.id} className="rounded-2xl border border-neutral-200 shadow-sm p-4">
-                  <div className="flex items-center gap-3">
-                    <Avatar src={post.author_avatar_url} name={post.author_name} size="w-10 h-10" text="text-sm" />
-                    <div className="min-w-0">
-                      <p className="text-sm font-semibold text-neutral-900 truncate">{post.author_name}</p>
-                      <p className="text-xs text-neutral-500">{formatWhen(post.created_at)}</p>
-                    </div>
-                  </div>
-
-                  <p className="text-sm text-neutral-800 mt-3 whitespace-pre-line">{post.content}</p>
-
-                  {post.image_url && (
-                    <img src={post.image_url} alt="" className="mt-3 w-full h-48 object-cover rounded-xl" />
-                  )}
-
-                  <div className="mt-3 pt-3 border-t border-neutral-200 flex justify-between items-center">
-                    <button
-                      onClick={() => handleLike(post)}
-                      disabled={liked}
-                      className={`flex items-center gap-2 text-sm font-medium ${liked ? 'text-[#1d1fb8]' : 'text-neutral-700'}`}
-                    >
-                      <ThumbsUp size={16} className={liked ? 'fill-[#1d1fb8]' : ''} />
-                      Like · {post.like_count}
-                    </button>
-                    <span className="flex items-center gap-2 text-sm text-neutral-700">
-                      <MessageCircle size={16} /> {post.comment_count} comments
-                    </span>
-                  </div>
-                </div>
-              );
-            })}
+          <div className="mt-3">
+            <SocialPostCard
+              post={activityPost}
+              variant="hub"
+              onChanged={loadWall}
+              onComment={setCommentPost}
+              onDeleted={() => {}}
+            />
           </div>
         </div>
+      )}
+
+      {/* Social Media */}
+      <div className="px-4 pt-8">
+        <h2 className="text-lg font-semibold text-neutral-900">Social Media</h2>
+        <div className="mt-3 rounded-2xl bg-slate-100 p-4 flex justify-around">
+          {SOCIAL_LINKS.map((link) => (
+            <button
+              type="button"
+              key={link.label}
+              onClick={() => openSocialLink(link)}
+              aria-label={link.label}
+              className="w-11 h-11 rounded-full bg-white shadow-sm flex items-center justify-center text-neutral-900 font-bold text-base"
+            >
+              {link.icon ? <link.icon size={20} /> : link.mark}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Comments sheet for any post */}
+      {commentPost && (
+        <CommentsSheet
+          post={commentPost}
+          onClose={() => setCommentPost(null)}
+          onCountChange={bumpComments}
+        />
       )}
 
       {/* Floating AI button */}
       <div className="fixed bottom-20 left-1/2 -translate-x-1/2 w-full max-w-[430px] pointer-events-none z-40">
         <div className="flex justify-end pr-4">
           <button
+            type="button"
             onClick={() => navigate('/picbot')}
             aria-label="AI Assistant"
-            className="pointer-events-auto w-14 h-14 rounded-full bg-white shadow-lg border border-neutral-200 flex items-center justify-center text-[#1d1fb8]"
+            className="pointer-events-auto w-14 h-14 rounded-full bg-white shadow-lg border border-neutral-200 flex items-center justify-center text-[#0000c8]"
           >
             <Sparkles size={24} />
           </button>
