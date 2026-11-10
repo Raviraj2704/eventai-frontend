@@ -231,7 +231,7 @@ export default function HomeScreen() {
             </button>
             <button
               type="button"
-              onClick={() => navigate('/announcements')}
+              onClick={() => navigate('/notifications')}
               aria-label="Notifications"
               className="w-10 h-10 rounded-full bg-white/15 flex items-center justify-center"
             >
