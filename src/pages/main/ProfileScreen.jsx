@@ -157,7 +157,7 @@ export default function ProfileScreen() {
 
       await apiPost('/users/me', payload).catch(() => {});
       
-      const updated = { ...profileData, ...formData, full_name: payload.full_name };
+      const updated = { ...profileData, ...formData, full_name: payload.full_name};
       setProfileData(updated);
       localStorage.setItem(getProfileKey(), JSON.stringify(updated));
       
@@ -180,33 +180,35 @@ export default function ProfileScreen() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-slate-900 flex items-center justify-center text-white">
-        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-500"></div>
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center text-blue-600">
+        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600"></div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 text-white max-w-[430px] mx-auto pb-32">
+    <div className="min-h-screen bg-slate-50 text-slate-900 max-w-[430px] mx-auto pb-32">
       {/* Top Header */}
-      <div className="flex items-center justify-between px-4 py-4 border-b border-white/10">
-        <h1 className="text-xl font-bold">My Profile</h1>
+      <div className="flex items-center justify-between px-4 py-4 bg-white border-b border-slate-200">
+        <h1 className="text-xl font-bold text-slate-900">{isEditing ? 'Edit Profile' : 'My Profile'}</h1>
         <div className="flex items-center gap-3">
-          <button 
-            type="button" 
-            onClick={() => setShowTimeZoneModal(true)}
-            className="p-2 rounded-full bg-white/10 hover:bg-white/25 transition"
-            title="Profile Settings"
-          >
-            <Settings size={18} />
-          </button>
+          {!isEditing && (
+            <button 
+              type="button" 
+              onClick={() => setShowTimeZoneModal(true)}
+              className="p-2 rounded-full border border-slate-200 text-slate-600 hover:bg-slate-50 transition"
+              title="Profile Settings"
+            >
+              <Settings size={18} />
+            </button>
+          )}
           <button 
             type="button" 
             onClick={() => setIsEditing(!isEditing)}
-            className="p-2 rounded-full bg-white/10 hover:bg-white/25 transition"
+            className="p-2 rounded-full border border-slate-200 text-slate-600 hover:bg-slate-50 transition"
             title="Edit Profile"
           >
-            <Edit2 size={18} />
+            {isEditing ? <X size={18} /> : <Edit2 size={18} />}
           </button>
         </div>
       </div>
@@ -215,101 +217,111 @@ export default function ProfileScreen() {
         <div className="px-4 pt-6 space-y-6">
           {/* Avatar & Basic Info */}
           <div className="flex flex-col items-center text-center">
-            <div className="relative w-24 h-24 rounded-full overflow-hidden border-2 border-blue-500 mb-3 bg-slate-800">
+            <div className="relative w-24 h-24 rounded-full overflow-hidden shadow-sm mb-3 bg-slate-100 border-4 border-white">
               {profileData?.profile_picture_url ? (
                 <img src={profileData.profile_picture_url} alt="Profile" className="w-full h-full object-cover" />
               ) : (
-                <div className="w-full h-full flex items-center justify-center text-2xl font-bold bg-blue-600">
+                <div className="w-full h-full flex items-center justify-center text-2xl font-bold bg-blue-100 text-blue-700">
                   {(profileData?.first_name?.[0] || 'U').toUpperCase()}
                 </div>
               )}
             </div>
-            <h2 className="text-lg font-bold">
+            <h2 className="text-xl font-bold text-slate-900">
               {profileData?.first_name} {profileData?.last_name}
             </h2>
-            <p className="text-sm text-slate-400">{profileData?.designation || 'Attendee'}</p>
-            <p className="text-xs text-slate-500">{profileData?.company || 'Company Name'}</p>
+            <p className="text-sm font-medium text-slate-500 mt-0.5">{profileData?.designation || 'Attendee'}</p>
+            <p className="text-xs text-slate-400 mt-0.5">{profileData?.company || 'Company Name'}</p>
           </div>
 
           {/* Action Icons Row (Matching Adobe XD) */}
-          <div className="grid grid-cols-4 gap-3 bg-slate-900 border border-white/10 rounded-2xl p-3">
-            <button onClick={() => navigate('/favourites')} className="flex flex-col items-center gap-1.5 p-2 rounded-xl hover:bg-white/5 transition text-slate-300">
-              <Bookmark size={20} className="text-blue-400" />
-              <span className="text-[11px] font-medium">Favourites</span>
+          <div className="flex justify-between items-center bg-white border border-slate-200 shadow-sm rounded-2xl px-5 py-4">
+            <button onClick={() => navigate('/favourites')} className="flex flex-col items-center gap-2 group">
+              <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 group-hover:bg-slate-100 transition">
+                <Bookmark size={22} className="text-slate-700" />
+              </div>
+              <span className="text-[11px] font-medium text-slate-600">Favourites</span>
             </button>
-            <button onClick={() => navigate('/meetings')} className="flex flex-col items-center gap-1.5 p-2 rounded-xl hover:bg-white/5 transition text-slate-300">
-              <Calendar size={20} className="text-purple-400" />
-              <span className="text-[11px] font-medium">Meetings</span>
+            <button onClick={() => navigate('/meetings')} className="flex flex-col items-center gap-2 group">
+              <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 group-hover:bg-slate-100 transition">
+                <Calendar size={22} className="text-slate-700" />
+              </div>
+              <span className="text-[11px] font-medium text-slate-600">My Meetings</span>
             </button>
-            <button onClick={() => navigate('/my-badges')} className="flex flex-col items-center gap-1.5 p-2 rounded-xl hover:bg-white/5 transition text-slate-300">
-              <UserSquare2 size={20} className="text-emerald-400" />
-              <span className="text-[11px] font-medium">My Badge</span>
+            <button onClick={() => navigate('/my-badges')} className="flex flex-col items-center gap-2 group">
+              <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 group-hover:bg-slate-100 transition">
+                <UserSquare2 size={22} className="text-slate-700" />
+              </div>
+              <span className="text-[11px] font-medium text-slate-600">My Badge</span>
             </button>
-            <button onClick={() => navigate('/briefcase')} className="flex flex-col items-center gap-1.5 p-2 rounded-xl hover:bg-white/5 transition text-slate-300">
-              <Briefcase size={20} className="text-amber-400" />
-              <span className="text-[11px] font-medium">Briefcase</span>
+            <button onClick={() => navigate('/briefcase')} className="flex flex-col items-center gap-2 group">
+              <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 group-hover:bg-slate-100 transition">
+                <Briefcase size={22} className="text-slate-700" />
+              </div>
+              <span className="text-[11px] font-medium text-slate-600">Briefcase</span>
             </button>
           </div>
 
           {/* Info Section */}
-          <div className="bg-slate-900 border border-white/10 rounded-2xl p-4 space-y-3">
-            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Info</h3>
-            <div className="space-y-2 text-sm">
-              <div className="flex justify-between py-1 border-b border-white/5">
-                <span className="text-slate-400">Email :</span>
-                <span className="text-slate-200 font-medium">{profileData?.email || 'N/A'}</span>
+          <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-1">
+            <h3 className="text-sm font-bold text-slate-900 mb-2">Info</h3>
+            <div className="space-y-0 text-sm">
+              <div className="flex items-center justify-between py-3 border-b border-slate-100">
+                <span className="text-slate-500 font-medium">Email :</span>
+                <span className="text-slate-800">{profileData?.email || 'N/A'}</span>
               </div>
-              <div className="flex justify-between py-1 border-b border-white/5">
-                <span className="text-slate-400">Phone :</span>
-                <span className="text-slate-200 font-medium">{profileData?.phone || '+91 9828098280'}</span>
+              <div className="flex items-center justify-between py-3 border-b border-slate-100">
+                <span className="text-slate-500 font-medium">Phone :</span>
+                <span className="text-slate-800">{profileData?.phone || '+91 9828098280'}</span>
               </div>
-              <div className="flex justify-between py-1 border-b border-white/5">
-                <span className="text-slate-400">Industry :</span>
-                <span className="text-slate-200 font-medium">{profileData?.industry || 'Industry Name'}</span>
+              <div className="flex items-center justify-between py-3 border-b border-slate-100">
+                <span className="text-slate-500 font-medium">Industry :</span>
+                <span className="text-slate-800">{profileData?.industry || 'Industry Name'}</span>
               </div>
-              <div className="flex justify-between py-1">
-                <span className="text-slate-400">Sub Industry :</span>
-                <span className="text-slate-200 font-medium">{profileData?.subIndustry || 'Sub Industry Name'}</span>
+              <div className="flex items-center justify-between py-3">
+                <span className="text-slate-500 font-medium">Sub Industry :</span>
+                <span className="text-slate-800">{profileData?.subIndustry || 'Sub Industry Name'}</span>
               </div>
             </div>
           </div>
 
           {/* Bio Section */}
-          <div className="bg-slate-900 border border-white/10 rounded-2xl p-4 space-y-2">
-            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Bio</h3>
-            <p className="text-sm text-slate-300 leading-relaxed">
+          <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-2">
+            <h3 className="text-sm font-bold text-slate-900">Bio</h3>
+            <p className="text-sm text-slate-600 leading-relaxed">
               {profileData?.bio || 'Attendee at EventAI. Passionate about technology, networking, and building autonomous systems.'}
             </p>
           </div>
 
-          {/* Profile Settings Menu Options */}
-          <div className="bg-slate-900 border border-white/10 rounded-2xl overflow-hidden">
+          {/* Settings Menu Options (Rendered Inline as in original logic) */}
+          <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden mt-6">
             <button 
               onClick={() => setShowTimeZoneModal(true)}
-              className="w-full flex items-center justify-between p-4 hover:bg-white/5 transition border-b border-white/5"
+              className="w-full flex items-center justify-between p-4 hover:bg-slate-50 transition border-b border-slate-100"
             >
               <div className="flex items-center gap-3">
-                <Globe size={18} className="text-blue-400" />
-                <span className="text-sm font-medium">Time Zone</span>
+                <Globe size={18} className="text-slate-700" />
+                <span className="text-sm font-medium text-slate-800">Time Zone</span>
               </div>
-              <span className="text-xs text-slate-400">›</span>
+              <span className="text-lg text-slate-400">›</span>
             </button>
-            <div className="flex items-center justify-between p-4 border-b border-white/5">
+            
+            <div className="flex items-center justify-between p-4 border-b border-slate-100">
               <div className="flex items-center gap-3">
-                <Bell size={18} className="text-purple-400" />
-                <span className="text-sm font-medium">Mute Notification</span>
+                <Bell size={18} className="text-slate-700" />
+                <span className="text-sm font-medium text-slate-800">Mute Notification</span>
               </div>
               <button 
                 type="button"
                 onClick={() => setMuteNotifications(!muteNotifications)}
-                className={`w-11 h-6 rounded-full transition relative ${muteNotifications ? 'bg-blue-600' : 'bg-slate-700'}`}
+                className={`w-11 h-6 rounded-full transition relative ${muteNotifications ? 'bg-blue-600' : 'bg-slate-200'}`}
               >
-                <div className={`w-4 h-4 rounded-full bg-white absolute top-1 transition-all ${muteNotifications ? 'left-6' : 'left-1'}`} />
+                <div className={`w-5 h-5 rounded-full bg-white absolute top-0.5 shadow-sm transition-all ${muteNotifications ? 'left-[22px]' : 'left-0.5'}`} />
               </button>
             </div>
+            
             <button 
               onClick={() => setShowLogoutModal(true)}
-              className="w-full flex items-center gap-3 p-4 hover:bg-red-500/10 transition text-red-400"
+              className="w-full flex items-center gap-3 p-4 hover:bg-red-50 transition text-red-600"
             >
               <LogOut size={18} />
               <span className="text-sm font-medium">Logout</span>
@@ -319,112 +331,105 @@ export default function ProfileScreen() {
       ) : (
         /* Edit Profile Form */
         <form onSubmit={handleSave} className="px-4 pt-6 space-y-4">
-          <div className="space-y-1">
-            <label className="text-xs text-slate-400">First Name</label>
-            <input
-              type="text"
-              value={formData.firstName}
-              onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
-              className="w-full bg-slate-900 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-blue-500"
-              required
-            />
-          </div>
-          <div className="space-y-1">
-            <label className="text-xs text-slate-400">Last Name</label>
-            <input
-              type="text"
-              value={formData.lastName}
-              onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
-              className="w-full bg-slate-900 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-blue-500"
-            />
-          </div>
-          <div className="space-y-1">
-            <label className="text-xs text-slate-400">Designation</label>
-            <input
-              type="text"
-              value={formData.designation}
-              onChange={(e) => setFormData({ ...formData, designation: e.target.value })}
-              className="w-full bg-slate-900 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-blue-500"
-            />
-          </div>
-          <div className="space-y-1">
-            <label className="text-xs text-slate-400">Company</label>
-            <input
-              type="text"
-              value={formData.company}
-              onChange={(e) => setFormData({ ...formData, company: e.target.value })}
-              className="w-full bg-slate-900 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-blue-500"
-            />
-          </div>
-          <div className="space-y-1">
-            <label className="text-xs text-slate-400">Email Id (Read-only)</label>
-            <input
-              type="email"
-              value={formData.email}
-              disabled
-              className="w-full bg-slate-900/50 border border-white/5 rounded-xl px-4 py-2.5 text-sm text-slate-500 cursor-not-allowed"
-            />
-          </div>
-          <div className="space-y-1">
-            <label className="text-xs text-slate-400">Phone Number</label>
-            <div className="flex gap-2">
-              <span className="bg-slate-900 border border-white/10 rounded-xl px-3 py-2.5 text-sm text-slate-400 flex items-center">+91</span>
+          <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-4">
+            
+            {/* Form Fields Matching Adobe XD */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-slate-500 ml-1">Designation</label>
               <input
                 type="text"
-                value={formData.phone}
-                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                className="w-full bg-slate-900 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-blue-500"
+                value={formData.designation}
+                onChange={(e) => setFormData({ ...formData, designation: e.target.value })}
+                className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 focus:outline-none focus:border-blue-600 focus:ring-1 focus:ring-blue-600 transition"
+                placeholder="Project Manager"
+              />
+            </div>
+            
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-slate-500 ml-1">Company</label>
+              <input
+                type="text"
+                value={formData.company}
+                onChange={(e) => setFormData({ ...formData, company: e.target.value})}
+                className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 focus:outline-none focus:border-blue-600 focus:ring-1 focus:ring-blue-600 transition"
+                placeholder="Company Name"
+              />
+            </div>
+
+            <div className="pt-2 pb-2">
+              <h3 className="text-sm font-bold text-slate-900 mb-3">Info</h3>
+              
+              <div className="space-y-4">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-slate-400 ml-1">Email Id</label>
+                  <input
+                    type="email"
+                    value={formData.email}
+                    disabled
+                    className="w-full bg-slate-100 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-500 cursor-not-allowed"
+                  />
+                </div>
+                
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-slate-500 ml-1">Phone Number</label>
+                  <div className="flex gap-2">
+                    <span className="bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-600 font-medium flex items-center justify-center min-w-[60px]">+91</span>
+                    <input
+                      type="text"
+                      value={formData.phone}
+                      onChange={(e) => setFormData({ ...formData, phone: e.target.value})}
+                      className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 focus:outline-none focus:border-blue-600 focus:ring-1 focus:ring-blue-600 transition"
+                      placeholder="9828098280"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <select
+                    value={formData.industry}
+                    onChange={(e) => setFormData({ ...formData, industry: e.target.value })}
+                    className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-600 focus:outline-none focus:border-blue-600 focus:ring-1 focus:ring-blue-600 transition appearance-none"
+                  >
+                    <option value="">- Select Industry -</option>
+                    <option value="Technology">Technology</option>
+                    <option value="Finance">Finance</option>
+                    <option value="Healthcare">Healthcare</option>
+                    <option value="Marketing">Marketing</option>
+                  </select>
+                </div>
+
+                <div className="space-y-1.5">
+                  <select
+                    value={formData.subIndustry}
+                    onChange={(e) => setFormData({ ...formData, subIndustry: e.target.value })}
+                    className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-600 focus:outline-none focus:border-blue-600 focus:ring-1 focus:ring-blue-600 transition appearance-none"
+                  >
+                    <option value="">- Select Sub Industry -</option>
+                    <option value="Software & AI">Software & AI</option>
+                    <option value="SaaS">SaaS</option>
+                    <option value="Fintech">Fintech</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+            
+            <div className="space-y-1.5 pt-2">
+              <label className="text-xs font-medium text-slate-500 ml-1">Bio</label>
+              <textarea
+                rows={4}
+                value={formData.bio}
+                onChange={(e) => setFormData({ ...formData, bio: e.target.value })}
+                className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 focus:outline-none focus:border-blue-600 focus:ring-1 focus:ring-blue-600 transition resize-none"
+                placeholder="Write your bio here..."
               />
             </div>
           </div>
-          <div className="space-y-1">
-            <label className="text-xs text-slate-400">Select Industry</label>
-            <select
-              value={formData.industry}
-              onChange={(e) => setFormData({ ...formData, industry: e.target.value })}
-              className="w-full bg-slate-900 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-blue-500"
-            >
-              <option value="">- Select Industry -</option>
-              <option value="Technology">Technology</option>
-              <option value="Finance">Finance</option>
-              <option value="Healthcare">Healthcare</option>
-              <option value="Marketing">Marketing</option>
-            </select>
-          </div>
-          <div className="space-y-1">
-            <label className="text-xs text-slate-400">Select Sub Industry</label>
-            <select
-              value={formData.subIndustry}
-              onChange={(e) => setFormData({ ...formData, subIndustry: e.target.value })}
-              className="w-full bg-slate-900 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-blue-500"
-            >
-              <option value="">- Select Sub Industry -</option>
-              <option value="Software & AI">Software & AI</option>
-              <option value="SaaS">SaaS</option>
-              <option value="Fintech">Fintech</option>
-            </select>
-          </div>
-          <div className="space-y-1">
-            <label className="text-xs text-slate-400">Bio</label>
-            <textarea
-              rows={3}
-              value={formData.bio}
-              onChange={(e) => setFormData({ ...formData, bio: e.target.value })}
-              className="w-full bg-slate-900 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-blue-500"
-            />
-          </div>
-          <div className="flex gap-3 pt-4">
-            <button
-              type="button"
-              onClick={() => setIsEditing(false)}
-              className="flex-1 bg-slate-800 hover:bg-slate-700 text-white font-medium py-3 rounded-xl transition text-sm"
-            >
-              Cancel
-            </button>
+
+          <div className="pt-2 pb-6">
             <button
               type="submit"
               disabled={isSaving}
-              className="flex-1 bg-blue-600 hover:bg-blue-500 text-white font-medium py-3 rounded-xl transition text-sm"
+              className="w-full bg-[#0000c8] hover:bg-blue-800 text-white font-semibold py-3.5 rounded-xl transition text-sm shadow-md"
             >
               {isSaving ? 'Saving...' : 'Save Changes'}
             </button>
@@ -434,58 +439,67 @@ export default function ProfileScreen() {
 
       {/* Time Zone Modal */}
       {showTimeZoneModal && (
-        <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-white/10 rounded-2xl w-full max-w-md p-5 space-y-4">
-            <div className="flex items-center justify-between border-b border-white/10 pb-3">
-              <h3 className="text-base font-bold text-white">Time Zone</h3>
-              <button onClick={() => setShowTimeZoneModal(false)} className="text-slate-400 hover:text-white">
-                <X size={20} />
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl w-full max-w-sm p-5 shadow-2xl">
+            <div className="flex items-center gap-3 border-b border-slate-100 pb-4 mb-4">
+              <button onClick={() => setShowTimeZoneModal(false)} className="text-slate-400 hover:text-slate-600">
+                <ArrowLeft size={20} />
+              </button>
+              <h3 className="text-lg font-bold text-slate-900">Time Zone</h3>
+            </div>
+            
+            <div className="space-y-4">
+              <div className="relative">
+                <input
+                  type="text"
+                  placeholder="Search here"
+                  value={tzSearch}
+                  onChange={(e) => setTzSearch(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-4 py-3 text-sm text-slate-900 focus:outline-none focus:border-blue-500 transition"
+                />
+                <svg className="w-4 h-4 text-slate-400 absolute left-4 top-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+              </div>
+              
+              <div className="text-xs text-slate-500 font-medium px-1">Selected Timezone</div>
+              <div className="space-y-1 max-h-64 overflow-y-auto pr-1">
+                {TIMEZONES.filter(tz => tz.toLowerCase().includes(tzSearch.toLowerCase())).map((tz, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => setSelectedTimeZone(tz)}
+                    className="w-full flex items-center justify-between p-3 rounded-xl text-left text-sm transition text-slate-700 hover:bg-slate-50"
+                  >
+                    <span className="pr-4">{tz}</span>
+                    {selectedTimeZone === tz && <Check size={18} className="text-slate-900 flex-shrink-0" />}
+                  </button>
+                ))}
+              </div>
+              
+              <button
+                onClick={() => {
+                  setShowTimeZoneModal(false);
+                  toast.success('Timezone updated');
+                }}
+                className="w-full bg-[#0000c8] hover:bg-blue-800 text-white font-semibold py-3.5 rounded-xl transition text-sm mt-2"
+              >
+                Save Changes
               </button>
             </div>
-            <input
-              type="text"
-              placeholder="Search here..."
-              value={tzSearch}
-              onChange={(e) => setTzSearch(e.target.value)}
-              className="w-full bg-slate-950 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-blue-500"
-            />
-            <div className="space-y-2 max-h-60 overflow-y-auto">
-              {TIMEZONES.filter(tz => tz.toLowerCase().includes(tzSearch.toLowerCase())).map((tz, idx) => (
-                <button
-                  key={idx}
-                  onClick={() => setSelectedTimeZone(tz)}
-                  className={`w-full flex items-center justify-between p-3 rounded-xl text-left text-xs transition ${selectedTimeZone === tz ? 'bg-blue-600/20 text-blue-400 border border-blue-500/30' : 'hover:bg-white/5 text-slate-300'}`}
-                >
-                  <span>{tz}</span>
-                  {selectedTimeZone === tz && <Check size={16} />}
-                </button>
-              ))}
-            </div>
-            <button
-              onClick={() => {
-                setShowTimeZoneModal(false);
-                toast.success('Timezone updated successfully');
-              }}
-              className="w-full bg-blue-600 hover:bg-blue-500 text-white font-medium py-3 rounded-xl transition text-sm"
-            >
-              Save Changes
-            </button>
           </div>
         </div>
       )}
 
       {/* Success Modal */}
       {showSuccessModal && (
-        <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-white/10 rounded-2xl w-full max-w-sm p-6 text-center space-y-4">
-            <div className="w-16 h-16 bg-emerald-500/20 text-emerald-400 rounded-full flex items-center justify-center mx-auto">
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl w-full max-w-sm p-8 text-center space-y-4 shadow-2xl">
+            <div className="w-16 h-16 bg-green-500 text-white rounded-full flex items-center justify-center mx-auto mb-2 shadow-lg shadow-green-500/30">
               <CheckCircle2 size={36} />
             </div>
-            <h3 className="text-lg font-bold text-white">Success!</h3>
-            <p className="text-sm text-slate-400">Your profile has been saved successfully!</p>
+            <h3 className="text-xl font-bold text-slate-900">Success!</h3>
+            <p className="text-sm text-slate-600 pb-2">Your profile has been saved successfully!</p>
             <button
               onClick={() => setShowSuccessModal(false)}
-              className="w-full bg-blue-600 hover:bg-blue-500 text-white font-medium py-3 rounded-xl transition text-sm"
+              className="w-full bg-[#0000c8] hover:bg-blue-800 text-white font-semibold py-3.5 rounded-xl transition text-sm"
             >
               My Profile
             </button>
@@ -495,23 +509,23 @@ export default function ProfileScreen() {
 
       {/* Logout Modal */}
       {showLogoutModal && (
-        <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-white/10 rounded-2xl w-full max-w-sm p-6 text-center space-y-4">
-            <div className="w-16 h-16 bg-red-500/20 text-red-400 rounded-full flex items-center justify-center mx-auto">
-              <LogOut size={32} />
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl w-full max-w-sm p-8 text-center shadow-2xl">
+            <div className="w-16 h-16 bg-slate-100 text-slate-400 rounded-full flex items-center justify-center mx-auto mb-4 border border-slate-200">
+              <LogOut size={28} className="ml-1" />
             </div>
-            <h3 className="text-lg font-bold text-white">Logout?</h3>
-            <p className="text-sm text-slate-400">Are you sure you want to logout</p>
-            <div className="flex gap-3 pt-2">
+            <h3 className="text-xl font-bold text-slate-900 mb-2">Logout?</h3>
+            <p className="text-sm text-slate-600 mb-6">Are you sure you want to logout</p>
+            <div className="flex gap-3">
               <button
                 onClick={() => setShowLogoutModal(false)}
-                className="flex-1 bg-slate-800 hover:bg-slate-700 text-white font-medium py-3 rounded-xl transition text-sm"
+                className="flex-1 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 font-semibold py-3.5 rounded-xl transition text-sm"
               >
                 Cancel
               </button>
               <button
                 onClick={handleLogout}
-                className="flex-1 bg-blue-600 hover:bg-blue-500 text-white font-medium py-3 rounded-xl transition text-sm"
+                className="flex-1 bg-[#0000c8] hover:bg-blue-800 text-white font-semibold py-3.5 rounded-xl transition text-sm shadow-md"
               >
                 Yes, Logout
               </button>
