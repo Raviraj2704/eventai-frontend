@@ -11,7 +11,7 @@ import apiClient from '../../config/apiClient';
 import authService from '../../services/authService';
 import toast from 'react-hot-toast';
 import { 
-  ArrowLeft, Mail, Phone, Briefcase, Building, FileText, Info, 
+  ArrowLeft, UserSquare2, Mail, Phone, Briefcase, Building, FileText, Info, 
   Shield, Calendar, Edit2, Save, X, Camera, User as UserIcon, LogOut, Settings, Bookmark, Users, CheckCircle
 } from 'lucide-react';
 
