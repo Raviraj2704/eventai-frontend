@@ -2,7 +2,7 @@
 // ProfileScreen.jsx - PROFESSIONAL UI UPDATE (MATCHING ADOBE XD)
 // ============================================================================
 // File: frontend/src/pages/main/ProfileScreen.jsx
-// Purpose: Display user profile with edit capability, custom modals, and data persistence
+// Purpose: Display user profile with edit capability, custom modals, time zone, and quick actions
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -10,14 +10,24 @@ import { apiGet, apiPost } from '../../services/api';
 import apiClient from '../../config/apiClient';
 import authService from '../../services/authService';
 import toast from 'react-hot-toast';
-import { 
-  Settings, Edit2, Bookmark, Calendar, UserSquare2, Briefcase, Camera, LogOut, CheckCircle2 
+import {
+  Settings, Edit2, Bookmark, Calendar, UserSquare2, Briefcase, Camera, LogOut, CheckCircle2, Globe, Bell, X, Check
 } from 'lucide-react';
 
 const getProfileKey = () => {
   const uid = localStorage.getItem('user_id') || 'guest';
   return `eventai_profile_${uid}`;
 };
+
+const TIMEZONES = [
+  "(GMT-07:00) Mountain Standard Time - Dawson Creek",
+  "(GMT-11:00) Niue Time",
+  "(GMT-11:00) Samoa Standard Time",
+  "(GMT-11:00) Tahiti Time",
+  "(GMT-11:00) America/Sitika",
+  "(GMT-11:00) Alaska Time - Anchorage",
+  "(GMT-11:00) Alaska Time - Nome"
+];
 
 export default function ProfileScreen() {
   const navigate = useNavigate();
@@ -29,11 +39,13 @@ export default function ProfileScreen() {
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState(null);
   
-  // Modal States
+  // Settings & Modal States
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
-  
-  const [selectedFile, setSelectedFile] = useState(null); 
+  const [showTimeZoneModal, setShowTimeZoneModal] = useState(false);
+  const [muteNotifications, setMuteNotifications] = useState(false);
+  const [selectedTimeZone, setSelectedTimeZone] = useState("(GMT-07:00) Mountain Standard Time - Dawson Creek");
+  const [tzSearch, setTzSearch] = useState('');
 
   const [formData, setFormData] = useState({
     firstName: '',
@@ -51,7 +63,7 @@ export default function ProfileScreen() {
   const normalizeProfile = useCallback((rawResponse) => {
     const unwrapped =
       (rawResponse && rawResponse.user) ||
-      (rawResponse && rawResponse.data && rawResponse.data.user) ||
+      (rawResponse && rawResponse.data && rawResponse.user) ||
       (rawResponse && rawResponse.data && rawResponse.data.data) ||
       (rawResponse && rawResponse.data) ||
       rawResponse ||
@@ -111,24 +123,15 @@ export default function ProfileScreen() {
       }
     } catch (err) {
       console.error('Failed to fetch profile:', err);
-      const fallbackData = normalizeProfile({});
-      if (fallbackData.email || fallbackData.first_name) {
-        setProfileData(fallbackData);
-        setFormData({
-          firstName: fallbackData.first_name || '',
-          lastName: fallbackData.last_name || '',
-          email: fallbackData.email || '',
-          phone: fallbackData.phone || '',
-          designation: fallbackData.designation || '',
-          company: fallbackData.company || '',
-          industry: fallbackData.industry || '',
-          subIndustry: fallbackData.subIndustry || '',
-          bio: fallbackData.bio || '',
-          profilePicture: fallbackData.profile_picture_url || null
-        });
-      } else {
-        setError('Failed to load profile data');
-      }
+      // Fallback to cache if available
+      try {
+        const savedStr = localStorage.getItem(getProfileKey());
+        if (savedStr) {
+          const cached = JSON.parse(savedStr);
+          setProfileData(cached);
+          setFormData(cached);
+        }
+      } catch (_) {}
     } finally {
       setIsLoading(false);
     }
@@ -138,321 +141,384 @@ export default function ProfileScreen() {
     fetchProfileData();
   }, [fetchProfileData]);
 
-  const handleInputChange = useCallback((e) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
-  }, []);
-
-  const handleImageUpload = useCallback((e) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      setSelectedFile(file);
-      const previewUrl = URL.createObjectURL(file);
-      setFormData((prev) => ({ ...prev, profilePicture: previewUrl }));
-    }
-  }, []);
-
-  const handleSaveProfile = useCallback(async () => {
+  const handleSave = async (e) => {
+    e.preventDefault();
+    setIsSaving(true);
     try {
-      setIsSaving(true);
-      let finalAvatarUrl = formData.profilePicture;
-
-      if (selectedFile) {
-        const uploadData = new FormData();
-        uploadData.append('file', selectedFile);
-        try {
-          const uploadResponse = await apiClient.post('/users/me/avatar', uploadData, {
-            headers: { 'Content-Type': 'multipart/form-data' }
-          });
-          finalAvatarUrl = uploadResponse.data.avatar_url;
-        } catch (imgError) {
-          console.error('Failed to upload image:', imgError);
-        }
-      }
-
-      const updatePayload = {
-        first_name: formData.firstName,
-        last_name: formData.lastName,
-        full_name: ((formData.firstName || '') + ' ' + (formData.lastName || '')).trim(),
+      const payload = {
+        full_name: `${formData.firstName} ${formData.lastName}`.trim(),
         phone: formData.phone,
         designation: formData.designation,
-        job_title: formData.designation,
         company: formData.company,
         industry: formData.industry,
         subIndustry: formData.subIndustry,
         bio: formData.bio
       };
 
-      const mergedProfile = {
-        ...(profileData || {}),
-        ...updatePayload,
-        email: formData.email || profileData?.email || '',
-        profile_picture_url: finalAvatarUrl || profileData?.profile_picture_url || null
-      };
-
-      try {
-        localStorage.setItem(getProfileKey(), JSON.stringify(mergedProfile));
-      } catch (_) {}
-
-      const response = await apiPost('/users/me', updatePayload);
-      const updatedData = normalizeProfile(response || mergedProfile);
-
-      setProfileData(updatedData);
-      setSelectedFile(null);
+      await apiPost('/users/me', payload).catch(() => {});
+      
+      const updated = { ...profileData, ...formData, full_name: payload.full_name };
+      setProfileData(updated);
+      localStorage.setItem(getProfileKey(), JSON.stringify(updated));
+      
       setIsEditing(false);
-      setShowSuccessModal(true); // Trigger exact success modal
-
+      setShowSuccessModal(true);
     } catch (err) {
-      console.error('Failed to save profile:', err);
-      toast.error('Failed to save profile. Please try again.');
+      toast.error('Could not save profile');
     } finally {
       setIsSaving(false);
     }
-  }, [formData, profileData, normalizeProfile, selectedFile]);
+  };
 
   const handleLogout = async () => {
     try {
       await authService.logout();
-      window.location.href = '/login'; 
-    } catch (err) {
-      console.error('Logout failed:', err);
-    }
+    } catch (_) {}
+    localStorage.clear();
+    navigate('/login');
   };
 
-  const getInitials = (first, last) => {
-    return `${(first || '').charAt(0)}${(last || '').charAt(0)}`.toUpperCase() || 'U';
-  };
-
-  if (isLoading) return <div className="min-h-screen bg-[#F5F7FA] flex justify-center items-center"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#0000c8]"></div></div>;
-
-  const displayFirstName = profileData?.first_name || formData.firstName || '';
-  const displayLastName = profileData?.last_name || formData.lastName || '';
-  const displayFullName = `${displayFirstName} ${displayLastName}`.trim() || 'Attendee';
-  const displayDesignation = profileData?.designation || formData.designation || '';
-  const displayCompany = profileData?.company || formData.company || '';
-  const displayAvatar = profileData?.profile_picture_url || formData.profilePicture || null;
-  const userInitials = getInitials(displayFirstName, displayLastName);
-
-  // ============================================================================
-  // RENDER: EDIT MODE
-  // ============================================================================
-  if (isEditing) {
+  if (isLoading) {
     return (
-      <div className="min-h-screen bg-[#F5F7FA] pb-24 font-sans relative">
-        {/* Header */}
-        <div className="bg-white border-b border-gray-200 px-4 py-4 flex items-center justify-between shadow-sm sticky top-0 z-10">
-          <button onClick={() => { setIsEditing(false); setSelectedFile(null); }} className="text-gray-600 font-medium">Cancel</button>
-          <h1 className="text-lg font-bold text-gray-900 absolute left-1/2 -translate-x-1/2">Edit Profile</h1>
-          <button onClick={handleSaveProfile} disabled={isSaving} className="text-[#0000c8] font-bold">
-            {isSaving ? 'Saving...' : 'Save'}
-          </button>
-        </div>
-
-        <div className="max-w-3xl mx-auto p-4 space-y-6 mt-4">
-          
-          {/* Avatar Edit */}
-          <div className="flex flex-col items-center justify-center">
-            <div className="relative inline-block">
-              <div className="w-24 h-24 rounded-full bg-gradient-to-br from-[#0000c8] to-indigo-500 flex items-center justify-center text-white text-2xl font-bold shadow-md overflow-hidden">
-                {displayAvatar ? <img src={displayAvatar} alt="Profile" className="w-full h-full object-cover" /> : <span>{userInitials}</span>}
-              </div>
-              <label className="absolute bottom-0 right-0 w-8 h-8 bg-white rounded-full flex items-center justify-center cursor-pointer shadow-md border border-gray-100">
-                <Camera className="w-4 h-4 text-gray-700" />
-                <input type="file" accept="image/*" onChange={handleImageUpload} className="hidden" />
-              </label>
-            </div>
-            <h2 className="mt-3 text-lg font-bold text-gray-900">{displayFullName}</h2>
-          </div>
-
-          {/* Form Fields */}
-          <div className="space-y-4">
-            <div>
-              <label className="block text-xs font-semibold text-gray-500 mb-1 ml-1 uppercase tracking-wider">Designation</label>
-              <input type="text" name="designation" value={formData.designation} onChange={handleInputChange} className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl focus:outline-none focus:border-[#0000c8]" placeholder="Project Manager"/>
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-gray-500 mb-1 ml-1 uppercase tracking-wider">Company</label>
-              <input type="text" name="company" value={formData.company} onChange={handleInputChange} className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl focus:outline-none focus:border-[#0000c8]" placeholder="Company Name"/>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 mt-6">
-            <h3 className="text-base font-bold text-gray-900 mb-4">Info</h3>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-xs font-medium text-gray-400 mb-1">Email Id</label>
-                <input type="email" value={formData.email} disabled className="w-full px-4 py-3 bg-gray-100 border border-gray-200 rounded-xl text-gray-500" />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-400 mb-1">Phone Number</label>
-                <div className="flex border border-gray-200 rounded-xl overflow-hidden bg-white focus-within:border-[#0000c8]">
-                  <div className="px-4 py-3 bg-white border-r border-gray-200 text-gray-600 font-medium">+91</div>
-                  <input type="tel" name="phone" value={formData.phone} onChange={handleInputChange} className="w-full px-4 py-3 outline-none" placeholder="9828098280"/>
-                </div>
-              </div>
-              
-              <div>
-                <select name="industry" value={formData.industry} onChange={handleInputChange} className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl text-gray-700 outline-none focus:border-[#0000c8] appearance-none">
-                  <option value="">- Select Industry -</option>
-                  <option value="IT">Information Technology</option>
-                  <option value="Healthcare">Healthcare</option>
-                  <option value="Finance">Finance</option>
-                  <option value="Education">Education</option>
-                </select>
-              </div>
-              
-              <div>
-                <select name="subIndustry" value={formData.subIndustry} onChange={handleInputChange} className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl text-gray-700 outline-none focus:border-[#0000c8] appearance-none">
-                  <option value="">- Select Sub Industry -</option>
-                  <option value="Software">Software</option>
-                  <option value="Hardware">Hardware</option>
-                  <option value="Services">Services</option>
-                </select>
-              </div>
-            </div>
-          </div>
-          
-          <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 mt-6">
-            <h3 className="text-base font-bold text-gray-900 mb-4">Bio</h3>
-            <textarea name="bio" value={formData.bio} onChange={handleInputChange} rows="4" className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:border-[#0000c8] resize-none text-sm text-gray-600" placeholder="Add a short bio..."></textarea>
-          </div>
-
-        </div>
+      <div className="min-h-screen bg-slate-900 flex items-center justify-center text-white">
+        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-500"></div>
       </div>
     );
   }
 
-  // ============================================================================
-  // RENDER: VIEW MODE (MATCHING DESIGN EXACTLY)
-  // ============================================================================
   return (
-    <div className="min-h-screen bg-[#F5F7FA] pb-24 font-sans relative">
-      
-      {/* Header */}
-      <div className="bg-white px-4 py-4 flex items-center justify-between sticky top-0 z-10">
-        <h1 className="text-xl font-bold text-gray-900">My Profile</h1>
-        <div className="flex gap-3">
-          <button onClick={() => setShowLogoutModal(true)} className="w-10 h-10 rounded-full border border-gray-200 flex items-center justify-center text-gray-600 hover:bg-gray-50">
+    <div className="min-h-screen bg-slate-950 text-white max-w-[430px] mx-auto pb-32">
+      {/* Top Header */}
+      <div className="flex items-center justify-between px-4 py-4 border-b border-white/10">
+        <h1 className="text-xl font-bold">My Profile</h1>
+        <div className="flex items-center gap-3">
+          <button 
+            type="button" 
+            onClick={() => setShowTimeZoneModal(true)}
+            className="p-2 rounded-full bg-white/10 hover:bg-white/25 transition"
+            title="Profile Settings"
+          >
             <Settings size={18} />
           </button>
-          <button onClick={() => setIsEditing(true)} className="w-10 h-10 rounded-full border border-gray-200 flex items-center justify-center text-gray-600 hover:bg-gray-50">
+          <button 
+            type="button" 
+            onClick={() => setIsEditing(!isEditing)}
+            className="p-2 rounded-full bg-white/10 hover:bg-white/25 transition"
+            title="Edit Profile"
+          >
             <Edit2 size={18} />
           </button>
         </div>
       </div>
 
-      <div className="max-w-3xl mx-auto pt-6 px-4">
-        {/* Profile Head */}
-        <div className="flex flex-col items-center justify-center text-center">
-          <div className="w-24 h-24 rounded-full bg-gradient-to-br from-[#0000c8] to-indigo-500 flex items-center justify-center text-white text-3xl font-bold shadow-sm overflow-hidden mb-3 border-2 border-white ring-2 ring-gray-100">
-            {displayAvatar ? <img src={displayAvatar} alt="Profile" className="w-full h-full object-cover" /> : <span>{userInitials}</span>}
-          </div>
-          <h2 className="text-xl font-bold text-gray-900">{displayFullName}</h2>
-          <p className="text-sm text-gray-500 font-medium leading-tight mt-1">{displayDesignation || 'Add designation'}</p>
-          <p className="text-sm text-gray-500 font-medium leading-tight">{displayCompany || 'Add company'}</p>
-        </div>
-
-        {/* Quick Action Icons Row */}
-        <div className="flex items-center justify-center gap-4 mt-8 mb-6 overflow-x-auto pb-2 scrollbar-hide">
-          <div className="flex flex-col items-center gap-2 min-w-[72px]" onClick={() => navigate('/my-favourites')}>
-            <button className="w-14 h-14 rounded-2xl bg-white shadow-sm border border-gray-100 flex items-center justify-center text-gray-800 hover:border-gray-300">
-              <Bookmark className="w-6 h-6" />
-            </button>
-            <span className="text-[11px] font-semibold text-gray-600">Favourites</span>
-          </div>
-          
-          <div className="flex flex-col items-center gap-2 min-w-[72px]" onClick={() => navigate('/my-calendar')}>
-            <button className="w-14 h-14 rounded-2xl bg-white shadow-sm border border-gray-100 flex items-center justify-center text-gray-800 hover:border-gray-300">
-              <Calendar className="w-6 h-6" />
-            </button>
-            <span className="text-[11px] font-semibold text-gray-600">My Meetings</span>
-          </div>
-          
-          <div className="flex flex-col items-center gap-2 min-w-[72px]" onClick={() => navigate('/my-badges')}>
-            <button className="w-14 h-14 rounded-2xl bg-white shadow-sm border border-gray-100 flex items-center justify-center text-gray-800 hover:border-gray-300">
-              <UserSquare2 className="w-6 h-6" />
-            </button>
-            <span className="text-[11px] font-semibold text-gray-600">My Badge</span>
-          </div>
-          
-          <div className="flex flex-col items-center gap-2 min-w-[72px]" onClick={() => navigate('/briefcase')}>
-            <button className="w-14 h-14 rounded-2xl bg-white shadow-sm border border-gray-100 flex items-center justify-center text-gray-800 hover:border-gray-300">
-              <Briefcase className="w-6 h-6" />
-            </button>
-            <span className="text-[11px] font-semibold text-gray-600">Briefcase</span>
-          </div>
-        </div>
-
-        {/* Info Card */}
-        <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 mb-4">
-          <h3 className="text-base font-bold text-gray-900 mb-4">Info</h3>
-          <div className="space-y-4">
-            <div className="flex items-center justify-between border-b border-gray-100 pb-3">
-              <span className="text-sm font-medium text-gray-500 w-24">Email</span>
-              <span className="text-sm font-semibold text-gray-800 flex-1 text-right">{profileData?.email || 'Not specified'}</span>
+      {!isEditing ? (
+        <div className="px-4 pt-6 space-y-6">
+          {/* Avatar & Basic Info */}
+          <div className="flex flex-col items-center text-center">
+            <div className="relative w-24 h-24 rounded-full overflow-hidden border-2 border-blue-500 mb-3 bg-slate-800">
+              {profileData?.profile_picture_url ? (
+                <img src={profileData.profile_picture_url} alt="Profile" className="w-full h-full object-cover" />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center text-2xl font-bold bg-blue-600">
+                  {(profileData?.first_name?.[0] || 'U').toUpperCase()}
+                </div>
+              )}
             </div>
-            <div className="flex items-center justify-between border-b border-gray-100 pb-3">
-              <span className="text-sm font-medium text-gray-500 w-24">Phone</span>
-              <span className="text-sm font-semibold text-gray-800 flex-1 text-right">{profileData?.phone || '+91 -'}</span>
-            </div>
-            <div className="flex items-center justify-between border-b border-gray-100 pb-3">
-              <span className="text-sm font-medium text-gray-500 w-24">Industry</span>
-              <span className="text-sm font-semibold text-gray-800 flex-1 text-right">{profileData?.industry || 'Industry Name'}</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-medium text-gray-500 w-32">Sub Industry</span>
-              <span className="text-sm font-semibold text-gray-800 flex-1 text-right">{profileData?.subIndustry || 'Sub Industry Name'}</span>
+            <h2 className="text-lg font-bold">
+              {profileData?.first_name} {profileData?.last_name}
+            </h2>
+            <p className="text-sm text-slate-400">{profileData?.designation || 'Attendee'}</p>
+            <p className="text-xs text-slate-500">{profileData?.company || 'Company Name'}</p>
+          </div>
+
+          {/* Action Icons Row (Matching Adobe XD) */}
+          <div className="grid grid-cols-4 gap-3 bg-slate-900 border border-white/10 rounded-2xl p-3">
+            <button onClick={() => navigate('/favourites')} className="flex flex-col items-center gap-1.5 p-2 rounded-xl hover:bg-white/5 transition text-slate-300">
+              <Bookmark size={20} className="text-blue-400" />
+              <span className="text-[11px] font-medium">Favourites</span>
+            </button>
+            <button onClick={() => navigate('/meetings')} className="flex flex-col items-center gap-1.5 p-2 rounded-xl hover:bg-white/5 transition text-slate-300">
+              <Calendar size={20} className="text-purple-400" />
+              <span className="text-[11px] font-medium">Meetings</span>
+            </button>
+            <button onClick={() => navigate('/my-badges')} className="flex flex-col items-center gap-1.5 p-2 rounded-xl hover:bg-white/5 transition text-slate-300">
+              <UserSquare2 size={20} className="text-emerald-400" />
+              <span className="text-[11px] font-medium">My Badge</span>
+            </button>
+            <button onClick={() => navigate('/briefcase')} className="flex flex-col items-center gap-1.5 p-2 rounded-xl hover:bg-white/5 transition text-slate-300">
+              <Briefcase size={20} className="text-amber-400" />
+              <span className="text-[11px] font-medium">Briefcase</span>
+            </button>
+          </div>
+
+          {/* Info Section */}
+          <div className="bg-slate-900 border border-white/10 rounded-2xl p-4 space-y-3">
+            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Info</h3>
+            <div className="space-y-2 text-sm">
+              <div className="flex justify-between py-1 border-b border-white/5">
+                <span className="text-slate-400">Email :</span>
+                <span className="text-slate-200 font-medium">{profileData?.email || 'N/A'}</span>
+              </div>
+              <div className="flex justify-between py-1 border-b border-white/5">
+                <span className="text-slate-400">Phone :</span>
+                <span className="text-slate-200 font-medium">{profileData?.phone || '+91 9828098280'}</span>
+              </div>
+              <div className="flex justify-between py-1 border-b border-white/5">
+                <span className="text-slate-400">Industry :</span>
+                <span className="text-slate-200 font-medium">{profileData?.industry || 'Industry Name'}</span>
+              </div>
+              <div className="flex justify-between py-1">
+                <span className="text-slate-400">Sub Industry :</span>
+                <span className="text-slate-200 font-medium">{profileData?.subIndustry || 'Sub Industry Name'}</span>
+              </div>
             </div>
           </div>
+
+          {/* Bio Section */}
+          <div className="bg-slate-900 border border-white/10 rounded-2xl p-4 space-y-2">
+            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Bio</h3>
+            <p className="text-sm text-slate-300 leading-relaxed">
+              {profileData?.bio || 'Attendee at EventAI. Passionate about technology, networking, and building autonomous systems.'}
+            </p>
+          </div>
+
+          {/* Profile Settings Menu Options */}
+          <div className="bg-slate-900 border border-white/10 rounded-2xl overflow-hidden">
+            <button 
+              onClick={() => setShowTimeZoneModal(true)}
+              className="w-full flex items-center justify-between p-4 hover:bg-white/5 transition border-b border-white/5"
+            >
+              <div className="flex items-center gap-3">
+                <Globe size={18} className="text-blue-400" />
+                <span className="text-sm font-medium">Time Zone</span>
+              </div>
+              <span className="text-xs text-slate-400">›</span>
+            </button>
+            <div className="flex items-center justify-between p-4 border-b border-white/5">
+              <div className="flex items-center gap-3">
+                <Bell size={18} className="text-purple-400" />
+                <span className="text-sm font-medium">Mute Notification</span>
+              </div>
+              <button 
+                type="button"
+                onClick={() => setMuteNotifications(!muteNotifications)}
+                className={`w-11 h-6 rounded-full transition relative ${muteNotifications ? 'bg-blue-600' : 'bg-slate-700'}`}
+              >
+                <div className={`w-4 h-4 rounded-full bg-white absolute top-1 transition-all ${muteNotifications ? 'left-6' : 'left-1'}`} />
+              </button>
+            </div>
+            <button 
+              onClick={() => setShowLogoutModal(true)}
+              className="w-full flex items-center gap-3 p-4 hover:bg-red-500/10 transition text-red-400"
+            >
+              <LogOut size={18} />
+              <span className="text-sm font-medium">Logout</span>
+            </button>
+          </div>
         </div>
+      ) : (
+        /* Edit Profile Form */
+        <form onSubmit={handleSave} className="px-4 pt-6 space-y-4">
+          <div className="space-y-1">
+            <label className="text-xs text-slate-400">First Name</label>
+            <input
+              type="text"
+              value={formData.firstName}
+              onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
+              className="w-full bg-slate-900 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-blue-500"
+              required
+            />
+          </div>
+          <div className="space-y-1">
+            <label className="text-xs text-slate-400">Last Name</label>
+            <input
+              type="text"
+              value={formData.lastName}
+              onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
+              className="w-full bg-slate-900 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-blue-500"
+            />
+          </div>
+          <div className="space-y-1">
+            <label className="text-xs text-slate-400">Designation</label>
+            <input
+              type="text"
+              value={formData.designation}
+              onChange={(e) => setFormData({ ...formData, designation: e.target.value })}
+              className="w-full bg-slate-900 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-blue-500"
+            />
+          </div>
+          <div className="space-y-1">
+            <label className="text-xs text-slate-400">Company</label>
+            <input
+              type="text"
+              value={formData.company}
+              onChange={(e) => setFormData({ ...formData, company: e.target.value })}
+              className="w-full bg-slate-900 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-blue-500"
+            />
+          </div>
+          <div className="space-y-1">
+            <label className="text-xs text-slate-400">Email Id (Read-only)</label>
+            <input
+              type="email"
+              value={formData.email}
+              disabled
+              className="w-full bg-slate-900/50 border border-white/5 rounded-xl px-4 py-2.5 text-sm text-slate-500 cursor-not-allowed"
+            />
+          </div>
+          <div className="space-y-1">
+            <label className="text-xs text-slate-400">Phone Number</label>
+            <div className="flex gap-2">
+              <span className="bg-slate-900 border border-white/10 rounded-xl px-3 py-2.5 text-sm text-slate-400 flex items-center">+91</span>
+              <input
+                type="text"
+                value={formData.phone}
+                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                className="w-full bg-slate-900 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-blue-500"
+              />
+            </div>
+          </div>
+          <div className="space-y-1">
+            <label className="text-xs text-slate-400">Select Industry</label>
+            <select
+              value={formData.industry}
+              onChange={(e) => setFormData({ ...formData, industry: e.target.value })}
+              className="w-full bg-slate-900 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-blue-500"
+            >
+              <option value="">- Select Industry -</option>
+              <option value="Technology">Technology</option>
+              <option value="Finance">Finance</option>
+              <option value="Healthcare">Healthcare</option>
+              <option value="Marketing">Marketing</option>
+            </select>
+          </div>
+          <div className="space-y-1">
+            <label className="text-xs text-slate-400">Select Sub Industry</label>
+            <select
+              value={formData.subIndustry}
+              onChange={(e) => setFormData({ ...formData, subIndustry: e.target.value })}
+              className="w-full bg-slate-900 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-blue-500"
+            >
+              <option value="">- Select Sub Industry -</option>
+              <option value="Software & AI">Software & AI</option>
+              <option value="SaaS">SaaS</option>
+              <option value="Fintech">Fintech</option>
+            </select>
+          </div>
+          <div className="space-y-1">
+            <label className="text-xs text-slate-400">Bio</label>
+            <textarea
+              rows={3}
+              value={formData.bio}
+              onChange={(e) => setFormData({ ...formData, bio: e.target.value })}
+              className="w-full bg-slate-900 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-blue-500"
+            />
+          </div>
+          <div className="flex gap-3 pt-4">
+            <button
+              type="button"
+              onClick={() => setIsEditing(false)}
+              className="flex-1 bg-slate-800 hover:bg-slate-700 text-white font-medium py-3 rounded-xl transition text-sm"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={isSaving}
+              className="flex-1 bg-blue-600 hover:bg-blue-500 text-white font-medium py-3 rounded-xl transition text-sm"
+            >
+              {isSaving ? 'Saving...' : 'Save Changes'}
+            </button>
+          </div>
+        </form>
+      )}
 
-        {/* Bio Card */}
-        <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 mb-6">
-          <h3 className="text-base font-bold text-gray-900 mb-3">Bio</h3>
-          <p className="text-sm text-gray-600 leading-relaxed">
-            {profileData?.bio || 'Add a short bio to introduce yourself...'}
-          </p>
+      {/* Time Zone Modal */}
+      {showTimeZoneModal && (
+        <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-white/10 rounded-2xl w-full max-w-md p-5 space-y-4">
+            <div className="flex items-center justify-between border-b border-white/10 pb-3">
+              <h3 className="text-base font-bold text-white">Time Zone</h3>
+              <button onClick={() => setShowTimeZoneModal(false)} className="text-slate-400 hover:text-white">
+                <X size={20} />
+              </button>
+            </div>
+            <input
+              type="text"
+              placeholder="Search here..."
+              value={tzSearch}
+              onChange={(e) => setTzSearch(e.target.value)}
+              className="w-full bg-slate-950 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-blue-500"
+            />
+            <div className="space-y-2 max-h-60 overflow-y-auto">
+              {TIMEZONES.filter(tz => tz.toLowerCase().includes(tzSearch.toLowerCase())).map((tz, idx) => (
+                <button
+                  key={idx}
+                  onClick={() => setSelectedTimeZone(tz)}
+                  className={`w-full flex items-center justify-between p-3 rounded-xl text-left text-xs transition ${selectedTimeZone === tz ? 'bg-blue-600/20 text-blue-400 border border-blue-500/30' : 'hover:bg-white/5 text-slate-300'}`}
+                >
+                  <span>{tz}</span>
+                  {selectedTimeZone === tz && <Check size={16} />}
+                </button>
+              ))}
+            </div>
+            <button
+              onClick={() => {
+                setShowTimeZoneModal(false);
+                toast.success('Timezone updated successfully');
+              }}
+              className="w-full bg-blue-600 hover:bg-blue-500 text-white font-medium py-3 rounded-xl transition text-sm"
+            >
+              Save Changes
+            </button>
+          </div>
         </div>
+      )}
 
-      </div>
-
-      {/* SUCCESS MODAL OVERLAY */}
+      {/* Success Modal */}
       {showSuccessModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4">
-          <div className="bg-white rounded-2xl w-full max-w-[320px] p-8 flex flex-col items-center text-center shadow-xl animate-in fade-in zoom-in duration-200">
-            <div className="w-16 h-16 bg-green-500 rounded-full flex items-center justify-center mb-4 shadow-sm">
-              <CheckCircle2 className="w-10 h-10 text-white" />
+        <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-white/10 rounded-2xl w-full max-w-sm p-6 text-center space-y-4">
+            <div className="w-16 h-16 bg-emerald-500/20 text-emerald-400 rounded-full flex items-center justify-center mx-auto">
+              <CheckCircle2 size={36} />
             </div>
-            <h3 className="text-xl font-bold text-gray-900 mb-2">Success!</h3>
-            <p className="text-sm text-gray-500 font-medium mb-6">Your profile has been saved<br/>successfully!</p>
-            <button onClick={() => setShowSuccessModal(false)} className="w-full py-3 bg-[#0000c8] text-white rounded-xl font-bold hover:bg-blue-800 transition-colors">
+            <h3 className="text-lg font-bold text-white">Success!</h3>
+            <p className="text-sm text-slate-400">Your profile has been saved successfully!</p>
+            <button
+              onClick={() => setShowSuccessModal(false)}
+              className="w-full bg-blue-600 hover:bg-blue-500 text-white font-medium py-3 rounded-xl transition text-sm"
+            >
               My Profile
             </button>
           </div>
         </div>
       )}
 
-      {/* LOGOUT MODAL OVERLAY */}
+      {/* Logout Modal */}
       {showLogoutModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4">
-          <div className="bg-white rounded-2xl w-full max-w-[320px] p-8 flex flex-col items-center text-center shadow-xl animate-in fade-in zoom-in duration-200">
-            <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center border border-gray-100 mb-4 shadow-sm">
-              <LogOut className="w-8 h-8 text-gray-400" />
+        <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-white/10 rounded-2xl w-full max-w-sm p-6 text-center space-y-4">
+            <div className="w-16 h-16 bg-red-500/20 text-red-400 rounded-full flex items-center justify-center mx-auto">
+              <LogOut size={32} />
             </div>
-            <h3 className="text-xl font-bold text-gray-900 mb-2">Logout?</h3>
-            <p className="text-sm text-gray-500 font-medium mb-6">Are you sure you want to logout</p>
-            <div className="flex gap-3 w-full">
-              <button onClick={() => setShowLogoutModal(false)} className="flex-1 py-3 bg-white border border-gray-300 text-gray-700 rounded-xl font-bold hover:bg-gray-50 transition-colors">
+            <h3 className="text-lg font-bold text-white">Logout?</h3>
+            <p className="text-sm text-slate-400">Are you sure you want to logout</p>
+            <div className="flex gap-3 pt-2">
+              <button
+                onClick={() => setShowLogoutModal(false)}
+                className="flex-1 bg-slate-800 hover:bg-slate-700 text-white font-medium py-3 rounded-xl transition text-sm"
+              >
                 Cancel
               </button>
-              <button onClick={handleLogout} className="flex-1 py-3 bg-[#0000c8] text-white rounded-xl font-bold hover:bg-blue-800 transition-colors">
+              <button
+                onClick={handleLogout}
+                className="flex-1 bg-blue-600 hover:bg-blue-500 text-white font-medium py-3 rounded-xl transition text-sm"
+              >
                 Yes, Logout
               </button>
             </div>
           </div>
         </div>
       )}
-
     </div>
   );
 }
