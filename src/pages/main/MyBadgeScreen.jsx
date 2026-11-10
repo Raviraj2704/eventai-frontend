@@ -230,7 +230,7 @@ function ScannedProfile({ user, onScanAgain }) {
   const saveContact = async () => {
     setSaving(true);
     try {
-      await apiClient.post(`/users/${user.id}/connect`);
+      await apiClient.post(`/connections/scan/${user.id}`);
       toast.success('Contact saved');
       onScanAgain();
     } catch (error) {
