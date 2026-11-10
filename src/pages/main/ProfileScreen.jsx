@@ -288,13 +288,13 @@ export default function ProfileScreen() {
 
           {/* Action Icons Row (Matching Adobe XD) */}
           <div className="flex justify-between items-center bg-white border border-slate-200 shadow-sm rounded-2xl px-5 py-4">
-            <button onClick={() => navigate('/favourites')} className="flex flex-col items-center gap-2 group">
+            <button onClick={() => navigate('/my-favourites')} className="flex flex-col items-center gap-2 group">
               <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 group-hover:bg-slate-100 transition">
                 <Bookmark size={22} className="text-slate-700" />
               </div>
               <span className="text-[11px] font-medium text-slate-600">Favourites</span>
             </button>
-            <button onClick={() => navigate('/meetings')} className="flex flex-col items-center gap-2 group">
+            <button onClick={() => navigate('/my-meetings')} className="flex flex-col items-center gap-2 group">
               <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 group-hover:bg-slate-100 transition">
                 <Calendar size={22} className="text-slate-700" />
               </div>
@@ -306,7 +306,7 @@ export default function ProfileScreen() {
               </div>
               <span className="text-[11px] font-medium text-slate-600">My Badge</span>
             </button>
-            <button onClick={() => navigate('/briefcase')} className="flex flex-col items-center gap-2 group">
+            <button onClick={() => navigate('/my-briefcase')} className="flex flex-col items-center gap-2 group">
               <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 group-hover:bg-slate-100 transition">
                 <Briefcase size={22} className="text-slate-700" />
               </div>
