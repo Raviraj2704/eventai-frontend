@@ -1,8 +1,8 @@
 // ============================================================================
 // Announcements (same layout as Notifications)
-// Tabs: General = announcements from /announcements
-//       Personal = empty until a notifications API is connected
-// Admins see a "+" button to post a new announcement.
+// General = announcements from /announcements
+// Personal = empty until a notifications API is connected
+// Admins see a "+" button to post.
 // ============================================================================
 
 import { useEffect, useMemo, useState } from 'react';
@@ -22,12 +22,34 @@ const listFrom = (body) => {
   return [];
 };
 
+// True if any common shape of a user object says "admin"
+const isAdminObject = (obj) => {
+  if (!obj || typeof obj !== 'object') return false;
+  const candidates = [obj, obj.user, obj.data, obj.data?.user];
+  return candidates.some(
+    (c) => c && (c.is_admin === true || c.is_admin === 'true' || c.is_admin === 1 || c.role === 'admin')
+  );
+};
+
+const readSavedUser = () => {
+  try {
+    const keys = ['user', 'currentUser', 'eventai_user'];
+    for (const k of keys) {
+      const raw = localStorage.getItem(k);
+      if (raw) return JSON.parse(raw);
+    }
+  } catch {
+    /* ignore bad JSON */
+  }
+  return null;
+};
+
 const normalize = (a) => ({
   id: a.id,
   title: a.title || 'Announcement',
-  message: a.message ?? a.content ?? a.description ?? '',
-  created_at: a.created_at ?? a.published_at ?? null,
-  link: a.action_url ?? a.link ?? null,
+  message: a.message ?? a.content ?? '',
+  created_at: a.created_at ?? null,
+  link: a.action_url ?? null,
 });
 
 const ordinal = (n) => {
@@ -73,14 +95,22 @@ export default function AnnouncementsScreen() {
 
   useEffect(() => {
     load();
-    apiClient
-      .get('/auth/me')
-      .then((res) => {
-        const body = res?.data;
-        const me = body?.data ?? body?.user ?? body;
-        setIsAdmin(Boolean(me?.is_admin));
-      })
-      .catch(() => setIsAdmin(false));
+
+    const checkAdmin = async () => {
+      if (isAdminObject(readSavedUser())) {
+        setIsAdmin(true);
+        return;
+      }
+      const [meRes, profileRes] = await Promise.allSettled([
+        apiClient.get('/auth/me'),
+        apiClient.get('/users/me'),
+      ]);
+      const found = [meRes, profileRes].some(
+        (r) => r.status === 'fulfilled' && isAdminObject(r.value?.data)
+      );
+      setIsAdmin(found);
+    };
+    checkAdmin();
   }, []);
 
   const groups = useMemo(() => {
@@ -104,7 +134,6 @@ export default function AnnouncementsScreen() {
       await apiClient.post('/announcements', {
         title: form.title.trim(),
         content: form.message.trim(),
-        message: form.message.trim(),
         action_url: form.link.trim() || null,
       });
       toast.success('Announcement posted');
@@ -117,8 +146,6 @@ export default function AnnouncementsScreen() {
       setSaving(false);
     }
   };
-
-  const personalItems = [];
 
   return (
     <div className="min-h-screen bg-white max-w-[430px] mx-auto pb-28">
@@ -156,23 +183,22 @@ export default function AnnouncementsScreen() {
         <button
           type="button"
           onClick={() => setTab('personal')}
-          className={`flex-1 py-3 text-sm font-medium flex items-center justify-center gap-1 ${
+          className={`flex-1 py-3 text-sm font-medium ${
             tab === 'personal' ? 'text-[#0000c8] border-b-2 border-[#0000c8]' : 'text-slate-500'
           }`}
         >
           Personal
-          {personalItems.length > 0 && <span className="text-xs">{personalItems.length}</span>}
         </button>
       </div>
 
       {/* List */}
       <div className="px-4 pt-2">
-        {loading && tab === 'general' ? (
-          <div className="py-16">
-            <LoadingSpinner />
-          </div>
-        ) : tab === 'general' ? (
-          groups.length === 0 ? (
+        {tab === 'general' ? (
+          loading ? (
+            <div className="py-16">
+              <LoadingSpinner />
+            </div>
+          ) : groups.length === 0 ? (
             <p className="text-center text-sm text-slate-500 py-16">No announcements yet.</p>
           ) : (
             groups.map(([day, list]) => (
@@ -182,9 +208,7 @@ export default function AnnouncementsScreen() {
                   <div key={item.id} className="rounded-2xl border border-slate-200 p-4 mb-3 bg-white">
                     <p className="text-xs text-slate-400">{timeLabel(item.created_at)}</p>
                     <p className="text-sm font-semibold text-slate-900 mt-1">{item.title}</p>
-                    {item.message && (
-                      <p className="text-xs text-slate-600 mt-1 leading-relaxed">{item.message}</p>
-                    )}
+                    {item.message && <p className="text-xs text-slate-600 mt-1 leading-relaxed">{item.message}</p>}
                     {item.link && (
                       <button
                         type="button"
@@ -199,9 +223,9 @@ export default function AnnouncementsScreen() {
               </div>
             ))
           )
-        ) : personalItems.length === 0 ? (
+        ) : (
           <p className="text-center text-sm text-slate-500 py-16">No personal notifications yet.</p>
-        ) : null}
+        )}
       </div>
 
       {/* Create sheet (admins only) */}
