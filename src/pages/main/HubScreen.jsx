@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { MessageSquare, Bell, ChevronRight, Sparkles, BarChart3, Trophy } from 'lucide-react';
+import { MessageSquare, Bell, Megaphone, ChevronRight, Sparkles, BarChart3, Trophy } from 'lucide-react';
 
 // ============================================================================
 // 3D GLOSSY / IRIDESCENT ILLUSTRATED ICONS (MATCHING XD PROTOTYPE)
@@ -318,6 +318,13 @@ export default function HubScreen() {
             className="w-10 h-10 rounded-full bg-slate-50 flex items-center justify-center text-slate-700 hover:bg-slate-100 transition-colors"
           >
             <Bell size={20} />
+          </button>
+                    <button
+            onClick={() => navigate('/announcements')}
+            aria-label="Announcements"
+            className="w-10 h-10 rounded-full bg-slate-50 flex items-center justify-center text-slate-700 hover:bg-slate-100 transition-colors"
+          >
+            <Megaphone size={20} />
           </button>
         </div>
       </div>
