@@ -157,7 +157,7 @@ export default function AnnouncementsScreen() {
           </button>
           <h1 className="text-xl font-semibold text-slate-900">Announcements</h1>
         </div>
-        {true && (
+        {isAdmin} &&
           <button
             type="button"
             onClick={() => setShowCreate(true)}
