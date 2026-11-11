@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import RequestMeetingButton from '../meetings/RequestMeetingButton';
 
 // ============================================================================
 // 1. YOUR EXISTING PERSON CARD (Fixed: No missing StarButton error!)
@@ -78,6 +79,9 @@ export const PersonCard = ({ person, onConnect, isConnected, isPending }) => {
       </div>
 
       <div className="flex space-x-3 mt-6">
+      <div className="mt-6">
+      <RequestMeetingButton personId={person.id} personName={person.full_name} />
+      </div>
         <button
           onClick={() => setShowMessage(!showMessage)}
           className="flex-1 px-4 py-2 bg-white border-2 border-gray-300 text-gray-700 font-semibold rounded-lg hover:border-blue-500 hover:text-blue-600 transition-colors"
