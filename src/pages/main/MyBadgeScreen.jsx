@@ -6,7 +6,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { ArrowLeft, Download, QrCode, ScanLine, Zap, ZapOff, X, Mail, Phone } from 'lucide-react';
+import { ArrowLeft, ChevronLeft, Download, QrCode, ScanLine, Zap, ZapOff, X, Mail, Phone, Users, LayoutGrid, Smartphone } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { Html5Qrcode } from 'html5-qrcode';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
@@ -157,7 +157,7 @@ function ScanTab({ onFound }) {
   };
 
   return (
-    <div className="flex flex-col gap-5 animate-in fade-in duration-300">
+    <div className="flex flex-col gap-5 animate-in fade-in duration-300 pt-4">
       <div className="relative w-full aspect-square rounded-3xl overflow-hidden bg-black shadow-lg border-2 border-slate-100">
         <div id={SCANNER_ID} className="w-full h-full" />
         {torchSupported && (
@@ -186,7 +186,7 @@ function ScanTab({ onFound }) {
         Add Manually
       </button>
 
-      {/* MATCHING ADOBE XD: MANUAL ENTRY MODAL */}
+      {/* MANUAL ENTRY MODAL */}
       {manualOpen && (
         <div className="fixed inset-0 z-[60] bg-black/60 flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in duration-200">
           <form
@@ -230,7 +230,7 @@ function ScanTab({ onFound }) {
 }
 
 // ----------------------------------------------------------------------------
-// Scanned profile (after a successful scan) - MATCHING ADOBE XD
+// Scanned profile (after a successful scan)
 // ----------------------------------------------------------------------------
 function ScannedProfile({ user, onScanAgain }) {
   const [notes, setNotes] = useState('');
@@ -250,19 +250,19 @@ function ScannedProfile({ user, onScanAgain }) {
   };
 
   return (
-    <div className="py-2 px-1 flex flex-col items-center animate-in fade-in zoom-in-95 duration-300">
-      <div className="w-full bg-white rounded-[24px] shadow-[0_8px_30px_rgb(0,0,0,0.08)] border border-slate-100 p-6 flex flex-col relative overflow-hidden">
+    <div className="py-4 px-1 flex flex-col items-center animate-in fade-in zoom-in-95 duration-300">
+      <div className="w-full bg-slate-50 rounded-[24px] border border-slate-100 p-5 flex flex-col relative overflow-hidden">
         
         {/* Header / Close */}
         <div className="flex justify-between items-start mb-5">
           <h2 className="text-[16px] font-bold text-slate-900">User Profile</h2>
-          <button onClick={onScanAgain} className="text-slate-400 hover:text-slate-700 bg-slate-100 p-1.5 rounded-full transition-colors">
+          <button onClick={onScanAgain} className="text-slate-400 hover:text-slate-700 bg-white p-1.5 rounded-full transition-colors shadow-sm">
             <X size={18} />
           </button>
         </div>
 
         {/* Profile Info Card */}
-        <div className="flex gap-4 items-center mb-6 bg-slate-50 p-4 rounded-2xl border border-slate-100 shadow-sm">
+        <div className="flex gap-4 items-center mb-6 bg-white p-4 rounded-2xl shadow-sm border border-slate-100">
           <div className="w-[60px] h-[60px] shrink-0 rounded-full bg-[#0c1b78] text-white flex items-center justify-center text-xl font-bold overflow-hidden border-2 border-white shadow-sm">
             {user.avatar_url ? (
               <img src={user.avatar_url} alt={fullName(user)} className="w-full h-full object-cover" />
@@ -301,7 +301,7 @@ function ScannedProfile({ user, onScanAgain }) {
             onChange={(e) => setNotes(e.target.value)}
             placeholder="Where did you meet? What did you discuss?"
             rows={3}
-            className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-[13px] text-slate-800 placeholder:text-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0000c8]/20 focus:border-[#0000c8] transition-all resize-none shadow-sm"
+            className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-[13px] text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#0000c8]/20 focus:border-[#0000c8] transition-all resize-none shadow-sm"
           />
         </div>
 
@@ -321,7 +321,7 @@ function ScannedProfile({ user, onScanAgain }) {
 }
 
 // ----------------------------------------------------------------------------
-// My Contacts
+// My Contacts (MATCHING ADOBE XD DESIGN)
 // ----------------------------------------------------------------------------
 function ContactsTab() {
   const [contacts, setContacts] = useState([]);
@@ -345,9 +345,8 @@ function ContactsTab() {
     };
   }, []);
 
-  const people = contacts.map((c) => c.user ?? c);
-
   const exportCsv = () => {
+    const people = contacts.map(c => c.user ?? c);
     const esc = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
     const rows = people.map((u) =>
       [fullName(u), u.email, u.phone, u.company, u.job_title].map(esc).join(',')
@@ -364,22 +363,31 @@ function ContactsTab() {
   if (loading) return <div className="py-16"><LoadingSpinner /></div>;
 
   return (
-    <div className="flex flex-col gap-4 animate-in fade-in duration-300">
+    <div className="flex flex-col gap-4 animate-in fade-in duration-300 pt-2">
+      
+      {/* Sub-Header Actions */}
       <div className="flex items-center justify-between px-1">
-        <span className="rounded-full bg-slate-100 px-3 py-1.5 text-[13px] font-bold text-slate-800">
-          All Contacts ({people.length})
-        </span>
+        <button className="flex items-center gap-1.5 px-3.5 py-1.5 border border-slate-300 rounded-full bg-white text-[12px] font-bold text-slate-700 shadow-sm">
+          <Users size={14} className="text-slate-500" />
+          All Contacts
+        </button>
         <button
           type="button"
           onClick={exportCsv}
-          disabled={people.length === 0}
-          className="flex items-center gap-1.5 text-[13px] font-bold text-[#0000c8] hover:text-blue-800 disabled:opacity-40 transition"
+          disabled={contacts.length === 0}
+          className="flex items-center gap-1.5 px-3.5 py-1.5 border border-slate-300 rounded-full bg-white text-[12px] font-bold text-slate-700 shadow-sm disabled:opacity-40 transition"
         >
-          <Download size={16} /> Export
+          <Download size={14} className="text-slate-500" /> 
+          Export
         </button>
       </div>
 
-      {people.length === 0 ? (
+      {/* Total Count */}
+      <h3 className="text-[14px] font-bold text-slate-900 px-1 mt-1 mb-1">
+        Total Count ({contacts.length})
+      </h3>
+
+      {contacts.length === 0 ? (
         <div className="text-center py-16 bg-slate-50 rounded-3xl border border-slate-100 mt-2">
           <QrCode size={40} className="mx-auto text-slate-300 mb-3" />
           <p className="text-[14px] text-slate-500 px-8 leading-relaxed">
@@ -387,25 +395,66 @@ function ContactsTab() {
           </p>
         </div>
       ) : (
-        <div className="space-y-3">
-          {people.map((u) => (
-            <div key={u.id} className="flex items-center gap-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm hover:shadow-md transition duration-200">
-              <div className="w-[52px] h-[52px] shrink-0 rounded-full bg-[#0c1b78] text-white flex items-center justify-center font-bold overflow-hidden shadow-sm">
-                {u.avatar_url ? (
-                  <img src={u.avatar_url} alt={fullName(u)} className="w-full h-full object-cover" />
-                ) : (
-                  initials(u)
+        <div className="space-y-4">
+          {contacts.map((c, idx) => {
+            const u = c.user ?? c;
+            const note = c.note || c.notes;
+            const isFirst = idx === 0;
+
+            return (
+              <div key={u.id} className="bg-slate-50 rounded-[20px] p-4 flex flex-col gap-3 relative border border-slate-100">
+                
+                {/* Top Right Icon */}
+                <div className="absolute top-4 right-4 text-slate-300">
+                  {isFirst ? <LayoutGrid size={18} /> : <Users size={18} />}
+                </div>
+
+                {/* Top Section */}
+                <div className="flex items-start gap-3.5 pr-8">
+                  <div className="w-[48px] h-[48px] shrink-0 rounded-full bg-[#0c1b78] text-white flex items-center justify-center font-bold overflow-hidden shadow-sm">
+                    {u.avatar_url ? (
+                      <img src={u.avatar_url} alt={fullName(u)} className="w-full h-full object-cover" />
+                    ) : (
+                      initials(u)
+                    )}
+                  </div>
+                  <div>
+                    <p className="text-[14px] font-bold text-slate-900">{fullName(u)}</p>
+                    <p className="text-[12px] text-slate-500 mt-0.5">{u.job_title || 'Designation'}</p>
+                    <p className="text-[12px] text-slate-500">{u.company || 'Company name'}</p>
+                  </div>
+                </div>
+
+                {/* Middle Section */}
+                <div className="flex items-end justify-between mt-1">
+                  <div className="space-y-1.5">
+                    <div className="flex items-center gap-2 text-[12px] text-slate-600 font-medium">
+                      <Mail size={14} className="text-slate-400 shrink-0" /> 
+                      <span className="truncate max-w-[170px]">{u.email || 'Email missing'}</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-[12px] text-slate-600 font-medium">
+                      <Phone size={14} className="text-slate-400 shrink-0" /> 
+                      {u.phone || 'Phone missing'}
+                    </div>
+                  </div>
+                  
+                  <button className="flex items-center gap-1.5 bg-white border border-slate-200 shadow-sm rounded-lg px-3 py-1.5 text-[12px] font-bold text-slate-700 hover:bg-slate-50">
+                    <Smartphone size={14} className="text-slate-600" /> Add
+                  </button>
+                </div>
+
+                {/* Note Section (Placeholder if note exists or always show on first item to match design) */}
+                {(note || isFirst) && (
+                  <div className="mt-2 pt-3 border-t border-slate-200">
+                    <p className="text-[11px] text-slate-500 leading-relaxed pr-2">
+                      <span className="font-bold text-slate-700">Note : </span>
+                      {note || 'Lorem Ipsum is simply dummy text of the printing and type setting industry.'}
+                    </p>
+                  </div>
                 )}
               </div>
-              <div className="min-w-0 flex-1">
-                <p className="text-[15px] font-bold text-slate-900 truncate">{fullName(u)}</p>
-                {u.job_title && <p className="text-[12px] font-medium text-[#0000c8] truncate mt-0.5">{u.job_title}</p>}
-                <div className="flex items-center gap-3 mt-1.5">
-                  {u.email && <p className="text-[11px] font-medium text-slate-500 truncate flex items-center gap-1"><Mail size={10}/> {u.email}</p>}
-                </div>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>
@@ -447,11 +496,6 @@ export default function MyBadgeScreen() {
 
   const resetScan = useCallback(() => setScanned(null), []);
 
-  const tabClass = (active) =>
-    `flex-1 rounded-xl py-2.5 text-[13px] font-bold border transition-colors ${
-      active ? 'bg-[#0000c8] text-white border-[#0000c8] shadow-md' : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
-    }`;
-
   const renderScan = () => {
     if (scanLoading) return <div className="py-24 flex justify-center"><LoadingSpinner /></div>;
     if (scanned) return <ScannedProfile user={scanned} onScanAgain={resetScan} />;
@@ -460,21 +504,32 @@ export default function MyBadgeScreen() {
 
   return (
     <div className="min-h-screen bg-white max-w-[430px] mx-auto pb-28 font-sans">
-      <div className="bg-[#0c1b78] text-white px-5 pt-5 pb-5 flex items-center gap-4 sticky top-0 z-20">
-        <button type="button" onClick={() => navigate('/profile')} aria-label="Back" className="text-white hover:bg-white/10 p-1.5 rounded-full transition-colors">
-          <ArrowLeft size={22} />
+      
+      {/* Header - EXACT ADOBE XD MATCH (White background, Black text) */}
+      <div className="bg-white text-slate-900 px-5 pt-5 pb-3 flex items-center gap-3 border-b border-slate-50 sticky top-0 z-20">
+        <button type="button" onClick={() => navigate('/profile')} aria-label="Back" className="text-slate-800 hover:text-black transition-colors">
+          <ChevronLeft size={26} strokeWidth={2.5} />
         </button>
         <h1 className="text-[20px] font-bold tracking-tight">My Badge</h1>
       </div>
 
-      <div className="flex gap-2 px-4 pt-5 pb-2">
-        {TABS.map((t) => (
-          <button key={t.key} type="button" onClick={() => { setTab(t.key); setScanned(null); }} className={tabClass(tab === t.key)}>
-            {t.key === 'code' && <QrCode size={14} className="inline mr-1.5 -mt-0.5" />}
-            {t.key === 'scan' && <ScanLine size={14} className="inline mr-1.5 -mt-0.5" />}
-            {t.label}
-          </button>
-        ))}
+      {/* Tabs - EXACT ADOBE XD MATCH (Text only, Blue active state) */}
+      <div className="flex justify-between px-6 pt-5 pb-0 border-b border-slate-100">
+        {TABS.map((t) => {
+          const isActive = tab === t.key;
+          return (
+            <button 
+              key={t.key} 
+              type="button" 
+              onClick={() => { setTab(t.key); setScanned(null); }} 
+              className={`pb-3 text-[15px] font-bold transition-colors ${
+                isActive ? 'text-[#0000c8]' : 'text-slate-400 hover:text-slate-600'
+              }`}
+            >
+              {t.label}
+            </button>
+          );
+        })}
       </div>
 
       <div className="px-5 pt-4">
