@@ -1,15 +1,6 @@
 // ============================================================================
-// Sessions Screen (matches the reference video)
+// Sessions Screen (matches the reference video & Adobe XD Filter Design)
 // File: src/pages/main/SessionsScreen.jsx
-// Real API only:
-//   GET  /session-hub/days
-//   GET  /session-hub/tracks
-//   GET  /session-hub/sessions?day&track&status&live_only&q
-//   GET  /session-hub/me/schedule
-//   POST/DELETE /session-hub/sessions/{id}/schedule
-//   POST/DELETE /session-hub/sessions/{id}/bookmark
-//   GET  /session-hub/sessions/{id}/stream
-//   GET  /ai/recommendations/sessions
 // ============================================================================
 
 import { useEffect, useState } from 'react';
@@ -17,7 +8,7 @@ import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import {
   Search, Filter, Bookmark, Clock, MapPin, Play, Calendar, CheckCircle2,
-  MessageSquare, Bell, X,
+  MessageSquare, Bell, X, ChevronLeft, RotateCcw
 } from 'lucide-react';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 import SessionAdminToolbar from '../../components/sessions/SessionAdminToolbar';
@@ -205,10 +196,38 @@ export default function SessionsScreen() {
   const [metaLoaded, setMetaLoaded] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
 
-  // Days and tracks for the chips and the filter sheet
+  // Temporary State for Filter Sheet (Matching Adobe XD Design)
+  const [tempHalls, setTempHalls] = useState([]);
+  const [tempKeywords, setTempKeywords] = useState([]);
+  const [tempNotes, setTempNotes] = useState(false);
+  const [hallInput, setHallInput] = useState('');
+  const [keywordInput, setKeywordInput] = useState('');
+
+  // Sync temp filters when opening sheet
+  const openFilterSheet = () => {
+    setTempHalls(selectedDay ? [selectedDay] : []);
+    setTempKeywords(track ? [track] : []);
+    setFilterOpen(true);
+  };
+
+  const applyFilters = () => {
+    // Map back to API format (API currently supports single selection)
+    setSelectedDay(tempHalls.length > 0 ? tempHalls[0] : null);
+    setTrack(tempKeywords.length > 0 ? tempKeywords[0] : '');
+    setFilterOpen(false);
+  };
+
+  const resetFilters = () => {
+    setTempHalls([]);
+    setTempKeywords([]);
+    setTempNotes(false);
+  };
+
+  const removeTempHall = (h) => setTempHalls(tempHalls.filter(x => x !== h));
+  const removeTempKeyword = (k) => setTempKeywords(tempKeywords.filter(x => x !== k));
+
   useEffect(() => {
     let cancelled = false;
-
     const loadMeta = async () => {
       try {
         const [daysRes, tracksRes] = await Promise.all([
@@ -226,20 +245,15 @@ export default function SessionsScreen() {
         if (!cancelled) setMetaLoaded(true);
       }
     };
-
     loadMeta();
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, []);
 
-  // Debounce the search box so we don't call the API on every key press
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedQuery(query.trim()), 350);
     return () => clearTimeout(timer);
   }, [query]);
 
-  // Load the list for the current tab and filters
   useEffect(() => {
     if (!metaLoaded) return undefined;
     let cancelled = false;
@@ -280,9 +294,7 @@ export default function SessionsScreen() {
     };
 
     load();
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, [tab, metaLoaded, selectedDay, track, statusFilter, liveOnly, debouncedQuery, refreshKey]);
 
   const patchItem = (id, patch) =>
@@ -450,7 +462,7 @@ export default function SessionsScreen() {
           </button>
           <button
             type="button"
-            onClick={() => setFilterOpen(true)}
+            onClick={openFilterSheet}
             aria-label="Filter"
             className="relative w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-700"
           >
@@ -501,76 +513,118 @@ export default function SessionsScreen() {
         )}
       </div>
 
-      {/* Filter sheet */}
+      {/* MATCHING ADOBE XD FILTER SHEET */}
       {filterOpen && (
         <div
-          className="fixed inset-0 bg-black/50 z-[60] flex items-end justify-center"
+          className="fixed inset-0 bg-black/60 z-[60] flex items-end justify-center backdrop-blur-sm transition-opacity"
           onClick={() => setFilterOpen(false)}
         >
           <div
-            className="bg-white w-full max-w-[430px] max-h-[80vh] rounded-t-2xl flex flex-col mb-16"
+            className="bg-white w-full max-w-[430px] rounded-t-3xl flex flex-col max-h-[85vh] animate-in slide-in-from-bottom-full duration-300"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200">
-              <p className="font-semibold text-slate-900">Filter sessions</p>
-              <button type="button" onClick={() => setFilterOpen(false)} aria-label="Close filter" className="text-slate-500">
-                <X size={20} />
+            {/* Header: < Filters */}
+            <div className="flex items-center px-5 py-4 border-b border-slate-100">
+              <button onClick={() => setFilterOpen(false)} className="flex items-center text-slate-900 gap-2 hover:text-black">
+                <ChevronLeft size={22} strokeWidth={2.5} />
+                <span className="text-xl font-bold">Filters</span>
               </button>
             </div>
-            <div className="flex-1 overflow-y-auto p-4 space-y-6">
+
+            <div className="flex-1 overflow-y-auto px-6 py-5 space-y-7">
+              {/* Choose Filters & Reset */}
+              <div className="flex items-center justify-between">
+                <h3 className="text-[15px] font-bold text-slate-900">Choose Filters</h3>
+                <button 
+                  onClick={resetFilters} 
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-slate-300 bg-white text-[11px] font-semibold text-slate-700 hover:bg-slate-50"
+                >
+                  Reset <RotateCcw size={12} />
+                </button>
+              </div>
+
+              {/* Halls Section */}
               <div>
-                <p className="text-sm font-semibold text-slate-900 mb-2">Status</p>
-                <div className="flex flex-wrap gap-2">
-                  {STATUS_OPTIONS.map((opt) => (
-                    <button
-                      key={opt.value}
-                      type="button"
-                      onClick={() => setStatusFilter(opt.value)}
-                      className={`rounded-full px-3 py-1.5 text-sm border ${
-                        statusFilter === opt.value
-                          ? 'bg-[#0000c8] border-[#0000c8] text-white'
-                          : 'border-slate-300 text-slate-800'
-                      }`}
-                    >
-                      {opt.label}
-                    </button>
-                  ))}
+                <h4 className="text-[14px] font-bold text-slate-900 mb-3">Halls</h4>
+                {/* Removable Chips */}
+                {tempHalls.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mb-3">
+                    {tempHalls.map((hall) => (
+                      <span key={hall} className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-200 shadow-sm rounded-lg text-[12px] font-medium text-slate-700">
+                        {hall}
+                        <X size={12} className="cursor-pointer text-slate-400 hover:text-red-500" onClick={() => removeTempHall(hall)} />
+                      </span>
+                    ))}
+                  </div>
+                )}
+                {/* Search Bar for Halls */}
+                <div className="relative">
+                  <Search size={16} className="absolute left-3.5 top-3 text-slate-400" />
+                  <input
+                    type="text"
+                    value={hallInput}
+                    onChange={(e) => setHallInput(e.target.value)}
+                    placeholder="Search here"
+                    className="w-full pl-10 pr-4 py-2.5 bg-slate-50 rounded-xl text-[13px] font-medium text-slate-700 focus:outline-none focus:ring-1 focus:ring-slate-200"
+                  />
                 </div>
               </div>
+
+              {/* Keywords Section */}
               <div>
-                <p className="text-sm font-semibold text-slate-900 mb-2">Track</p>
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setTrack('')}
-                    className={`rounded-full px-3 py-1.5 text-sm border ${
-                      track === '' ? 'bg-[#0000c8] border-[#0000c8] text-white' : 'border-slate-300 text-slate-800'
-                    }`}
-                  >
-                    All tracks
-                  </button>
-                  {tracks.map((t) => (
-                    <button
-                      key={t}
-                      type="button"
-                      onClick={() => setTrack(t)}
-                      className={`rounded-full px-3 py-1.5 text-sm border ${
-                        track === t ? 'bg-[#0000c8] border-[#0000c8] text-white' : 'border-slate-300 text-slate-800'
-                      }`}
-                    >
-                      {t}
-                    </button>
-                  ))}
+                <h4 className="text-[14px] font-bold text-slate-900 mb-3">Keywords</h4>
+                {/* Removable Chips */}
+                {tempKeywords.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mb-3">
+                    {tempKeywords.map((kw) => (
+                      <span key={kw} className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-200 shadow-sm rounded-lg text-[12px] font-medium text-slate-700">
+                        {kw}
+                        <X size={12} className="cursor-pointer text-slate-400 hover:text-red-500" onClick={() => removeTempKeyword(kw)} />
+                      </span>
+                    ))}
+                  </div>
+                )}
+                {/* Search Bar for Keywords */}
+                <div className="relative">
+                  <Search size={16} className="absolute left-3.5 top-3 text-slate-400" />
+                  <input
+                    type="text"
+                    value={keywordInput}
+                    onChange={(e) => setKeywordInput(e.target.value)}
+                    placeholder="Search here"
+                    className="w-full pl-10 pr-4 py-2.5 bg-slate-50 rounded-xl text-[13px] font-medium text-slate-700 focus:outline-none focus:ring-1 focus:ring-slate-200"
+                  />
                 </div>
+              </div>
+
+              {/* With notes Toggle */}
+              <div className="flex items-center justify-between bg-slate-50 p-4 rounded-xl border border-slate-100">
+                <span className="text-[14px] font-bold text-slate-900">With notes</span>
+                <button
+                  role="switch"
+                  aria-checked={tempNotes}
+                  onClick={() => setTempNotes(!tempNotes)}
+                  className={`w-10 h-6 rounded-full relative transition-colors duration-200 ${
+                    tempNotes ? 'bg-slate-400' : 'bg-slate-300'
+                  }`}
+                >
+                  <span
+                    className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-transform duration-200 shadow-sm ${
+                      tempNotes ? 'right-1' : 'left-1'
+                    }`}
+                  />
+                </button>
               </div>
             </div>
-            <div className="p-4 border-t border-slate-200">
+
+            {/* Bottom Apply Button */}
+            <div className="p-5 bg-white border-t border-slate-100">
               <button
                 type="button"
-                onClick={() => setFilterOpen(false)}
-                className="w-full rounded-lg bg-[#0000c8] text-white py-3 font-semibold"
+                onClick={applyFilters}
+                className="w-full rounded-xl bg-[#0000c8] text-white py-4 text-[14px] font-bold shadow-md hover:bg-blue-800 transition"
               >
-                Show sessions
+                Apply Filters
               </button>
             </div>
           </div>
