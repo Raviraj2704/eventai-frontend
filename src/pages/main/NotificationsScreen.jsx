@@ -2,8 +2,8 @@
 // NotificationsScreen.jsx
 // File: frontend/src/pages/main/NotificationsScreen.jsx
 // Route: /notifications
-// General = published announcements from /announcements
-// Personal = empty until the notifications API is connected
+// General  = published announcements (/announcements)
+// Personal = this user's notifications (/notifications)
 // ============================================================================
 
 import { useEffect, useMemo, useState } from 'react';
@@ -17,9 +17,10 @@ const listFrom = (body) => {
   if (Array.isArray(body)) return body;
   if (Array.isArray(body?.data)) return body.data;
   if (Array.isArray(body?.data?.data)) return body.data.data;
-  if (Array.isArray(body?.announcements)) return body.announcements;
   return [];
 };
+
+const errMsg = (e, fallback) => e?.response?.data?.detail || e?.message || fallback;
 
 const ordinal = (n) => {
   if (n % 100 >= 11 && n % 100 <= 13) return 'th';
@@ -39,32 +40,90 @@ const timeLabel = (iso) => {
   return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
 };
 
+const normalizeAnnouncement = (a) => ({
+  id: `a-${a.id}`,
+  title: a.title || 'Announcement',
+  message: a.message ?? a.content ?? '',
+  created_at: a.created_at ?? null,
+  link: a.action_url ?? null,
+  isRead: true,
+  backendId: null,
+});
+
+const normalizeNotification = (n) => ({
+  id: `n-${n.id}`,
+  title: n.title || 'Notification',
+  message: n.message ?? '',
+  created_at: n.created_at ?? null,
+  link: n.action_url ?? null,
+  isRead: Boolean(n.is_read),
+  backendId: n.id,
+});
+
 export default function NotificationsScreen() {
   const navigate = useNavigate();
   const [tab, setTab] = useState('general');
   const [general, setGeneral] = useState([]);
+  const [personal, setPersonal] = useState([]);
+  const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(true);
 
-  // Personal notifications come from a notifications API, not built yet.
-  const personal = [];
-
   useEffect(() => {
-    apiClient
-      .get('/announcements')
-      .then((res) => {
-        const list = listFrom(res?.data).map((a) => ({
-          id: a.id,
-          title: a.title || 'Announcement',
-          message: a.message ?? a.content ?? '',
-          created_at: a.created_at ?? null,
-          link: a.action_url ?? null,
-        }));
+    let cancelled = false;
+
+    const load = async () => {
+      setLoading(true);
+      const [annRes, notiRes] = await Promise.allSettled([
+        apiClient.get('/announcements'),
+        apiClient.get('/notifications'),
+      ]);
+
+      if (cancelled) return;
+
+      if (annRes.status === 'fulfilled') {
+        const list = listFrom(annRes.value?.data).map(normalizeAnnouncement);
         list.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
         setGeneral(list);
-      })
-      .catch((e) => toast.error(e?.response?.data?.detail || 'Could not load notifications'))
-      .finally(() => setLoading(false));
+      } else {
+        toast.error(errMsg(annRes.reason, 'Could not load announcements'));
+      }
+
+      if (notiRes.status === 'fulfilled') {
+        const body = notiRes.value?.data;
+        setPersonal(listFrom(body).map(normalizeNotification));
+        setUnreadCount(body?.unread_count ?? 0);
+      } else {
+        toast.error(errMsg(notiRes.reason, 'Could not load notifications'));
+      }
+
+      setLoading(false);
+    };
+
+    load();
+    return () => {
+      cancelled = true;
+    };
   }, []);
+
+  const markRead = async (item) => {
+    if (item.isRead || item.backendId == null) return;
+    try {
+      await apiClient.post(`/notifications/${item.backendId}/read`);
+      setPersonal((prev) => prev.map((p) => (p.id === item.id ? { ...p, isRead: true } : p)));
+      setUnreadCount((c) => Math.max(0, c - 1));
+    } catch {
+      /* keep the item unread if the server did not accept it */
+    }
+  };
+
+  const openLink = (item) => {
+    if (!item.link) return;
+    if (item.link.startsWith('/')) {
+      navigate(item.link);
+    } else {
+      window.open(item.link, '_blank', 'noopener');
+    }
+  };
 
   const items = tab === 'general' ? general : personal;
 
@@ -107,9 +166,9 @@ export default function NotificationsScreen() {
           }`}
         >
           Personal
-          {personal.length > 0 && (
+          {unreadCount > 0 && (
             <span className="bg-gray-100 text-gray-600 text-[10px] font-bold px-1.5 py-0.5 rounded-full">
-              {personal.length}
+              {unreadCount}
             </span>
           )}
           {tab === 'personal' && <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-[#0000c8]" />}
@@ -118,13 +177,13 @@ export default function NotificationsScreen() {
 
       {/* List */}
       <div className="px-4 pt-5 pb-6">
-        {loading && tab === 'general' ? (
+        {loading ? (
           <div className="py-16">
             <LoadingSpinner />
           </div>
         ) : groups.length === 0 ? (
           <p className="text-center text-gray-500 text-sm mt-10">
-            {tab === 'general' ? 'No notifications yet.' : 'No personal notifications yet.'}
+            {tab === 'general' ? 'No announcements yet.' : 'No personal notifications yet.'}
           </p>
         ) : (
           groups.map(([date, list]) => (
@@ -132,15 +191,23 @@ export default function NotificationsScreen() {
               <h3 className="text-gray-600 font-semibold text-sm mb-3">{date}</h3>
               <div className="space-y-4">
                 {list.map((item) => (
-                  <div key={item.id} className="border border-gray-200 rounded-xl p-4 bg-gray-50/50 shadow-sm">
+                  <div
+                    key={item.id}
+                    onClick={() => markRead(item)}
+                    className={`border rounded-xl p-4 shadow-sm ${
+                      item.isRead ? 'border-gray-200 bg-gray-50/50' : 'border-[#0000c8]/30 bg-white'
+                    }`}
+                  >
                     <span className="text-gray-400 text-xs font-medium block mb-1">{timeLabel(item.created_at)}</span>
                     <h4 className="text-gray-900 font-bold text-sm mb-1.5">{item.title}</h4>
-                    {item.message && (
-                      <p className="text-gray-600 text-xs leading-relaxed mb-3">{item.message}</p>
-                    )}
+                    {item.message && <p className="text-gray-600 text-xs leading-relaxed mb-3">{item.message}</p>}
                     {item.link && (
                       <button
-                        onClick={() => window.open(item.link, '_blank', 'noopener')}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          markRead(item);
+                          openLink(item);
+                        }}
                         className="text-[#0000c8] text-xs font-semibold hover:underline"
                       >
                         Know More
