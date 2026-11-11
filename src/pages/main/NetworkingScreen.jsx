@@ -236,13 +236,6 @@ const NetworkingScreen = () => {
             >
               My Contacts
             </button>
-            <button
-              type="button"
-              onClick={() => navigate('/my-meetings')}
-              className="rounded-lg bg-white/15 px-3 py-1.5 text-sm font-semibold text-white"
-            >
-              My Meetings
-            </button>
           </div>
         </div>
         <button

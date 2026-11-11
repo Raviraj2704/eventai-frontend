@@ -1,5 +1,5 @@
 // ============================================================================
-// My Meetings (Confirmed, Invites, Sent) - ADOBE XD EXACT MATCH
+// My Meetings (Confirmed, Invites) - ADOBE XD EXACT MATCH
 // File: src/pages/main/MyMeetingsScreen.jsx
 // ============================================================================
 
@@ -12,11 +12,11 @@ import {
   X, 
   RotateCcw, 
   CalendarPlus, 
-  SlidersHorizontal, 
   ChevronRight, 
   FileText,
   Calendar as CalendarIcon,
-  Check
+  Check,
+  ArrowUpDown
 } from 'lucide-react';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 import apiClient from '../../config/apiClient';
@@ -24,7 +24,6 @@ import apiClient from '../../config/apiClient';
 const TABS = [
   { key: 'confirmed', label: 'Confirmed' },
   { key: 'invites', label: 'Invites' },
-  { key: 'sent', label: 'Sent' },
 ];
 
 const getErrorMessage = (error, fallback) =>
@@ -32,20 +31,16 @@ const getErrorMessage = (error, fallback) =>
 
 const unwrap = (body) => (Array.isArray(body?.data) ? body.data : []);
 
-// Date Formatter matching: "19th Oct, 2024 | 10:00 AM - 05:00 PM"
 const formatMeetingDate = (startIso, endIso) => {
   if (!startIso) return '';
   const sd = new Date(startIso);
   const ed = endIso ? new Date(endIso) : null;
-  
   const n = sd.getDate();
   const suffix = n % 100 >= 11 && n % 100 <= 13 ? 'th' : ({ 1: 'st', 2: 'nd', 3: 'rd' }[n % 10] || 'th');
   const month = sd.toLocaleString('en-US', { month: 'short' });
   const year = sd.getFullYear();
-  
   const startTime = sd.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
   const endTime = ed ? ed.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : '';
-  
   return `${n}${suffix} ${month}, ${year} | ${startTime}${endTime ? ` - ${endTime}` : ''}`;
 };
 
@@ -56,9 +51,13 @@ export default function MyMeetingsScreen() {
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState(null);
   
-  // Reschedule & Success Modals
+  // Modals State
   const [rescheduling, setRescheduling] = useState(null);
-  const [showSuccess, setShowSuccess] = useState(false);
+  const [cancelTarget, setCancelTarget] = useState(null);
+  const [acceptTarget, setAcceptTarget] = useState(null);
+  const [successModal, setSuccessModal] = useState(null); // { type: 'cancel' | 'accept' | 'reschedule', msg: string }
+  
+  // Reschedule Form State
   const [rescheduleDate, setRescheduleDate] = useState('');
   const [rescheduleTime, setRescheduleTime] = useState('');
   const [rescheduleNotes, setRescheduleNotes] = useState('');
@@ -80,18 +79,21 @@ export default function MyMeetingsScreen() {
     load();
   }, [load]);
 
-  const act = async (meeting, path, successText, method = 'post') => {
+  const handleAction = async (meeting, path, method = 'post', payload = undefined, successType = null, successMsg = '') => {
     if (busyId) return;
     setBusyId(meeting.id);
     try {
       if (method === 'delete') {
         await apiClient.delete(`/meetings/${meeting.id}`);
       } else {
-        // FIX: The backend rejected "completed", so we send "attended" to fix the 400 Bad Request
-        const payload = path === 'status' ? { status: successText.status } : undefined;
         await apiClient.post(`/meetings/${meeting.id}/${path}`, payload);
       }
-      toast.success(successText.message || successText);
+      
+      if (successType) {
+        setSuccessModal({ type: successType, msg: successMsg });
+      } else {
+        toast.success(successMsg);
+      }
       await load();
     } catch (error) {
       toast.error(getErrorMessage(error, 'Something went wrong processing your request'));
@@ -100,17 +102,9 @@ export default function MyMeetingsScreen() {
     }
   };
 
-  const confirmCancel = (meeting) => {
-    if (!window.confirm('Cancel this meeting?')) return;
-    act(meeting, 'cancel', 'Meeting cancelled');
-  };
-
   const handleRescheduleSubmit = async (e) => {
     e.preventDefault();
-    if (!rescheduleDate || !rescheduleTime) {
-      toast.error("Please select a date and time");
-      return;
-    }
+    if (!rescheduleDate || !rescheduleTime) return toast.error("Please select a date and time");
     
     setBusyId(rescheduling.id);
     try {
@@ -120,7 +114,7 @@ export default function MyMeetingsScreen() {
         note: rescheduleNotes
       });
       setRescheduling(null);
-      setShowSuccess(true);
+      setSuccessModal({ type: 'reschedule', msg: 'You meeting reschedule request has been sent' });
       await load();
     } catch (error) {
       toast.error(getErrorMessage(error, 'Could not reschedule meeting'));
@@ -129,49 +123,77 @@ export default function MyMeetingsScreen() {
     }
   };
 
-  const closeSuccess = () => {
-    setShowSuccess(false);
-  };
-
   const renderCard = (m) => {
-    const isEnded = new Date(m.end_time) < new Date() || m.status === 'attended' || m.status === 'no_show';
-    const isAttended = m.status === 'attended' || m.status === 'completed'; 
+    const isEnded = new Date(m.end_time) < new Date();
+    const isCompleted = m.status === 'completed' || m.status === 'no_show'; 
     
-    // Status visual mapping exactly matching Adobe XD
+    if (tab === 'invites') {
+      return (
+        <div key={m.id} className="bg-white rounded-3xl p-4 border border-slate-100 shadow-[0_2px_15px_rgb(0,0,0,0.04)] mb-4">
+          <div className="flex justify-between items-center mb-3">
+            <div className="flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-amber-400"></span>
+              <span className="text-[11px] font-bold text-amber-400 uppercase">Invitation Received</span>
+            </div>
+            <button className="flex items-center gap-1.5 px-3 py-1 border border-slate-200 rounded-xl text-[12px] font-bold text-slate-600 hover:bg-slate-50 transition shadow-sm">
+              <CalendarPlus size={14} className="text-slate-400" /> Add
+            </button>
+          </div>
+          <p className="text-[12px] font-medium text-slate-500 mb-4 px-0.5">{formatMeetingDate(m.start_time, m.end_time)}</p>
+          <div className="flex justify-between items-center mb-4 px-0.5">
+            <div className="flex items-center gap-3">
+              <div className="w-[42px] h-[42px] rounded-full bg-[#0c1b78] overflow-hidden flex-shrink-0 flex items-center justify-center text-white font-bold text-sm shadow-sm border border-slate-100">
+                {m.other?.avatar_url ? <img src={m.other?.avatar_url} alt="avatar" className="w-full h-full object-cover" /> : m.other?.name?.charAt(0) || 'U'}
+              </div>
+              <div>
+                <p className="text-[15px] font-bold text-slate-900 leading-snug">{m.other?.name || 'Attendee'}</p>
+                <p className="text-[12px] text-slate-500 mt-0.5">{m.other?.job_title || 'Designation'}, {m.other?.company || 'Company'}</p>
+              </div>
+            </div>
+            <ChevronRight size={20} className="text-slate-400" />
+          </div>
+          <div className="flex items-center gap-2 text-[12px] font-bold text-slate-500 mb-5 px-0.5">
+            <MapPin size={15} className="text-slate-400" /> {m.location || 'In Person'}
+          </div>
+          <div className="flex gap-3">
+            <button 
+              onClick={() => handleAction(m, 'reject', 'post', undefined, null, 'Meeting rejected')}
+              className="flex-1 flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 py-3.5 text-[13px] font-bold text-slate-700 hover:bg-slate-100 transition shadow-sm"
+            >
+              <X size={16} className="text-slate-500" /> Reject
+            </button>
+            <button 
+              onClick={() => setAcceptTarget(m)}
+              className="flex-1 flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 py-3.5 text-[13px] font-bold text-slate-700 hover:bg-slate-100 transition shadow-sm"
+            >
+              <Check size={16} className="text-slate-800" /> Accept
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    // Confirmed Tab Render
     const statusLabel = isEnded ? 'Ended' : 'Upcoming';
     const statusColor = isEnded ? 'bg-emerald-500' : 'bg-amber-400';
     const statusTextColor = isEnded ? 'text-emerald-500' : 'text-amber-400';
     
     return (
       <div key={m.id} className="bg-white rounded-3xl p-4 border border-slate-100 shadow-[0_2px_15px_rgb(0,0,0,0.04)] mb-4">
-        
-        {/* Top Row: Status & Add Button */}
         <div className="flex justify-between items-center mb-3">
           <div className="flex items-center gap-1.5">
             <span className={`w-1.5 h-1.5 rounded-full ${statusColor}`}></span>
-            <span className={`text-[11px] font-bold ${statusTextColor}`}>
-              {statusLabel}
-            </span>
+            <span className={`text-[11px] font-bold ${statusTextColor}`}>{statusLabel}</span>
           </div>
           <button className="flex items-center gap-1.5 px-3 py-1 border border-slate-200 rounded-xl text-[12px] font-bold text-slate-600 hover:bg-slate-50 transition shadow-sm">
             <CalendarPlus size={14} className="text-slate-400" /> Add
           </button>
         </div>
-
-        {/* Date & Time */}
-        <p className="text-[12px] font-medium text-slate-500 mb-4 px-0.5">
-          {formatMeetingDate(m.start_time, m.end_time)}
-        </p>
-
-        {/* User Info */}
+        <p className="text-[12px] font-medium text-slate-500 mb-4 px-0.5">{formatMeetingDate(m.start_time, m.end_time)}</p>
         <div className="flex justify-between items-center mb-4 px-0.5">
           <div className="flex items-center gap-3">
             <div className="w-[42px] h-[42px] rounded-full bg-[#0c1b78] overflow-hidden flex-shrink-0 flex items-center justify-center text-white font-bold text-sm shadow-sm border border-slate-100">
-              {m.other?.avatar_url ? (
-                <img src={m.other?.avatar_url} alt="avatar" className="w-full h-full object-cover" />
-              ) : (
-                m.other?.name?.charAt(0) || 'U'
-              )}
+              {m.other?.avatar_url ? <img src={m.other?.avatar_url} alt="avatar" className="w-full h-full object-cover" /> : m.other?.name?.charAt(0) || 'U'}
             </div>
             <div>
               <p className="text-[15px] font-bold text-slate-900 leading-snug">{m.other?.name || 'Attendee Name'}</p>
@@ -180,15 +202,12 @@ export default function MyMeetingsScreen() {
           </div>
           <ChevronRight size={20} className="text-slate-400" />
         </div>
-
-        {/* Location */}
         <div className="flex items-center gap-2 text-[12px] font-bold text-slate-500 mb-5 px-0.5">
-          <MapPin size={15} className="text-slate-400" /> 
-          {m.location || 'In Person'}
+          <MapPin size={15} className="text-slate-400" /> {m.location || 'In Person'}
         </div>
 
         {/* Action Buttons */}
-        {isAttended ? (
+        {isCompleted ? (
           <div className="w-full rounded-2xl bg-slate-50 border border-slate-100 py-3.5 px-5 flex justify-between items-center">
             <span className="text-[13px] font-bold text-slate-400">Status : <span className="text-slate-700">Attended</span></span>
             <FileText size={16} className="text-slate-700" />
@@ -196,7 +215,7 @@ export default function MyMeetingsScreen() {
         ) : isEnded ? (
           <button 
             disabled={busyId === m.id}
-            onClick={() => act(m, 'status', { status: 'attended', message: 'Marked as attended' })}
+            onClick={() => handleAction(m, 'status', 'post', { status: 'completed' }, null, 'Meeting marked as attended')}
             className="w-full rounded-2xl border border-slate-200 bg-slate-50 py-3.5 text-[14px] font-bold text-slate-700 hover:bg-slate-100 transition shadow-sm"
           >
             Mark Meeting Status
@@ -205,15 +224,15 @@ export default function MyMeetingsScreen() {
           <div className="flex gap-3">
             <button 
               disabled={busyId === m.id}
-              onClick={() => confirmCancel(m)}
-              className="flex-1 flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white py-3.5 text-[13px] font-bold text-slate-700 hover:bg-slate-50 transition shadow-sm"
+              onClick={() => setCancelTarget(m)}
+              className="flex-1 flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 py-3.5 text-[13px] font-bold text-slate-700 hover:bg-slate-100 transition shadow-sm"
             >
               <X size={16} className="text-slate-500" /> Cancel
             </button>
             <button 
               disabled={busyId === m.id}
               onClick={() => setRescheduling(m)}
-              className="flex-1 flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white py-3.5 text-[13px] font-bold text-slate-700 hover:bg-slate-50 transition shadow-sm"
+              className="flex-1 flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 py-3.5 text-[13px] font-bold text-slate-700 hover:bg-slate-100 transition shadow-sm"
             >
               <RotateCcw size={14} className="text-slate-500" /> Reschedule
             </button>
@@ -228,14 +247,14 @@ export default function MyMeetingsScreen() {
       
       {/* Header - EXACT XD MATCH */}
       <div className="bg-white text-slate-900 px-5 pt-5 pb-3 flex items-center gap-3 sticky top-0 z-20">
-        <button type="button" onClick={() => navigate('/networking')} aria-label="Back" className="text-slate-800 hover:text-black transition-colors">
+        <button type="button" onClick={() => navigate('/hub')} aria-label="Back" className="text-slate-800 hover:text-black transition-colors">
           <ChevronLeft size={26} strokeWidth={2.5} />
         </button>
         <h1 className="text-[20px] font-bold tracking-tight">My Meetings</h1>
       </div>
 
       {/* Tabs - EXACT XD MATCH */}
-      <div className="bg-white flex px-6 pt-3 pb-0 border-b border-slate-100 gap-8 shadow-sm">
+      <div className="bg-white flex px-6 pt-1 pb-0 border-b border-slate-100 shadow-sm">
         {TABS.map((t) => {
           const isActive = tab === t.key;
           return (
@@ -243,12 +262,12 @@ export default function MyMeetingsScreen() {
               key={t.key} 
               type="button" 
               onClick={() => setTab(t.key)} 
-              className={`pb-3 text-[15px] font-bold transition-all relative ${
+              className={`flex-1 text-center pb-3 pt-3 text-[15px] font-bold transition-all relative ${
                 isActive ? 'text-[#0000c8]' : 'text-slate-400 hover:text-slate-600'
               }`}
             >
               {t.label}
-              {isActive && <div className="absolute bottom-0 left-0 right-0 h-[3px] bg-[#0000c8] rounded-t-full" />}
+              {isActive && <div className="absolute bottom-0 left-0 right-0 h-[2.5px] bg-[#0000c8]" />}
             </button>
           );
         })}
@@ -256,20 +275,18 @@ export default function MyMeetingsScreen() {
 
       {/* Total Count & Filter */}
       <div className="flex justify-between items-center px-5 py-5">
-        <h3 className="text-[15px] font-bold text-slate-700">
+        <h3 className="text-[16px] font-bold text-slate-500">
           Total Count ({meetings.length})
         </h3>
-        <button className="flex items-center gap-1.5 px-3 py-1.5 border border-slate-300 rounded-full bg-white text-[12px] font-bold text-slate-700 hover:bg-slate-50 shadow-sm">
-          <SlidersHorizontal size={14} className="text-slate-500" /> All Meetings
+        <button className="flex items-center gap-2 px-3 py-1.5 border border-slate-300 rounded-full bg-white text-[12px] font-bold text-slate-600 hover:bg-slate-50 shadow-sm">
+          <ArrowUpDown size={14} className="text-slate-500" /> All Meetings
         </button>
       </div>
 
       {/* List */}
       <div className="px-5 pb-24">
         {loading ? (
-          <div className="py-16 flex justify-center">
-            <LoadingSpinner />
-          </div>
+          <div className="py-16 flex justify-center"><LoadingSpinner /></div>
         ) : meetings.length === 0 ? (
           <div className="text-center py-12 bg-white rounded-3xl border border-slate-100 shadow-sm">
             <CalendarIcon size={40} className="mx-auto text-slate-300 mb-3" />
@@ -280,9 +297,47 @@ export default function MyMeetingsScreen() {
         )}
       </div>
 
-      {/* RESCHEDULE SCREEN MODAL (Matching XD Design 1000319298.jpg) */}
+      {/* CANCEL CONFIRMATION MODAL */}
+      {cancelTarget && (
+        <div className="fixed inset-0 z-[60] bg-black/60 flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white w-full max-w-[320px] rounded-3xl p-8 flex flex-col items-center text-center shadow-2xl">
+            <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mb-5">
+              <X size={28} className="text-slate-400" />
+            </div>
+            <h2 className="text-[19px] font-bold text-slate-900 mb-2">Cancel Meeting</h2>
+            <p className="text-[14px] font-medium text-slate-500 mb-8 leading-relaxed px-2">
+              Are you sure you want to cancel this meeting?
+            </p>
+            <div className="flex w-full gap-3">
+              <button onClick={() => setCancelTarget(null)} className="flex-1 rounded-2xl border border-slate-200 bg-white py-3.5 text-[14px] font-bold text-slate-700 shadow-sm hover:bg-slate-50">Go Back</button>
+              <button onClick={() => { handleAction(cancelTarget, 'cancel', 'post', undefined, 'cancel', 'Meeting cancelled successfully'); setCancelTarget(null); }} className="flex-1 rounded-2xl bg-[#0000c8] text-white py-3.5 text-[14px] font-bold shadow-md hover:bg-blue-800">Yes, Cancel</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ACCEPT CONFIRMATION MODAL */}
+      {acceptTarget && (
+        <div className="fixed inset-0 z-[60] bg-black/60 flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white w-full max-w-[320px] rounded-3xl p-8 flex flex-col items-center text-center shadow-2xl">
+            <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mb-5">
+              <Check size={32} className="text-slate-400" strokeWidth={3} />
+            </div>
+            <h2 className="text-[19px] font-bold text-slate-900 mb-2">Accept Request</h2>
+            <p className="text-[14px] font-medium text-slate-500 mb-8 leading-relaxed px-2">
+              Are you sure you want to accept this request?
+            </p>
+            <div className="flex w-full gap-3">
+              <button onClick={() => setAcceptTarget(null)} className="flex-1 rounded-2xl border border-slate-200 bg-white py-3.5 text-[14px] font-bold text-slate-700 shadow-sm hover:bg-slate-50">Go Back</button>
+              <button onClick={() => { handleAction(acceptTarget, 'accept', 'post', undefined, 'accept', 'Meeting Accepted successfully'); setAcceptTarget(null); }} className="flex-1 rounded-2xl bg-[#0000c8] text-white py-3.5 text-[14px] font-bold shadow-md hover:bg-blue-800">Yes, Accept</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* RESCHEDULE SCREEN MODAL (Bottom Sheet) */}
       {rescheduling && (
-        <div className="fixed inset-0 z-50 bg-white flex flex-col overflow-y-auto animate-in slide-in-from-bottom-full duration-300">
+        <div className="fixed inset-0 z-[50] bg-white flex flex-col overflow-y-auto animate-in slide-in-from-bottom-full duration-300">
           <div className="px-5 pt-5 pb-4 flex items-center gap-3 border-b border-slate-100 sticky top-0 bg-white z-10 shadow-sm">
             <button type="button" onClick={() => setRescheduling(null)} className="text-slate-800 hover:text-black">
               <ChevronLeft size={26} strokeWidth={2.5} />
@@ -291,15 +346,10 @@ export default function MyMeetingsScreen() {
           </div>
           
           <div className="p-5 flex-1 bg-white">
-            {/* Top User Info Bar */}
             <div className="flex items-center justify-between bg-white border border-slate-100 p-4 rounded-2xl mb-8 shadow-sm">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-full bg-[#0c1b78] text-white flex items-center justify-center overflow-hidden flex-shrink-0 font-bold text-sm">
-                  {rescheduling.other?.avatar_url ? (
-                    <img src={rescheduling.other.avatar_url} alt="avatar" className="w-full h-full object-cover" />
-                  ) : (
-                    rescheduling.other?.name?.charAt(0) || 'U'
-                  )}
+                  {rescheduling.other?.avatar_url ? <img src={rescheduling.other.avatar_url} alt="avatar" className="w-full h-full object-cover" /> : rescheduling.other?.name?.charAt(0) || 'U'}
                 </div>
                 <div>
                   <p className="text-[14px] font-bold text-slate-900">{rescheduling.other?.name || 'Attendee'}</p>
@@ -308,13 +358,11 @@ export default function MyMeetingsScreen() {
               </div>
               <div className="h-10 w-px bg-slate-200 mx-2"></div>
               <div className="flex items-center gap-2 text-[13px] font-bold text-slate-600">
-                <CalendarIcon size={16} className="text-slate-400" />
-                30 Mins Meeting
+                <CalendarIcon size={16} className="text-slate-400" /> 30 Mins Meeting
               </div>
             </div>
 
             <form onSubmit={handleRescheduleSubmit}>
-              {/* Date Selection */}
               <div className="mb-8">
                 <label className="block text-[15px] font-bold text-slate-900 mb-4">When you want to meet?</label>
                 <input 
@@ -326,7 +374,6 @@ export default function MyMeetingsScreen() {
                 />
               </div>
 
-              {/* Time Grid */}
               <div className="mb-8">
                 <label className="block text-[15px] font-bold text-slate-900 mb-4">Select time of the day</label>
                 <div className="grid grid-cols-3 gap-3">
@@ -340,7 +387,6 @@ export default function MyMeetingsScreen() {
                 </div>
               </div>
 
-              {/* Add Notes */}
               <div className="mb-8">
                 <label className="block text-[15px] font-bold text-slate-900 mb-4">Add Notes</label>
                 <div className="relative">
@@ -355,7 +401,6 @@ export default function MyMeetingsScreen() {
                 </div>
               </div>
 
-              {/* Submit Button */}
               <button 
                 type="submit" 
                 disabled={busyId === rescheduling.id}
@@ -368,22 +413,22 @@ export default function MyMeetingsScreen() {
         </div>
       )}
 
-      {/* SUCCESS POPUP MODAL (Matching XD Design 1000319303.jpg) */}
-      {showSuccess && (
-        <div className="fixed inset-0 z-[60] bg-black/60 flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in duration-200">
+      {/* GLOBAL SUCCESS POPUP (Handles Reschedule, Cancel, Accept) */}
+      {successModal && (
+        <div className="fixed inset-0 z-[70] bg-black/60 flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in duration-200">
           <div className="bg-white w-full max-w-[320px] rounded-3xl p-8 flex flex-col items-center text-center shadow-2xl animate-in zoom-in-95 duration-200">
             <div className="w-16 h-16 bg-[#1eb15a] rounded-full flex items-center justify-center mb-5 shadow-lg shadow-green-500/30">
               <Check size={32} className="text-white" strokeWidth={4} />
             </div>
             <h2 className="text-[20px] font-bold text-slate-900 mb-2">Success!</h2>
             <p className="text-[14px] font-medium text-slate-500 mb-8 leading-relaxed px-2">
-              Your meeting reschedule request has been sent successfully.
+              {successModal.msg}
             </p>
             <button 
-              onClick={closeSuccess} 
+              onClick={() => setSuccessModal(null)} 
               className="w-full rounded-2xl bg-[#0000c8] text-white py-3.5 text-[15px] font-bold shadow-md hover:bg-blue-800 transition"
             >
-              My Meetings
+              {successModal.type === 'reschedule' ? 'My Meetings' : 'Okay'}
             </button>
           </div>
         </div>
