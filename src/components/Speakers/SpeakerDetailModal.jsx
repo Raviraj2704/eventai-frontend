@@ -1,234 +1,157 @@
 // ============================================================================
 // COMPONENT: Speaker Detail Modal
 // ============================================================================
-// File: frontend/src/components/SpeakerDetailModal.jsx
-// Purpose: Modal for viewing detailed speaker profile
-// Status: Production-Ready | Zero Errors ✅
+// File: src/components/Speakers/SpeakerDetailModal.jsx
+// Purpose: Modal for viewing detailed speaker profile matching Adobe XD
+// ============================================================================
 
-import React, { useState } from 'react';
+import React from 'react';
+import { 
+  ChevronLeft, 
+  Info, 
+  Share2, 
+  Bookmark, 
+  Facebook, 
+  Twitter, 
+  Linkedin, 
+  MapPin, 
+  ChevronRight, 
+  Play, 
+  CalendarPlus 
+} from 'lucide-react';
 
 export const SpeakerDetailModal = ({
   speaker,
   isOpen,
-  onClose,
-  onConnect,
-  onFollowUp,
+  onClose
 }) => {
-  const [isFollowing, setIsFollowing] = useState(false);
-
   if (!isOpen || !speaker) return null;
 
-  // ============= GET EXPERIENCE BADGE =============
-  const getExperienceBadge = (level) => {
-    const badges = {
-      expert: { icon: '🌟', label: 'Expert', color: '#fbbf24' },
-      advanced: { icon: '⭐', label: 'Advanced', color: '#3b82f6' },
-      intermediate: { icon: '📊', label: 'Intermediate', color: '#10b981' },
-      beginner: { icon: '🌱', label: 'Beginner', color: '#6b7280' },
-    };
-    return badges[level] || badges.intermediate;
-  };
-
-  const badge = getExperienceBadge(speaker.experienceLevel);
-
   return (
-    <div className="speaker-detail-modal-overlay" onClick={onClose}>
-      <div
-        className="speaker-detail-modal"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Close Button */}
-        <button
-          className="speaker-detail-modal-close"
-          onClick={onClose}
-          aria-label="Close modal"
-        >
-          ✕
-        </button>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+      <div className="bg-slate-50 w-full max-w-[400px] h-[85vh] rounded-3xl overflow-hidden shadow-2xl flex flex-col relative">
+        
+        {/* TOP HEADER */}
+        <div className="flex items-center justify-between px-5 py-4 bg-white">
+          <div className="flex items-center gap-3">
+            <button onClick={onClose} className="text-slate-800 hover:text-black">
+              <ChevronLeft size={24} />
+            </button>
+            <h2 className="text-[19px] font-bold text-slate-900">Speaker Profile</h2>
+          </div>
+          <div className="flex items-center gap-4 text-slate-800">
+            <button><Info size={20} /></button>
+            <button><Share2 size={20} /></button>
+            <button><Bookmark size={20} /></button>
+          </div>
+        </div>
 
-        {/* Header with Image */}
-        <div className="speaker-detail-modal-header">
-          <img
-            src={speaker.avatar}
-            alt={speaker.name}
-            className="speaker-detail-modal-avatar"
-          />
-
-          <div className="speaker-detail-modal-header-content">
-            <div className="speaker-detail-modal-title-section">
-              <h2 className="speaker-detail-modal-name">{speaker.name}</h2>
-              <span
-                className="speaker-detail-modal-experience-badge"
-                style={{ backgroundColor: badge.color }}
-              >
-                {badge.icon} {badge.label}
-              </span>
+        {/* SCROLLABLE CONTENT */}
+        <div className="overflow-y-auto flex-1 px-5 pt-6 pb-10 bg-slate-50">
+          
+          {/* PROFILE INFO */}
+          <div className="flex flex-col items-center text-center mb-8">
+            <div className="w-[88px] h-[88px] rounded-full overflow-hidden mb-3 border-2 border-white shadow-sm bg-slate-200">
+              <img 
+                src={speaker.avatarUrl || speaker.image || "https://ui-avatars.com/api/?name=" + (speaker.name || 'Speaker')} 
+                alt={speaker.name} 
+                className="w-full h-full object-cover" 
+              />
             </div>
+            <h3 className="text-xl font-bold text-slate-900">{speaker.name || "Speaker Name"}</h3>
+            <p className="text-[13px] text-slate-500 mt-0.5">{speaker.designation || speaker.role || "Designation"}</p>
+            <p className="text-[13px] text-slate-500">{speaker.company || "Company Name"}</p>
+          </div>
 
-            <p className="speaker-detail-modal-title">{speaker.title}</p>
-            <p className="speaker-detail-modal-company">{speaker.company}</p>
+          {/* BIO */}
+          <div className="mb-8">
+            <h4 className="text-[15px] font-bold text-slate-900 mb-2">Bio</h4>
+            <p className="text-[13px] text-slate-600 leading-relaxed pr-2">
+              {speaker.bio ? speaker.bio.substring(0, 150) : `${speaker.name} is a professional with years of experience across product, technology and analyst roles. He has around 8 years of experience...`}
+              <span className="text-[#0000c8] font-semibold ml-1 cursor-pointer hover:underline">Read more</span>
+            </p>
+          </div>
 
-            {/* Rating */}
-            <div className="speaker-detail-modal-rating">
-              <div className="speaker-detail-modal-stars">
-                {[...Array(5)].map((_, i) => (
-                  <span
-                    key={i}
-                    className={`speaker-detail-modal-star ${
-                      i < Math.floor(speaker.rating)
-                        ? 'speaker-detail-modal-star-filled'
-                        : ''
-                    }`}
-                  >
-                    ★
+          {/* SOCIAL MEDIA */}
+          <div className="mb-8">
+            <h4 className="text-[15px] font-bold text-slate-900 mb-3">Social Media</h4>
+            <div className="flex items-center gap-5 text-slate-600">
+              <button className="hover:text-blue-600 transition"><Facebook size={20} /></button>
+              {/* X / Twitter */}
+              <button className="hover:text-black transition">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 22.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
+                </svg>
+              </button>
+              <button className="hover:text-blue-800 transition"><Linkedin size={20} /></button>
+            </div>
+          </div>
+
+          {/* SESSIONS CARD */}
+          <div>
+            <h4 className="text-[15px] font-bold text-slate-900 mb-3">Sessions</h4>
+            
+            <div className="bg-white border-[1.5px] border-[#e61b72] rounded-2xl p-4 shadow-sm relative overflow-hidden">
+              {/* Card Top Row */}
+              <div className="flex justify-between items-start mb-3">
+                <div className="flex items-center gap-2">
+                  <span className="bg-[#e61b72] text-white text-[10px] font-bold px-2 py-1 rounded-md tracking-wide uppercase">
+                    Foundational Track
                   </span>
-                ))}
+                  <span className="bg-slate-100 text-slate-600 text-[10px] font-bold px-2 py-1 rounded-full">
+                    +2
+                  </span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="flex items-center text-red-500 text-[11px] font-bold gap-1.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse"></span> Live
+                  </span>
+                  <Bookmark size={18} className="text-slate-600 cursor-pointer" />
+                </div>
               </div>
-              <span className="speaker-detail-modal-rating-text">
-                {speaker.rating.toFixed(1)} ({speaker.ratingCount} reviews)
-              </span>
-            </div>
-          </div>
-        </div>
 
-        {/* Body */}
-        <div className="speaker-detail-modal-body">
-          {/* Bio */}
-          <div className="speaker-detail-section">
-            <h3 className="speaker-detail-section-title">About</h3>
-            <p className="speaker-detail-section-content">{speaker.bio}</p>
-          </div>
+              {/* Date & Time */}
+              <p className="text-[11px] text-slate-500 mb-1 font-medium">15th Oct, 2024 | 10:00 AM - 05:00 PM</p>
 
-          {/* Expertise Areas */}
-          <div className="speaker-detail-section">
-            <h3 className="speaker-detail-section-title">Expertise</h3>
-            <div className="speaker-detail-tags">
-              {speaker.expertise.map((exp, index) => (
-                <span key={index} className="speaker-detail-tag">
-                  {exp.icon} {exp.name}
-                </span>
-              ))}
-            </div>
-          </div>
+              {/* Title */}
+              <div className="flex justify-between items-start mb-2">
+                <h5 className="font-bold text-slate-900 text-[14px] leading-snug pr-4">
+                  How to book meetings fully automated with the help of cold...
+                </h5>
+                <ChevronRight size={18} className="text-slate-400 mt-1 flex-shrink-0" />
+              </div>
 
-          {/* Speaking Topics */}
-          <div className="speaker-detail-section">
-            <h3 className="speaker-detail-section-title">Speaking Topics</h3>
-            <ul className="speaker-detail-list">
-              {speaker.topics.map((topic, index) => (
-                <li key={index} className="speaker-detail-list-item">
-                  📌 {topic}
-                </li>
-              ))}
-            </ul>
-          </div>
+              {/* Location */}
+              <div className="flex items-center gap-1.5 text-[12px] text-slate-500 mb-4 pb-4 border-b border-slate-100 font-medium">
+                <MapPin size={14} />
+                <span>Primary Hall (Meeting room 1)</span>
+              </div>
 
-          {/* Upcoming Sessions */}
-          {speaker.upcomingSessions && speaker.upcomingSessions.length > 0 && (
-            <div className="speaker-detail-section">
-              <h3 className="speaker-detail-section-title">Upcoming Sessions</h3>
-              <div className="speaker-detail-sessions">
-                {speaker.upcomingSessions.map((session, index) => (
-                  <div key={index} className="speaker-detail-session">
-                    <p className="speaker-detail-session-title">
-                      {session.title}
-                    </p>
-                    <p className="speaker-detail-session-time">
-                      📅 {session.time}
-                    </p>
-                    <p className="speaker-detail-session-location">
-                      📍 {session.location}
-                    </p>
+              {/* Footer Actions */}
+              <div className="flex justify-between items-center">
+                {/* Avatars */}
+                <div className="flex -space-x-2">
+                  <img src="https://i.pravatar.cc/100?img=1" className="w-[26px] h-[26px] rounded-full border-2 border-white object-cover" alt="a1" />
+                  <img src="https://i.pravatar.cc/100?img=2" className="w-[26px] h-[26px] rounded-full border-2 border-white object-cover" alt="a2" />
+                  <div className="w-[26px] h-[26px] rounded-full border-2 border-white bg-slate-100 flex items-center justify-center text-[9px] font-bold text-slate-600 z-10 shadow-sm">
+                    +3
                   </div>
-                ))}
+                </div>
+                {/* Buttons */}
+                <div className="flex items-center gap-4">
+                  <button className="flex items-center gap-1.5 text-slate-700 text-[13px] font-semibold hover:text-black">
+                    <Play size={15} /> Watch
+                  </button>
+                  <button className="flex items-center gap-1.5 text-slate-700 text-[13px] font-semibold hover:text-black">
+                    <CalendarPlus size={15} /> Add
+                  </button>
+                </div>
               </div>
             </div>
-          )}
-
-          {/* Social Links */}
-          <div className="speaker-detail-section">
-            <h3 className="speaker-detail-section-title">Connect</h3>
-            <div className="speaker-detail-social-links">
-              {speaker.socialLinks.linkedin && (
-                <a
-                  href={speaker.socialLinks.linkedin}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="speaker-detail-social-link"
-                >
-                  💼 LinkedIn
-                </a>
-              )}
-              {speaker.socialLinks.twitter && (
-                <a
-                  href={speaker.socialLinks.twitter}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="speaker-detail-social-link"
-                >
-                  𝕏 Twitter
-                </a>
-              )}
-              {speaker.socialLinks.website && (
-                <a
-                  href={speaker.socialLinks.website}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="speaker-detail-social-link"
-                >
-                  🌐 Website
-                </a>
-              )}
-            </div>
+            
           </div>
-
-          {/* Stats */}
-          <div className="speaker-detail-stats">
-            <div className="speaker-detail-stat">
-              <p className="speaker-detail-stat-value">
-                {speaker.yearsOfExperience}+
-              </p>
-              <p className="speaker-detail-stat-label">Years Experience</p>
-            </div>
-            <div className="speaker-detail-stat">
-              <p className="speaker-detail-stat-value">
-                {speaker.talkCount}
-              </p>
-              <p className="speaker-detail-stat-label">Talks Given</p>
-            </div>
-            <div className="speaker-detail-stat">
-              <p className="speaker-detail-stat-value">
-                {speaker.attendees}+
-              </p>
-              <p className="speaker-detail-stat-label">Total Attendees</p>
-            </div>
-          </div>
-        </div>
-
-        {/* Footer */}
-        <div className="speaker-detail-modal-footer">
-          <button
-            className="speaker-detail-modal-button speaker-detail-modal-follow"
-            onClick={() => {
-              setIsFollowing(!isFollowing);
-              onFollowUp?.(speaker.id);
-            }}
-          >
-            {isFollowing ? '✓ Following' : '🔔 Follow'}
-          </button>
-          <button
-            className="speaker-detail-modal-button speaker-detail-modal-connect"
-            onClick={() => {
-              onConnect?.(speaker.id);
-              onClose?.();
-            }}
-          >
-            🤝 Connect
-          </button>
         </div>
       </div>
     </div>
   );
-};
-
-export default SpeakerDetailModal;
+};  
