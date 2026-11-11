@@ -1,90 +1,94 @@
 // ============================================================================
-// NotificationsScreen.jsx - PROFESSIONAL UI MATCHING ADOBE XD
-// ============================================================================
+// NotificationsScreen.jsx
 // File: frontend/src/pages/main/NotificationsScreen.jsx
 // Route: /notifications
-// Purpose: Display categorized and date-grouped notifications
+// General = published announcements from /announcements
+// Personal = empty until the notifications API is connected
+// ============================================================================
 
-import React, { useState, useEffect } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { ArrowLeft } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import toast from 'react-hot-toast';
+import LoadingSpinner from '../../components/common/LoadingSpinner';
+import apiClient from '../../config/apiClient';
 
-// Dummy data to perfectly match the Adobe XD date groupings and messages
-const MOCK_NOTIFICATIONS = [
-  {
-    id: 1,
-    type: 'general',
-    dateGroup: '6th March',
-    time: '09:30 AM',
-    title: 'Keynote Session',
-    message: 'We welcome you all, please proceed to Auditorium 1 for the keynote session',
-    linkText: 'Know More',
-    linkAction: '/sessions'
-  },
-  {
-    id: 2,
-    type: 'general',
-    dateGroup: '3rd March',
-    time: '10:00 AM',
-    title: 'Keynote Session',
-    message: 'We welcome you all, please proceed to Auditorium 1 for the keynote session',
-    linkText: null,
-    linkAction: null
-  },
-  {
-    id: 3,
-    type: 'personal',
-    dateGroup: '6th March',
-    time: '11:00 AM',
-    title: 'Meeting Request',
-    message: 'Rahul Khanna has requested a 1:1 meeting with you.',
-    linkText: 'View Request',
-    linkAction: '/networking'
-  },
-  {
-    id: 4,
-    type: 'personal',
-    dateGroup: '5th March',
-    time: '04:15 PM',
-    title: 'Profile Approved',
-    message: 'Your speaker profile details have been successfully verified.',
-    linkText: 'View Profile',
-    linkAction: '/profile'
-  }
-];
+const listFrom = (body) => {
+  if (Array.isArray(body)) return body;
+  if (Array.isArray(body?.data)) return body.data;
+  if (Array.isArray(body?.data?.data)) return body.data.data;
+  if (Array.isArray(body?.announcements)) return body.announcements;
+  return [];
+};
+
+const ordinal = (n) => {
+  if (n % 100 >= 11 && n % 100 <= 13) return 'th';
+  return ['th', 'st', 'nd', 'rd'][n % 10] || 'th';
+};
+
+const dayLabel = (iso) => {
+  const d = new Date(iso);
+  if (!iso || isNaN(d)) return 'Unknown date';
+  const day = d.getDate();
+  return `${day}${ordinal(day)} ${d.toLocaleString('en-US', { month: 'long' })}`;
+};
+
+const timeLabel = (iso) => {
+  const d = new Date(iso);
+  if (!iso || isNaN(d)) return '';
+  return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+};
 
 export default function NotificationsScreen() {
   const navigate = useNavigate();
-  const [tab, setTab] = useState('general'); // 'general' or 'personal'
-  const [notifications, setNotifications] = useState([]);
+  const [tab, setTab] = useState('general');
+  const [general, setGeneral] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  // Personal notifications come from a notifications API, not built yet.
+  const personal = [];
 
   useEffect(() => {
-    // Filter data based on active tab
-    const filtered = MOCK_NOTIFICATIONS.filter(n => n.type === tab);
-    setNotifications(filtered);
-  }, [tab]);
+    apiClient
+      .get('/announcements')
+      .then((res) => {
+        const list = listFrom(res?.data).map((a) => ({
+          id: a.id,
+          title: a.title || 'Announcement',
+          message: a.message ?? a.content ?? '',
+          created_at: a.created_at ?? null,
+          link: a.action_url ?? null,
+        }));
+        list.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
+        setGeneral(list);
+      })
+      .catch((e) => toast.error(e?.response?.data?.detail || 'Could not load notifications'))
+      .finally(() => setLoading(false));
+  }, []);
 
-  // Group the filtered notifications by their 'dateGroup' string
-  const groupedNotifications = notifications.reduce((groups, notification) => {
-    if (!groups[notification.dateGroup]) {
-      groups[notification.dateGroup] = [];
-    }
-    groups[notification.dateGroup].push(notification);
-    return groups;
-  }, {});
+  const items = tab === 'general' ? general : personal;
+
+  const groups = useMemo(() => {
+    const map = new Map();
+    items.forEach((item) => {
+      const key = dayLabel(item.created_at);
+      if (!map.has(key)) map.set(key, []);
+      map.get(key).push(item);
+    });
+    return [...map.entries()];
+  }, [items]);
 
   return (
     <div className="min-h-screen bg-white font-sans max-w-[430px] mx-auto pb-24 shadow-sm border-x border-gray-100">
-      
       {/* Header */}
       <div className="bg-white px-4 py-4 flex items-center gap-3 sticky top-0 z-10 border-b border-gray-100">
-        <button onClick={() => navigate(-1)} className="text-gray-800 hover:bg-gray-50 p-1 rounded-full">
+        <button onClick={() => navigate(-1)} aria-label="Back" className="text-gray-800 hover:bg-gray-50 p-1 rounded-full">
           <ArrowLeft size={22} />
         </button>
         <h1 className="text-xl font-bold text-gray-900 tracking-tight">Notifications</h1>
       </div>
 
-      {/* Dual Tabs */}
+      {/* Tabs */}
       <div className="flex border-b border-gray-200">
         <button
           onClick={() => setTab('general')}
@@ -93,9 +97,7 @@ export default function NotificationsScreen() {
           }`}
         >
           General
-          {tab === 'general' && (
-            <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-[#0000c8]"></div>
-          )}
+          {tab === 'general' && <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-[#0000c8]" />}
         </button>
 
         <button
@@ -105,62 +107,52 @@ export default function NotificationsScreen() {
           }`}
         >
           Personal
-          <span className="bg-gray-100 text-gray-600 text-[10px] font-bold px-1.5 py-0.5 rounded-full">
-            2
-          </span>
-          {tab === 'personal' && (
-            <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-[#0000c8]"></div>
+          {personal.length > 0 && (
+            <span className="bg-gray-100 text-gray-600 text-[10px] font-bold px-1.5 py-0.5 rounded-full">
+              {personal.length}
+            </span>
           )}
+          {tab === 'personal' && <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-[#0000c8]" />}
         </button>
       </div>
 
-      {/* Notification List by Date Group */}
+      {/* List */}
       <div className="px-4 pt-5 pb-6">
-        {Object.keys(groupedNotifications).length === 0 ? (
-          <p className="text-center text-gray-500 text-sm mt-10">No new notifications.</p>
+        {loading && tab === 'general' ? (
+          <div className="py-16">
+            <LoadingSpinner />
+          </div>
+        ) : groups.length === 0 ? (
+          <p className="text-center text-gray-500 text-sm mt-10">
+            {tab === 'general' ? 'No notifications yet.' : 'No personal notifications yet.'}
+          </p>
         ) : (
-          Object.keys(groupedNotifications).map((date) => (
+          groups.map(([date, list]) => (
             <div key={date} className="mb-6">
-              
-              {/* Date Header */}
-              <h3 className="text-gray-600 font-semibold text-sm mb-3">
-                {date}
-              </h3>
-              
-              {/* Cards for this Date */}
+              <h3 className="text-gray-600 font-semibold text-sm mb-3">{date}</h3>
               <div className="space-y-4">
-                {groupedNotifications[date].map((item) => (
-                  <div 
-                    key={item.id} 
-                    className="border border-gray-200 rounded-xl p-4 bg-gray-50/50 shadow-sm"
-                  >
-                    <span className="text-gray-400 text-xs font-medium block mb-1">
-                      {item.time}
-                    </span>
-                    <h4 className="text-gray-900 font-bold text-sm mb-1.5">
-                      {item.title}
-                    </h4>
-                    <p className="text-gray-600 text-xs leading-relaxed mb-3">
-                      {item.message}
-                    </p>
-                    
-                    {item.linkText && (
-                      <button 
-                        onClick={() => navigate(item.linkAction)}
+                {list.map((item) => (
+                  <div key={item.id} className="border border-gray-200 rounded-xl p-4 bg-gray-50/50 shadow-sm">
+                    <span className="text-gray-400 text-xs font-medium block mb-1">{timeLabel(item.created_at)}</span>
+                    <h4 className="text-gray-900 font-bold text-sm mb-1.5">{item.title}</h4>
+                    {item.message && (
+                      <p className="text-gray-600 text-xs leading-relaxed mb-3">{item.message}</p>
+                    )}
+                    {item.link && (
+                      <button
+                        onClick={() => window.open(item.link, '_blank', 'noopener')}
                         className="text-[#0000c8] text-xs font-semibold hover:underline"
                       >
-                        {item.linkText}
+                        Know More
                       </button>
                     )}
                   </div>
                 ))}
               </div>
-
             </div>
           ))
         )}
       </div>
-
     </div>
   );
 }
