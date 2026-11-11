@@ -1,14 +1,12 @@
 // ============================================================================
 // My Badge (My Code, Scan, My Contacts)
 // File: src/pages/main/MyBadgeScreen.jsx
-// Route: /my-badges
-// QR payload: "EVENTAI-USER:<id>" only. Details are looked up from the server.
 // ============================================================================
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { ArrowLeft, Download, QrCode, ScanLine, Zap, ZapOff } from 'lucide-react';
+import { ArrowLeft, Download, QrCode, ScanLine, Zap, ZapOff, X, Mail, Phone } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { Html5Qrcode } from 'html5-qrcode';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
@@ -57,17 +55,21 @@ function MyCodeTab({ user }) {
   if (!user) return <div className="py-16"><LoadingSpinner /></div>;
 
   return (
-    <div className="flex flex-col items-center gap-4 py-6">
-      <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+    <div className="flex flex-col items-center gap-6 py-8 animate-in fade-in duration-300">
+      <div className="rounded-3xl border border-slate-100 bg-white p-7 shadow-[0_8px_30px_rgb(0,0,0,0.06)] relative overflow-hidden">
+        {/* Subtle decorative corners */}
+        <div className="absolute top-0 left-0 w-8 h-8 border-t-[5px] border-l-[5px] border-[#0000c8] rounded-tl-3xl"></div>
+        <div className="absolute bottom-0 right-0 w-8 h-8 border-b-[5px] border-r-[5px] border-[#0000c8] rounded-br-3xl"></div>
+        
         <QRCodeSVG value={`${QR_PREFIX}${user.id}`} size={220} level="M" />
       </div>
-      <div className="text-center">
-        <p className="text-base font-semibold text-slate-900">{fullName(user)}</p>
-        {user.job_title && <p className="text-sm text-slate-600">{user.job_title}</p>}
-        {user.company && <p className="text-sm text-slate-600">{user.company}</p>}
+      <div className="text-center px-4">
+        <p className="text-lg font-bold text-slate-900">{fullName(user)}</p>
+        {user.job_title && <p className="text-[14px] font-medium text-[#0000c8] mt-1">{user.job_title}</p>}
+        {user.company && <p className="text-[13px] text-slate-500 mt-0.5">{user.company}</p>}
       </div>
-      <p className="text-xs text-slate-500 text-center px-8">
-        Show this code at the event so others can save your contact.
+      <p className="text-[13px] text-slate-500 text-center px-10 leading-relaxed">
+        Show this code at the event so others can instantly save your contact details.
       </p>
     </div>
   );
@@ -93,7 +95,7 @@ function ScanTab({ onFound }) {
     scanner
       .start(
         { facingMode: 'environment' },
-        { fps: 10, qrbox: 220 },
+        { fps: 10, qrbox: 240 },
         (text) => {
           if (handledRef.current) return;
           const id = parseUserId(text);
@@ -145,7 +147,7 @@ function ScanTab({ onFound }) {
     e.preventDefault();
     const id = parseUserId(manualValue) ?? (/^\d+$/.test(manualValue.trim()) ? Number(manualValue.trim()) : null);
     if (!id) {
-      toast.error('Enter a valid code');
+      toast.error('Enter a valid numerical ID or full code');
       return;
     }
     setManualOpen(false);
@@ -155,22 +157,22 @@ function ScanTab({ onFound }) {
   };
 
   return (
-    <div className="flex flex-col gap-4">
-      <div className="relative w-full aspect-square rounded-2xl overflow-hidden bg-black">
+    <div className="flex flex-col gap-5 animate-in fade-in duration-300">
+      <div className="relative w-full aspect-square rounded-3xl overflow-hidden bg-black shadow-lg border-2 border-slate-100">
         <div id={SCANNER_ID} className="w-full h-full" />
         {torchSupported && (
           <button
             type="button"
             onClick={toggleTorch}
             aria-label={torchOn ? 'Turn flash off' : 'Turn flash on'}
-            className="absolute top-3 right-3 bg-white/90 rounded-full p-2 text-slate-900"
+            className="absolute top-4 right-4 bg-white/90 rounded-full p-2.5 text-slate-900 shadow-md hover:bg-white transition"
           >
-            {torchOn ? <ZapOff size={18} /> : <Zap size={18} />}
+            {torchOn ? <ZapOff size={20} /> : <Zap size={20} />}
           </button>
         )}
       </div>
 
-      <div className="flex items-center gap-3 text-xs text-slate-500">
+      <div className="flex items-center gap-4 text-[12px] font-bold text-slate-400 uppercase tracking-widest px-4">
         <div className="flex-1 h-px bg-slate-200" />
         OR
         <div className="flex-1 h-px bg-slate-200" />
@@ -179,40 +181,47 @@ function ScanTab({ onFound }) {
       <button
         type="button"
         onClick={() => setManualOpen(true)}
-        className="w-full rounded-xl bg-[#0000c8] text-white py-3 text-sm font-semibold"
+        className="w-full rounded-2xl bg-[#0000c8] text-white py-3.5 text-[15px] font-bold shadow-md hover:bg-blue-800 transition"
       >
         Add Manually
       </button>
 
+      {/* MATCHING ADOBE XD: MANUAL ENTRY MODAL */}
       {manualOpen && (
-        <div className="fixed inset-0 z-50 bg-black/50 flex items-end justify-center">
+        <div className="fixed inset-0 z-[60] bg-black/60 flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in duration-200">
           <form
             onSubmit={submitManual}
-            className="w-full max-w-[430px] bg-white rounded-t-2xl p-5 flex flex-col gap-3"
+            className="w-full max-w-[340px] bg-white rounded-3xl p-6 flex flex-col items-center relative shadow-2xl animate-in zoom-in-95 duration-200"
           >
-            <p className="text-base font-semibold text-slate-900">Enter QR Code</p>
-            <input
-              value={manualValue}
-              onChange={(e) => setManualValue(e.target.value)}
-              placeholder="EVENTAI-USER:12"
-              className="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm"
-              autoFocus
-            />
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={() => setManualOpen(false)}
-                className="flex-1 rounded-xl border border-slate-300 py-2.5 text-sm font-semibold"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                className="flex-1 rounded-xl bg-[#0000c8] text-white py-2.5 text-sm font-semibold"
-              >
-                Submit
-              </button>
+            <button type="button" onClick={() => setManualOpen(false)} className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 bg-slate-50 p-1.5 rounded-full transition-colors">
+              <X size={18} />
+            </button>
+            
+            <div className="w-12 h-12 bg-blue-50 text-[#0000c8] rounded-full flex items-center justify-center mb-4 mt-2">
+              <QrCode size={24} />
             </div>
+            
+            <h3 className="text-[17px] font-bold text-slate-900 mb-1">Enter QR Code</h3>
+            <p className="text-[13px] text-slate-500 text-center mb-6 leading-relaxed">
+              If scanning fails, type the badge code manually to add this contact.
+            </p>
+            
+            <div className="w-full mb-6">
+              <input
+                value={manualValue}
+                onChange={(e) => setManualValue(e.target.value)}
+                placeholder="e.g. EVENTAI-USER:12"
+                className="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-3.5 text-[14px] font-medium text-slate-800 placeholder:text-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0000c8]/20 focus:border-[#0000c8] transition-all"
+                autoFocus
+              />
+            </div>
+            
+            <button
+              type="submit"
+              className="w-full rounded-xl bg-[#0000c8] text-white py-3.5 text-[14px] font-bold shadow-md hover:bg-blue-800 transition"
+            >
+              Submit Code
+            </button>
           </form>
         </div>
       )}
@@ -221,7 +230,7 @@ function ScanTab({ onFound }) {
 }
 
 // ----------------------------------------------------------------------------
-// Scanned profile (after a successful scan)
+// Scanned profile (after a successful scan) - MATCHING ADOBE XD
 // ----------------------------------------------------------------------------
 function ScannedProfile({ user, onScanAgain }) {
   const [notes, setNotes] = useState('');
@@ -241,44 +250,72 @@ function ScannedProfile({ user, onScanAgain }) {
   };
 
   return (
-    <div className="flex flex-col items-center gap-4 py-4">
-      <div className="w-24 h-24 rounded-full bg-[#0c1b78] text-white flex items-center justify-center text-2xl font-bold overflow-hidden">
-        {user.avatar_url ? (
-          <img src={user.avatar_url} alt={fullName(user)} className="w-full h-full object-cover" />
-        ) : (
-          initials(user)
-        )}
-      </div>
-      <div className="text-center">
-        <p className="text-lg font-semibold text-slate-900">{fullName(user)}</p>
-        {user.job_title && <p className="text-sm text-slate-600">{user.job_title}</p>}
-        {user.company && <p className="text-sm text-slate-600">{user.company}</p>}
-      </div>
+    <div className="py-2 px-1 flex flex-col items-center animate-in fade-in zoom-in-95 duration-300">
+      <div className="w-full bg-white rounded-[24px] shadow-[0_8px_30px_rgb(0,0,0,0.08)] border border-slate-100 p-6 flex flex-col relative overflow-hidden">
+        
+        {/* Header / Close */}
+        <div className="flex justify-between items-start mb-5">
+          <h2 className="text-[16px] font-bold text-slate-900">User Profile</h2>
+          <button onClick={onScanAgain} className="text-slate-400 hover:text-slate-700 bg-slate-100 p-1.5 rounded-full transition-colors">
+            <X size={18} />
+          </button>
+        </div>
 
-      <div className="w-full rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700 space-y-1">
-        {user.email && <p>{user.email}</p>}
-        {user.phone && <p>{user.phone}</p>}
+        {/* Profile Info Card */}
+        <div className="flex gap-4 items-center mb-6 bg-slate-50 p-4 rounded-2xl border border-slate-100 shadow-sm">
+          <div className="w-[60px] h-[60px] shrink-0 rounded-full bg-[#0c1b78] text-white flex items-center justify-center text-xl font-bold overflow-hidden border-2 border-white shadow-sm">
+            {user.avatar_url ? (
+              <img src={user.avatar_url} alt={fullName(user)} className="w-full h-full object-cover" />
+            ) : (
+              initials(user)
+            )}
+          </div>
+          <div className="flex flex-col min-w-0">
+            <h3 className="text-[17px] font-bold text-slate-900 truncate">{fullName(user)}</h3>
+            {user.job_title && <p className="text-[13px] font-medium text-[#0000c8] truncate mt-0.5">{user.job_title}</p>}
+            {user.company && <p className="text-[12px] text-slate-500 truncate mt-0.5">{user.company}</p>}
+          </div>
+        </div>
+
+        {/* Contact Details */}
+        <div className="space-y-3 mb-6 px-2">
+          {user.email && (
+            <div className="flex items-center gap-3 text-[13px] text-slate-700 font-medium">
+              <Mail size={16} className="text-slate-400 shrink-0" />
+              <span className="truncate">{user.email}</span>
+            </div>
+          )}
+          {user.phone && (
+            <div className="flex items-center gap-3 text-[13px] text-slate-700 font-medium">
+              <Phone size={16} className="text-slate-400 shrink-0" />
+              <span className="truncate">{user.phone}</span>
+            </div>
+          )}
+        </div>
+
+        {/* Add Notes */}
+        <div className="mb-7">
+          <label className="block text-[13px] font-bold text-slate-900 mb-2 px-1">Add notes</label>
+          <textarea
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            placeholder="Where did you meet? What did you discuss?"
+            rows={3}
+            className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-[13px] text-slate-800 placeholder:text-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0000c8]/20 focus:border-[#0000c8] transition-all resize-none shadow-sm"
+          />
+        </div>
+
+        {/* Action Button */}
+        <button
+          type="button"
+          onClick={saveContact}
+          disabled={saving}
+          className="w-full rounded-xl bg-[#0000c8] text-white py-3.5 text-[15px] font-bold shadow-md hover:bg-blue-800 transition disabled:opacity-70 flex items-center justify-center gap-2"
+        >
+          {saving ? 'Saving...' : 'Save Contact'}
+        </button>
+
       </div>
-
-      <textarea
-        value={notes}
-        onChange={(e) => setNotes(e.target.value)}
-        placeholder="Add notes"
-        rows={3}
-        className="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm"
-      />
-
-      <button
-        type="button"
-        onClick={saveContact}
-        disabled={saving}
-        className="w-full rounded-xl bg-[#0000c8] text-white py-3 text-sm font-semibold disabled:opacity-60"
-      >
-        {saving ? 'Saving...' : 'Save Contact'}
-      </button>
-      <button type="button" onClick={onScanAgain} className="text-sm text-slate-600 underline">
-        Scan another
-      </button>
     </div>
   );
 }
@@ -308,7 +345,6 @@ function ContactsTab() {
     };
   }, []);
 
-  // Contacts may come back flat or wrapped in a "user" object.
   const people = contacts.map((c) => c.user ?? c);
 
   const exportCsv = () => {
@@ -328,43 +364,49 @@ function ContactsTab() {
   if (loading) return <div className="py-16"><LoadingSpinner /></div>;
 
   return (
-    <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-between">
-        <span className="rounded-full bg-slate-100 px-3 py-1 text-sm font-semibold text-slate-800">
+    <div className="flex flex-col gap-4 animate-in fade-in duration-300">
+      <div className="flex items-center justify-between px-1">
+        <span className="rounded-full bg-slate-100 px-3 py-1.5 text-[13px] font-bold text-slate-800">
           All Contacts ({people.length})
         </span>
         <button
           type="button"
           onClick={exportCsv}
           disabled={people.length === 0}
-          className="flex items-center gap-1 text-sm font-semibold text-[#0000c8] disabled:opacity-40"
+          className="flex items-center gap-1.5 text-[13px] font-bold text-[#0000c8] hover:text-blue-800 disabled:opacity-40 transition"
         >
           <Download size={16} /> Export
         </button>
       </div>
 
       {people.length === 0 ? (
-        <p className="text-center text-sm text-slate-500 py-12">
-          No contacts yet. Scan someone's badge to save them.
-        </p>
+        <div className="text-center py-16 bg-slate-50 rounded-3xl border border-slate-100 mt-2">
+          <QrCode size={40} className="mx-auto text-slate-300 mb-3" />
+          <p className="text-[14px] text-slate-500 px-8 leading-relaxed">
+            No contacts yet. Scan someone's badge to save them here.
+          </p>
+        </div>
       ) : (
-        people.map((u) => (
-          <div key={u.id} className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-            <div className="w-12 h-12 shrink-0 rounded-full bg-[#0c1b78] text-white flex items-center justify-center font-bold overflow-hidden">
-              {u.avatar_url ? (
-                <img src={u.avatar_url} alt={fullName(u)} className="w-full h-full object-cover" />
-              ) : (
-                initials(u)
-              )}
+        <div className="space-y-3">
+          {people.map((u) => (
+            <div key={u.id} className="flex items-center gap-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm hover:shadow-md transition duration-200">
+              <div className="w-[52px] h-[52px] shrink-0 rounded-full bg-[#0c1b78] text-white flex items-center justify-center font-bold overflow-hidden shadow-sm">
+                {u.avatar_url ? (
+                  <img src={u.avatar_url} alt={fullName(u)} className="w-full h-full object-cover" />
+                ) : (
+                  initials(u)
+                )}
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-[15px] font-bold text-slate-900 truncate">{fullName(u)}</p>
+                {u.job_title && <p className="text-[12px] font-medium text-[#0000c8] truncate mt-0.5">{u.job_title}</p>}
+                <div className="flex items-center gap-3 mt-1.5">
+                  {u.email && <p className="text-[11px] font-medium text-slate-500 truncate flex items-center gap-1"><Mail size={10}/> {u.email}</p>}
+                </div>
+              </div>
             </div>
-            <div className="min-w-0 flex-1">
-              <p className="text-sm font-semibold text-slate-900 truncate">{fullName(u)}</p>
-              {u.job_title && <p className="text-xs text-slate-600 truncate">{u.job_title}</p>}
-              {u.email && <p className="text-xs text-slate-500 truncate">{u.email}</p>}
-              {u.phone && <p className="text-xs text-slate-500 truncate">{u.phone}</p>}
-            </div>
-          </div>
-        ))
+          ))}
+        </div>
       )}
     </div>
   );
@@ -406,36 +448,36 @@ export default function MyBadgeScreen() {
   const resetScan = useCallback(() => setScanned(null), []);
 
   const tabClass = (active) =>
-    `flex-1 rounded-xl py-2.5 text-sm font-semibold border ${
-      active ? 'bg-[#0000c8] text-white border-[#0000c8]' : 'border-slate-300 text-slate-800'
+    `flex-1 rounded-xl py-2.5 text-[13px] font-bold border transition-colors ${
+      active ? 'bg-[#0000c8] text-white border-[#0000c8] shadow-md' : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
     }`;
 
   const renderScan = () => {
-    if (scanLoading) return <div className="py-16"><LoadingSpinner /></div>;
+    if (scanLoading) return <div className="py-24 flex justify-center"><LoadingSpinner /></div>;
     if (scanned) return <ScannedProfile user={scanned} onScanAgain={resetScan} />;
     return <ScanTab onFound={handleFound} />;
   };
 
   return (
-    <div className="min-h-screen bg-white max-w-[430px] mx-auto pb-28">
-      <div className="bg-[#0c1b78] text-white px-4 pt-5 pb-4 flex items-center gap-3">
-        <button type="button" onClick={() => navigate('/profile')} aria-label="Back" className="text-white">
+    <div className="min-h-screen bg-white max-w-[430px] mx-auto pb-28 font-sans">
+      <div className="bg-[#0c1b78] text-white px-5 pt-5 pb-5 flex items-center gap-4 sticky top-0 z-20">
+        <button type="button" onClick={() => navigate('/profile')} aria-label="Back" className="text-white hover:bg-white/10 p-1.5 rounded-full transition-colors">
           <ArrowLeft size={22} />
         </button>
-        <h1 className="text-xl font-bold">My Badge</h1>
+        <h1 className="text-[20px] font-bold tracking-tight">My Badge</h1>
       </div>
 
-      <div className="flex gap-2 px-4 pt-4">
+      <div className="flex gap-2 px-4 pt-5 pb-2">
         {TABS.map((t) => (
-          <button key={t.key} type="button" onClick={() => setTab(t.key)} className={tabClass(tab === t.key)}>
-            {t.key === 'code' && <QrCode size={14} className="inline mr-1 -mt-0.5" />}
-            {t.key === 'scan' && <ScanLine size={14} className="inline mr-1 -mt-0.5" />}
+          <button key={t.key} type="button" onClick={() => { setTab(t.key); setScanned(null); }} className={tabClass(tab === t.key)}>
+            {t.key === 'code' && <QrCode size={14} className="inline mr-1.5 -mt-0.5" />}
+            {t.key === 'scan' && <ScanLine size={14} className="inline mr-1.5 -mt-0.5" />}
             {t.label}
           </button>
         ))}
       </div>
 
-      <div className="px-4 pt-4">
+      <div className="px-5 pt-4">
         {tab === 'code' && <MyCodeTab user={me} />}
         {tab === 'scan' && renderScan()}
         {tab === 'contacts' && <ContactsTab />}
