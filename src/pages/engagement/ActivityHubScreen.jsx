@@ -45,13 +45,24 @@ const formatCommentTime = (iso) => {
 function CreatePostModal({ onClose, onPost, me }) {
   const [draft, setDraft] = useState('');
   const [posting, setPosting] = useState(false);
+  const [selectedImage, setSelectedImage] = useState(null);
+  const [previewUrl, setPreviewUrl] = useState(null);
+  const fileInputRef = useRef(null);
+
+  const handleImageChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setSelectedImage(file);
+      setPreviewUrl(URL.createObjectURL(file));
+    }
+  };
 
   const handleSubmit = async () => {
     const content = draft.trim();
-    if (!content || posting) return;
+    if ((!content && !selectedImage) || posting) return;
     setPosting(true);
     try {
-      await onPost(content);
+      await onPost(content, selectedImage);
       onClose();
     } catch (error) {
       setPosting(false);
@@ -68,14 +79,14 @@ function CreatePostModal({ onClose, onPost, me }) {
         <h2 className="text-[18px] font-bold text-slate-900">New Post</h2>
         <button 
           onClick={handleSubmit} 
-          disabled={!draft.trim() || posting}
+          disabled={(!draft.trim() && !selectedImage) || posting}
           className="text-[15px] font-bold text-[#0000c8] disabled:opacity-40"
         >
           {posting ? 'Posting...' : 'Share'}
         </button>
       </div>
 
-      <div className="flex-1 p-5">
+      <div className="flex-1 p-5 overflow-y-auto">
         <div className="flex gap-3 mb-4">
           <div className="w-10 h-10 rounded-full bg-slate-200 text-slate-600 flex items-center justify-center font-bold overflow-hidden shrink-0">
             {me?.avatar_url ? <img src={me.avatar_url} alt="avatar" className="w-full h-full object-cover" /> : initialsOf(me?.first_name || 'A')}
@@ -86,15 +97,37 @@ function CreatePostModal({ onClose, onPost, me }) {
         <textarea
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
-          placeholder="What's on your mind? Share with #SHRMIAC26..."
-          className="w-full h-40 resize-none text-[16px] text-slate-800 placeholder:text-slate-400 focus:outline-none"
+          placeholder="What's on your mind? Share with #EVENTAI26..."
+          className="w-full h-32 resize-none text-[16px] text-slate-800 placeholder:text-slate-400 focus:outline-none"
           autoFocus
         />
+
+        {previewUrl && (
+          <div className="relative mt-2 w-full max-h-[300px] rounded-xl overflow-hidden border border-slate-200 shadow-sm">
+            <img src={previewUrl} alt="Preview" className="w-full h-full object-cover" />
+            <button
+              onClick={() => { setSelectedImage(null); setPreviewUrl(null); }}
+              className="absolute top-3 right-3 bg-black/60 text-white p-1.5 rounded-full hover:bg-black/80 transition"
+            >
+              <X size={16} />
+            </button>
+          </div>
+        )}
       </div>
 
-      {/* Sticky Bottom Actions (Mocking image upload for visual) */}
+      {/* Sticky Bottom Actions */}
       <div className="border-t border-slate-100 p-4 pb-safe flex items-center gap-4 bg-slate-50">
-        <button className="flex items-center gap-2 text-[14px] font-bold text-slate-600 bg-white border border-slate-200 px-4 py-2 rounded-full shadow-sm">
+        <input 
+          type="file" 
+          accept="image/*" 
+          className="hidden" 
+          ref={fileInputRef} 
+          onChange={handleImageChange} 
+        />
+        <button 
+          onClick={() => fileInputRef.current?.click()}
+          className="flex items-center gap-2 text-[14px] font-bold text-slate-600 bg-white border border-slate-200 px-4 py-2 rounded-full shadow-sm hover:bg-slate-50"
+        >
           <ImageIcon size={18} className="text-blue-500" /> Photo
         </button>
       </div>
@@ -245,7 +278,8 @@ function SocialPostCard({ post, me, isAdmin, onReact, onDelete, onOpenComments }
   const EMOJI_MAP = {
     like: { emoji: '👍', color: 'text-blue-600' },
     love: { emoji: '❤️', color: 'text-rose-600' },
-    haha: { emoji: '😂', color: 'text-amber-500' }
+    haha: { emoji: '😂', color: 'text-amber-500' },
+    smile:{ emoji: '😊', color: 'text-amber-500' }
   };
 
   const activeReaction = post.my_reaction ? EMOJI_MAP[post.my_reaction] : null;
@@ -391,9 +425,19 @@ export default function ActivityHubScreen() {
     apiClient.get('/session-admin/me/roles').then((res) => setIsAdmin(Boolean(res?.data?.data?.is_admin))).catch(() => setIsAdmin(false));
   }, [loadPosts]);
 
-  const handlePostSubmit = async (content) => {
+  const handlePostSubmit = async (content, imageFile) => {
     try {
-      await apiClient.post('/social/posts', { content });
+      if (imageFile) {
+        const formData = new FormData();
+        formData.append('content', content);
+        formData.append('file', imageFile); 
+        
+        await apiClient.post('/social/posts', formData, {
+          headers: { 'Content-Type': 'multipart/form-data' }
+        });
+      } else {
+        await apiClient.post('/social/posts', { content });
+      }
       toast.success('Posted successfully!');
       await loadPosts();
     } catch (error) {
