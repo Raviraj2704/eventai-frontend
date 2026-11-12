@@ -1,430 +1,273 @@
+// ============================================================================
+// Event AI Library (SHRM Library Design)
+// File: src/pages/gamification/LearningPathsScreen.jsx
+// ============================================================================
+
 import React, { useEffect, useState } from 'react';
-import { BookOpen, Clock, Users, Target, Check, Search, Plus, Trash2, X } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { 
+  ChevronLeft, 
+  PlayCircle, 
+  FileText, 
+  Image as ImageIcon, 
+  Link as LinkIcon, 
+  Briefcase, 
+  Plus, 
+  Trash2, 
+  X 
+} from 'lucide-react';
 import toast from 'react-hot-toast';
-import Header from '../../components/layout/Header';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 import apiClient from '../../config/apiClient';
 
 const LearningPathsScreen = () => {
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
-  const [paths, setPaths] = useState([]);
-  const [filteredPaths, setFilteredPaths] = useState([]);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedLevel, setSelectedLevel] = useState('');
-  const [expandedPath, setExpandedPath] = useState(null);
-  const [enrollingPath, setEnrollingPath] = useState(null);
+  const [resources, setResources] = useState([]);
+  const [me, setMe] = useState(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const [newPath, setNewPath] = useState({
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  // New Resource Form
+  const [formData, setFormData] = useState({
     title: '',
-    description: '',
-    difficulty: 'Beginner',
-    duration_weeks: 4,
-    points_reward: 100
+    category: 'pdf', // acts as file type
+    description: ''  // acts as the URL/link
   });
 
   useEffect(() => {
-    loadLearningPaths();
-  }, [selectedLevel]);
+    // 1. Get current user to check Admin status
+    apiClient.get('/auth/me')
+      .then((res) => {
+        const user = res?.data?.data || res?.data?.user || res?.data;
+        setMe(user);
+      })
+      .catch((err) => console.error("Could not fetch user", err));
 
-  useEffect(() => {
-    filterPaths();
-  }, [searchQuery, paths]);
+    // 2. Load resources
+    loadResources();
+  }, []);
 
-  const loadLearningPaths = async () => {
+  const loadResources = async () => {
     setLoading(true);
     try {
-      const params = {
-        limit: 50,
-        ...(selectedLevel && { level: selectedLevel })
-      };
-
-      const response = await apiClient.get('/learning_paths', { params });
+      const response = await apiClient.get('/learning_paths', { params: { limit: 100 } });
       const rawData = response?.data;
-      const list = Array.isArray(rawData)
-        ? rawData
-        : rawData?.data || rawData?.learning_paths || [];
-
-      setPaths(list);
-      setFilteredPaths(list);
+      const list = Array.isArray(rawData) ? rawData : rawData?.data || rawData?.learning_paths || [];
+      setResources(list);
     } catch (error) {
-      console.error('Error loading learning paths:', error);
-      toast.error('Failed to load learning paths');
-      setPaths([]);
-      setFilteredPaths([]);
+      toast.error('Failed to load library resources');
+      setResources([]);
     } finally {
       setLoading(false);
     }
   };
 
-  const filterPaths = () => {
-    if (!searchQuery) {
-      setFilteredPaths(paths);
-      return;
-    }
-
-    const query = searchQuery.toLowerCase();
-    const filtered = paths.filter(
-      (path) =>
-        path.title?.toLowerCase().includes(query) ||
-        path.description?.toLowerCase().includes(query)
-    );
-
-    setFilteredPaths(filtered);
-  };
-
-  const handleCreatePath = async (e) => {
+  const handleCreateResource = async (e) => {
     e.preventDefault();
-    if (!newPath.title.trim()) {
-      toast.error('Title is required');
+    if (!formData.title.trim() || !formData.description.trim()) {
+      toast.error('Title and URL are required');
       return;
     }
+    
+    setIsSubmitting(true);
     try {
-      const response = await apiClient.post('/learning_paths', newPath);
-      const created = response?.data?.data || response?.data || {
-        ...newPath,
-        id: Date.now(),
-        enrolled_count: 0
+      const payload = {
+        title: formData.title,
+        category: formData.category,
+        description: formData.description,
+        difficulty: 'Beginner', // Required by backend schema, hidden from UI
+        duration_weeks: 0,
+        points_reward: 0
       };
-      setPaths((prev) => [created, ...prev]);
-      toast.success('Learning path created!');
-    } catch (error) {
-      const fallbackItem = { ...newPath, id: Date.now(), enrolled_count: 0 };
-      setPaths((prev) => [fallbackItem, ...prev]);
-      toast.success('Learning path added!');
-    } finally {
+
+      await apiClient.post('/learning_paths', payload);
+      toast.success('Resource added successfully!');
       setShowCreateModal(false);
-      setNewPath({
-        title: '',
-        description: '',
-        difficulty: 'Beginner',
-        duration_weeks: 4,
-        points_reward: 100
-      });
-    }
-  };
-
-  const handleDeletePath = async (e, pathId) => {
-    e.stopPropagation();
-    if (!window.confirm('Delete this learning path?')) return;
-    try {
-      await apiClient.delete(`/learning_paths/${pathId}`);
-      setPaths((prev) => prev.filter((p) => p.id !== pathId));
-      toast.success('Learning path deleted!');
+      setFormData({ title: '', category: 'pdf', description: '' });
+      loadResources(); // Reload list
     } catch (error) {
-      setPaths((prev) => prev.filter((p) => p.id !== pathId));
-      toast.success('Learning path removed!');
-    }
-  };
-
-  const handleEnroll = async (pathId) => {
-    setEnrollingPath(pathId);
-    try {
-      await apiClient.post(`/learning_paths/${pathId}/enroll`);
-      toast.success('Enrolled in learning path!');
-      setPaths((prev) =>
-        prev.map((p) => (p.id === pathId ? { ...p, user_enrolled: true } : p))
-      );
-    } catch (error) {
-      setPaths((prev) =>
-        prev.map((p) => (p.id === pathId ? { ...p, user_enrolled: true } : p))
-      );
-      toast.success('Enrolled in learning path!');
+      toast.error('Failed to add resource');
     } finally {
-      setEnrollingPath(null);
+      setIsSubmitting(false);
     }
   };
 
-  const getDifficultyColor = (difficulty) => {
-    switch (difficulty?.toLowerCase()) {
-      case 'beginner':
-        return 'bg-green-100 text-green-800';
-      case 'intermediate':
-        return 'bg-yellow-100 text-yellow-800';
-      case 'advanced':
-        return 'bg-red-100 text-red-800';
-      default:
-        return 'bg-neutral-100 text-neutral-800';
+  const handleDeleteResource = async (id) => {
+    if (!window.confirm('Are you sure you want to delete this resource?')) return;
+    
+    try {
+      await apiClient.delete(`/learning_paths/${id}`);
+      toast.success('Resource deleted');
+      setResources((prev) => prev.filter((r) => r.id !== id));
+    } catch (error) {
+      toast.error('Failed to delete resource');
     }
   };
 
-  return React.createElement(
-    React.Fragment,
-    null,
-    React.createElement(Header, null),
-    React.createElement(
-      'main',
-      { className: 'pb-20 md:pb-0' },
-      React.createElement(
-        'div',
-        { className: 'bg-gradient-to-r from-primary-600 to-secondary-600 text-white' },
-        React.createElement(
-          'div',
-          { className: 'container-max py-8 flex items-center justify-between' },
-          React.createElement(
-            'div',
-            null,
-            React.createElement('h1', { className: 'text-3xl md:text-4xl font-bold mb-2' }, 'Learning Paths'),
-            React.createElement('p', { className: 'text-white/80' }, 'Structured learning to boost your skills')
-          ),
-          React.createElement(
-            'button',
-            {
-              onClick: () => setShowCreateModal(true),
-              className: 'btn bg-white text-primary-600 hover:bg-neutral-100 flex items-center gap-2 font-semibold px-4 py-2 rounded-lg'
-            },
-            React.createElement(Plus, { className: 'w-5 h-5' }),
-            'Create Path'
-          )
-        )
-      ),
-      React.createElement(
-        'div',
-        { className: 'container-max py-8' },
-        showCreateModal &&
-          React.createElement(
-            'div',
-            { className: 'bg-white rounded-lg border border-neutral-200 p-6 mb-8 shadow-md' },
-            React.createElement(
-              'div',
-              { className: 'flex items-center justify-between mb-4' },
-              React.createElement('h3', { className: 'text-lg font-bold text-neutral-900' }, 'Create Learning Path'),
-              React.createElement(
-                'button',
-                { onClick: () => setShowCreateModal(false), className: 'text-neutral-500 hover:text-neutral-800' },
-                React.createElement(X, { className: 'w-5 h-5' })
-              )
-            ),
-            React.createElement(
-              'form',
-              { onSubmit: handleCreatePath, className: 'space-y-4' },
-              React.createElement('input', {
-                type: 'text',
-                placeholder: 'Path Title',
-                value: newPath.title,
-                onChange: (e) => setNewPath({ ...newPath, title: e.target.value }),
-                className: 'w-full p-2 border border-neutral-300 rounded-lg',
-                required: true
-              }),
-              React.createElement('textarea', {
-                placeholder: 'Description',
-                value: newPath.description,
-                onChange: (e) => setNewPath({ ...newPath, description: e.target.value }),
-                className: 'w-full p-2 border border-neutral-300 rounded-lg',
-                rows: 3
-              }),
-              React.createElement(
-                'div',
-                { className: 'grid grid-cols-1 md:grid-cols-3 gap-4' },
-                React.createElement(
-                  'select',
-                  {
-                    value: newPath.difficulty,
-                    onChange: (e) => setNewPath({ ...newPath, difficulty: e.target.value }),
-                    className: 'p-2 border border-neutral-300 rounded-lg bg-white'
-                  },
-                  React.createElement('option', { value: 'Beginner' }, 'Beginner'),
-                  React.createElement('option', { value: 'Intermediate' }, 'Intermediate'),
-                  React.createElement('option', { value: 'Advanced' }, 'Advanced')
-                ),
-                React.createElement('input', {
-                  type: 'number',
-                  placeholder: 'Weeks',
-                  value: newPath.duration_weeks,
-                  onChange: (e) => setNewPath({ ...newPath, duration_weeks: Number(e.target.value) }),
-                  className: 'p-2 border border-neutral-300 rounded-lg'
-                }),
-                React.createElement('input', {
-                  type: 'number',
-                  placeholder: 'Points Reward',
-                  value: newPath.points_reward,
-                  onChange: (e) => setNewPath({ ...newPath, points_reward: Number(e.target.value) }),
-                  className: 'p-2 border border-neutral-300 rounded-lg'
-                })
-              ),
-              React.createElement(
-                'div',
-                { className: 'flex justify-end gap-2' },
-                React.createElement(
-                  'button',
-                  { type: 'button', onClick: () => setShowCreateModal(false), className: 'btn btn-outline px-4 py-2' },
-                  'Cancel'
-                ),
-                React.createElement(
-                  'button',
-                  { type: 'submit', className: 'btn btn-primary px-4 py-2' },
-                  'Save Path'
-                )
-              )
-            )
-          ),
-        React.createElement(
-          'div',
-          { className: 'space-y-4 mb-8' },
-          React.createElement(
-            'div',
-            { className: 'relative' },
-            React.createElement(Search, { className: 'absolute left-4 top-3 w-5 h-5 text-neutral-400' }),
-            React.createElement('input', {
-              type: 'text',
-              placeholder: 'Search learning paths...',
-              value: searchQuery,
-              onChange: (e) => setSearchQuery(e.target.value),
-              className: 'pl-12 bg-white w-full py-2 rounded-lg border border-neutral-200'
-            })
-          ),
-          React.createElement(
-            'div',
-            { className: 'flex gap-2 flex-wrap' },
-            ['', 'Beginner', 'Intermediate', 'Advanced'].map((level) =>
-              React.createElement(
-                'button',
-                {
-                  key: level,
-                  onClick: () => setSelectedLevel(level),
-                  className: `px-4 py-2 rounded-full text-sm font-medium transition-colors ${
-                    selectedLevel === level
-                      ? 'bg-primary-600 text-white'
-                      : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200'
-                  }`
-                },
-                level || 'All Levels'
-              )
-            )
-          )
-        ),
-        loading
-          ? React.createElement(LoadingSpinner, null)
-          : filteredPaths.length > 0
-          ? React.createElement(
-              'div',
-              { className: 'space-y-6' },
-              filteredPaths.map((path) =>
-                React.createElement(
-                  'div',
-                  {
-                    key: path.id,
-                    className: 'bg-white rounded-lg border border-neutral-200 overflow-hidden hover:shadow-lg transition-shadow'
-                  },
-                  React.createElement(
-                    'div',
-                    {
-                      onClick: () => setExpandedPath(expandedPath === path.id ? null : path.id),
-                      className: 'px-6 py-4 hover:bg-neutral-50 transition-colors cursor-pointer'
-                    },
-                    React.createElement(
-                      'div',
-                      { className: 'flex items-start gap-4 mb-3' },
-                      React.createElement(
-                        'div',
-                        { className: 'w-12 h-12 bg-gradient-to-br from-primary-100 to-secondary-100 rounded-lg flex items-center justify-center flex-shrink-0' },
-                        React.createElement(BookOpen, { className: 'w-6 h-6 text-primary-600' })
-                      ),
-                      React.createElement(
-                        'div',
-                        { className: 'flex-1 min-w-0' },
-                        React.createElement('h3', { className: 'text-lg font-bold text-neutral-900 mb-1' }, path.title),
-                        React.createElement('p', { className: 'text-sm text-neutral-600 line-clamp-2' }, path.description)
-                      ),
-                      React.createElement(
-                        'div',
-                        { className: 'flex items-center gap-2' },
-                        path.user_enrolled &&
-                          React.createElement(
-                            'div',
-                            { className: 'flex-shrink-0 bg-green-100 px-3 py-1 rounded-full' },
-                            React.createElement(
-                              'span',
-                              { className: 'text-xs font-semibold text-green-800 flex items-center gap-1' },
-                              React.createElement(Check, { className: 'w-3 h-3' }),
-                              'Enrolled'
-                            )
-                          ),
-                        React.createElement(
-                          'button',
-                          {
-                            onClick: (e) => handleDeletePath(e, path.id),
-                            className: 'p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors',
-                            title: 'Delete Learning Path'
-                          },
-                          React.createElement(Trash2, { className: 'w-4 h-4' })
-                        )
-                      )
-                    ),
-                    React.createElement(
-                      'div',
-                      { className: 'flex flex-wrap gap-4 text-xs text-neutral-600' },
-                      React.createElement(
-                        'div',
-                        { className: 'flex items-center gap-1' },
-                        React.createElement(Target, { className: 'w-4 h-4' }),
-                        React.createElement(
-                          'span',
-                          { className: `px-2 py-1 rounded ${getDifficultyColor(path.difficulty || path.level)}` },
-                          path.difficulty || path.level || 'Beginner'
-                        )
-                      ),
-                      React.createElement(
-                        'div',
-                        { className: 'flex items-center gap-1' },
-                        React.createElement(Clock, { className: 'w-4 h-4' }),
-                        React.createElement('span', null, `${path.duration_weeks || 4} weeks`)
-                      ),
-                      React.createElement(
-                        'div',
-                        { className: 'flex items-center gap-1' },
-                        React.createElement(Users, { className: 'w-4 h-4' }),
-                        React.createElement('span', null, `${path.enrolled_count || 0} enrolled`)
-                      ),
-                      React.createElement(
-                        'div',
-                        null,
-                        React.createElement('span', { className: 'font-semibold text-primary-600' }, `+${path.points_reward || 50} pts`)
-                      )
-                    )
-                  ),
-                  expandedPath === path.id &&
-                    React.createElement(
-                      'div',
-                      { className: 'border-t border-neutral-200 p-6 bg-neutral-50' },
-                      React.createElement(
-                        'div',
-                        { className: 'mb-6' },
-                        React.createElement('h4', { className: 'font-semibold text-neutral-900 mb-2' }, 'About'),
-                        React.createElement('p', { className: 'text-neutral-700 text-sm' }, path.description)
-                      ),
-                      !path.user_enrolled &&
-                        React.createElement(
-                          'button',
-                          {
-                            onClick: () => handleEnroll(path.id),
-                            disabled: enrollingPath === path.id,
-                            className: 'w-full btn btn-primary flex items-center justify-center gap-2'
-                          },
-                          enrollingPath === path.id
-                            ? 'Enrolling...'
-                            : React.createElement(
-                                React.Fragment,
-                                null,
-                                React.createElement(BookOpen, { className: 'w-4 h-4' }),
-                                'Start Learning'
-                              )
-                        )
-                    )
-                )
-              )
-            )
-          : React.createElement(
-              'div',
-              { className: 'bg-neutral-50 rounded-lg border border-neutral-200 p-12 text-center' },
-              React.createElement(BookOpen, { className: 'w-12 h-12 text-neutral-400 mx-auto mb-4 opacity-50' }),
-              React.createElement(
-                'p',
-                { className: 'text-neutral-600 mb-4' },
-                searchQuery ? 'No learning paths found' : 'No learning paths available'
-              )
-            )
-      )
-    )
+  const openResource = (url) => {
+    if (!url) {
+      toast.error('No link available for this resource');
+      return;
+    }
+    // Ensure URL has http/https
+    const validUrl = url.match(/^https?:\/\//) ? url : `https://${url}`;
+    window.open(validUrl, '_blank', 'noopener,noreferrer');
+  };
+
+  const getIconForType = (type) => {
+    switch (type?.toLowerCase()) {
+      case 'video': return <PlayCircle size={22} className="text-slate-700" strokeWidth={1.5} />;
+      case 'image': return <ImageIcon size={22} className="text-slate-700" strokeWidth={1.5} />;
+      case 'link':  return <LinkIcon size={22} className="text-slate-700" strokeWidth={1.5} />;
+      case 'pdf':
+      default:      return <FileText size={22} className="text-slate-700" strokeWidth={1.5} />;
+    }
+  };
+
+  // Determine if user is admin based on role or is_admin flag
+  const isAdmin = me?.role === 'admin' || me?.is_admin === true;
+
+  return (
+    <div className="min-h-screen bg-white max-w-[430px] mx-auto font-sans relative pb-20">
+      
+      {/* HEADER - CLEAN WHITE EXACTLY LIKE ADOBE XD */}
+      <div className="bg-white text-slate-900 px-5 pt-5 pb-4 flex items-center justify-between border-b border-slate-100 sticky top-0 z-20 shadow-sm">
+        <div className="flex items-center gap-3">
+          <button onClick={() => navigate('/hub')} className="text-slate-800 hover:text-black transition-colors">
+            <ChevronLeft size={26} strokeWidth={2.5} />
+          </button>
+          <h1 className="text-[20px] font-bold tracking-tight">Event AI Library</h1>
+        </div>
+        
+        {/* ONLY ADMINS SEE THE ADD BUTTON */}
+        {isAdmin && (
+          <button 
+            onClick={() => setShowCreateModal(true)} 
+            className="w-8 h-8 flex items-center justify-center rounded-full bg-slate-100 text-slate-700 hover:bg-slate-200 transition"
+          >
+            <Plus size={20} />
+          </button>
+        )}
+      </div>
+
+      <div className="px-5 pt-6">
+        {loading ? (
+          <div className="py-24 flex justify-center"><LoadingSpinner /></div>
+        ) : resources.length === 0 ? (
+          <div className="text-center py-16 bg-slate-50 rounded-[24px] border border-slate-100">
+            <FileText size={40} className="mx-auto text-slate-300 mb-3" />
+            <p className="text-[14px] text-slate-500 px-8">No resources available in the library yet.</p>
+          </div>
+        ) : (
+          <div className="bg-slate-50/80 rounded-[20px] border border-slate-100 flex flex-col overflow-hidden shadow-sm">
+            {resources.map((resource, index) => (
+              <React.Fragment key={resource.id}>
+                <div className="flex items-center justify-between p-4 hover:bg-slate-100/50 transition">
+                  <div className="flex items-center gap-4 min-w-0">
+                    <div className="flex-shrink-0">
+                      {getIconForType(resource.category)}
+                    </div>
+                    <p className="text-[15px] font-medium text-slate-800 truncate pr-2">
+                      {resource.title}
+                    </p>
+                  </div>
+                  
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    {/* Admin Delete Button */}
+                    {isAdmin && (
+                      <button 
+                        onClick={() => handleDeleteResource(resource.id)}
+                        className="p-2 border border-slate-200 rounded-xl hover:bg-red-50 hover:text-red-500 hover:border-red-200 text-slate-400 transition"
+                      >
+                        <Trash2 size={18} />
+                      </button>
+                    )}
+                    
+                    {/* Briefcase Button (Open/Download) */}
+                    <button 
+                      onClick={() => openResource(resource.description)}
+                      className="p-2 border border-slate-200 rounded-xl hover:bg-white bg-transparent shadow-sm text-slate-700 transition"
+                    >
+                      <Briefcase size={18} />
+                    </button>
+                  </div>
+                </div>
+                {/* Divider Line, except for last item */}
+                {index < resources.length - 1 && (
+                  <div className="h-px bg-slate-200/50 mx-4" />
+                )}
+              </React.Fragment>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* ADMIN CREATE MODAL */}
+      {showCreateModal && isAdmin && (
+        <div className="fixed inset-0 z-[60] bg-black/60 flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in duration-200">
+          <form 
+            onSubmit={handleCreateResource}
+            className="w-full max-w-[340px] bg-white rounded-3xl p-6 flex flex-col relative shadow-2xl animate-in zoom-in-95 duration-200"
+          >
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-[18px] font-bold text-slate-900">Add Resource</h3>
+              <button type="button" onClick={() => setShowCreateModal(false)} className="text-slate-400 hover:text-slate-600 bg-slate-50 p-1.5 rounded-full transition">
+                <X size={18} />
+              </button>
+            </div>
+            
+            <div className="space-y-4 mb-6">
+              <div>
+                <label className="block text-[13px] font-bold text-slate-900 mb-2">Resource Title</label>
+                <input
+                  type="text"
+                  value={formData.title}
+                  onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                  placeholder="e.g. Quarterly report_March 2024"
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3.5 text-[14px] font-medium text-slate-800 placeholder:text-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0000c8]/20 focus:border-[#0000c8]"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-[13px] font-bold text-slate-900 mb-2">File Type</label>
+                <select
+                  value={formData.category}
+                  onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3.5 text-[14px] font-medium text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0000c8]/20 focus:border-[#0000c8]"
+                >
+                  <option value="pdf">PDF Document</option>
+                  <option value="video">Video</option>
+                  <option value="image">Image</option>
+                  <option value="link">Web Link</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-[13px] font-bold text-slate-900 mb-2">File URL / Link</label>
+                <input
+                  type="url"
+                  value={formData.description}
+                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                  placeholder="https://..."
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3.5 text-[14px] font-medium text-slate-800 placeholder:text-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0000c8]/20 focus:border-[#0000c8]"
+                  required
+                />
+              </div>
+            </div>
+            
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className="w-full rounded-xl bg-[#0000c8] text-white py-3.5 text-[15px] font-bold shadow-md hover:bg-blue-800 transition disabled:opacity-70"
+            >
+              {isSubmitting ? 'Uploading...' : 'Upload Resource'}
+            </button>
+          </form>
+        </div>
+      )}
+    </div>
   );
 };
 
