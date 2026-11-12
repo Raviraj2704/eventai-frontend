@@ -14,7 +14,8 @@ import {
   Briefcase, 
   Plus, 
   Trash2, 
-  X 
+  X,
+  Upload
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
@@ -29,14 +30,14 @@ const LearningPathsScreen = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   
   // New Resource Form
+  const [uploadMode, setUploadMode] = useState('file'); // 'file' or 'url'
   const [formData, setFormData] = useState({
     title: '',
-    category: 'pdf', // acts as file type
-    description: ''  // acts as the URL/link
+    category: 'pdf', 
+    description: '' // Holds either the Base64 file string OR the URL
   });
 
   useEffect(() => {
-    // 1. Get current user to check Admin status
     apiClient.get('/auth/me')
       .then((res) => {
         const user = res?.data?.data || res?.data?.user || res?.data;
@@ -44,14 +45,14 @@ const LearningPathsScreen = () => {
       })
       .catch((err) => console.error("Could not fetch user", err));
 
-    // 2. Load resources
     loadResources();
   }, []);
 
   const loadResources = async () => {
     setLoading(true);
     try {
-      const response = await apiClient.get('/learning_paths', { params: { limit: 100 } });
+      // FIXED: Limit set to 50 to prevent backend 422 Validation Error
+      const response = await apiClient.get('/learning_paths', { params: { limit: 50 } });
       const rawData = response?.data;
       const list = Array.isArray(rawData) ? rawData : rawData?.data || rawData?.learning_paths || [];
       setResources(list);
@@ -63,10 +64,28 @@ const LearningPathsScreen = () => {
     }
   };
 
+  const handleFileUpload = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    // 5MB limit to prevent crashing the server with massive Base64 strings
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('File is too large. Please use a URL for files over 5MB.');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setFormData({ ...formData, description: reader.result });
+      toast.success('File attached successfully');
+    };
+    reader.readAsDataURL(file);
+  };
+
   const handleCreateResource = async (e) => {
     e.preventDefault();
     if (!formData.title.trim() || !formData.description.trim()) {
-      toast.error('Title and URL are required');
+      toast.error('Title and File/URL are required');
       return;
     }
     
@@ -76,7 +95,7 @@ const LearningPathsScreen = () => {
         title: formData.title,
         category: formData.category,
         description: formData.description,
-        difficulty: 'Beginner', // Required by backend schema, hidden from UI
+        difficulty: 'Beginner', 
         duration_weeks: 0,
         points_reward: 0
       };
@@ -85,7 +104,8 @@ const LearningPathsScreen = () => {
       toast.success('Resource added successfully!');
       setShowCreateModal(false);
       setFormData({ title: '', category: 'pdf', description: '' });
-      loadResources(); // Reload list
+      setUploadMode('file');
+      loadResources(); 
     } catch (error) {
       toast.error('Failed to add resource');
     } finally {
@@ -110,7 +130,23 @@ const LearningPathsScreen = () => {
       toast.error('No link available for this resource');
       return;
     }
-    // Ensure URL has http/https
+    
+    // Handle Base64 direct file uploads
+    if (url.startsWith('data:')) {
+      const w = window.open('about:blank');
+      if (w) {
+        if (url.startsWith('data:image')) {
+          w.document.write(`<iframe src="${url}" frameborder="0" style="border:0; top:0px; left:0px; bottom:0px; right:0px; width:100%; height:100%;" allowfullscreen></iframe>`);
+        } else if (url.startsWith('data:video')) {
+          w.document.write(`<video controls autoplay style="width:100%; height:100%;"><source src="${url}"></video>`);
+        } else {
+          w.document.write(`<iframe src="${url}" frameborder="0" style="border:0; top:0px; left:0px; bottom:0px; right:0px; width:100%; height:100%;" allowfullscreen></iframe>`);
+        }
+      }
+      return;
+    }
+
+    // Handle standard URLs
     const validUrl = url.match(/^https?:\/\//) ? url : `https://${url}`;
     window.open(validUrl, '_blank', 'noopener,noreferrer');
   };
@@ -125,13 +161,12 @@ const LearningPathsScreen = () => {
     }
   };
 
-  // Determine if user is admin based on role or is_admin flag
   const isAdmin = me?.role === 'admin' || me?.is_admin === true;
 
   return (
     <div className="min-h-screen bg-white max-w-[430px] mx-auto font-sans relative pb-20">
       
-      {/* HEADER - CLEAN WHITE EXACTLY LIKE ADOBE XD */}
+      {/* HEADER */}
       <div className="bg-white text-slate-900 px-5 pt-5 pb-4 flex items-center justify-between border-b border-slate-100 sticky top-0 z-20 shadow-sm">
         <div className="flex items-center gap-3">
           <button onClick={() => navigate('/hub')} className="text-slate-800 hover:text-black transition-colors">
@@ -140,7 +175,6 @@ const LearningPathsScreen = () => {
           <h1 className="text-[20px] font-bold tracking-tight">Event AI Library</h1>
         </div>
         
-        {/* ONLY ADMINS SEE THE ADD BUTTON */}
         {isAdmin && (
           <button 
             onClick={() => setShowCreateModal(true)} 
@@ -151,6 +185,7 @@ const LearningPathsScreen = () => {
         )}
       </div>
 
+      {/* RESOURCE LIST */}
       <div className="px-5 pt-6">
         {loading ? (
           <div className="py-24 flex justify-center"><LoadingSpinner /></div>
@@ -174,7 +209,6 @@ const LearningPathsScreen = () => {
                   </div>
                   
                   <div className="flex items-center gap-2 flex-shrink-0">
-                    {/* Admin Delete Button */}
                     {isAdmin && (
                       <button 
                         onClick={() => handleDeleteResource(resource.id)}
@@ -183,8 +217,6 @@ const LearningPathsScreen = () => {
                         <Trash2 size={18} />
                       </button>
                     )}
-                    
-                    {/* Briefcase Button (Open/Download) */}
                     <button 
                       onClick={() => openResource(resource.description)}
                       className="p-2 border border-slate-200 rounded-xl hover:bg-white bg-transparent shadow-sm text-slate-700 transition"
@@ -193,7 +225,6 @@ const LearningPathsScreen = () => {
                     </button>
                   </div>
                 </div>
-                {/* Divider Line, except for last item */}
                 {index < resources.length - 1 && (
                   <div className="h-px bg-slate-200/50 mx-4" />
                 )}
@@ -238,22 +269,41 @@ const LearningPathsScreen = () => {
                   className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3.5 text-[14px] font-medium text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0000c8]/20 focus:border-[#0000c8]"
                 >
                   <option value="pdf">PDF Document</option>
-                  <option value="video">Video</option>
                   <option value="image">Image</option>
+                  <option value="video">Video (Max 5MB or use Link)</option>
                   <option value="link">Web Link</option>
                 </select>
               </div>
 
+              {/* TOGGLE UPLOAD MODE */}
               <div>
-                <label className="block text-[13px] font-bold text-slate-900 mb-2">File URL / Link</label>
-                <input
-                  type="url"
-                  value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  placeholder="https://..."
-                  className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3.5 text-[14px] font-medium text-slate-800 placeholder:text-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0000c8]/20 focus:border-[#0000c8]"
-                  required
-                />
+                <div className="flex gap-2 mb-3">
+                  <button type="button" onClick={() => setUploadMode('file')} className={`flex-1 py-2 text-[12px] font-bold rounded-lg border transition ${uploadMode === 'file' ? 'bg-[#0000c8] text-white border-[#0000c8]' : 'bg-slate-50 text-slate-500 border-slate-200'}`}>Direct Upload</button>
+                  <button type="button" onClick={() => setUploadMode('url')} className={`flex-1 py-2 text-[12px] font-bold rounded-lg border transition ${uploadMode === 'url' ? 'bg-[#0000c8] text-white border-[#0000c8]' : 'bg-slate-50 text-slate-500 border-slate-200'}`}>Paste URL</button>
+                </div>
+
+                {uploadMode === 'file' ? (
+                  <div className="relative border-2 border-dashed border-slate-200 rounded-xl bg-slate-50 p-4 text-center hover:bg-slate-100 transition">
+                    <input 
+                      type="file" 
+                      accept="image/*,video/*,application/pdf"
+                      onChange={handleFileUpload}
+                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                    />
+                    <Upload className="mx-auto text-slate-400 mb-2" size={20} />
+                    <p className="text-[12px] font-bold text-slate-600">
+                      {formData.description.startsWith('data:') ? 'File Attached Successfully ✓' : 'Tap to select file (Max 5MB)'}
+                    </p>
+                  </div>
+                ) : (
+                  <input
+                    type="url"
+                    value={formData.description.startsWith('data:') ? '' : formData.description}
+                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                    placeholder="https://..."
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3.5 text-[14px] font-medium text-slate-800 placeholder:text-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0000c8]/20 focus:border-[#0000c8]"
+                  />
+                )}
               </div>
             </div>
             
