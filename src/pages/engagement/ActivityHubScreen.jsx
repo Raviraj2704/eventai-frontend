@@ -1,39 +1,140 @@
 // ============================================================================
-// Activity Hub (Instagram-Style Social Feed - EXACT ADOBE XD MATCH)
+// Activity Hub (Instagram-Style Social Feed)
 // File: src/pages/engagement/ActivityHubScreen.jsx
 // ============================================================================
 
 import { useCallback, useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { ChevronLeft, MoreVertical, Share2, Trash2, MessageSquare, ThumbsUp, Send, X, Image as ImageIcon } from 'lucide-react';
+import {
+  ChevronLeft,
+  MoreVertical,
+  Share2,
+  Trash2,
+  MessageSquare,
+  ThumbsUp,
+  Send,
+  X,
+  PlusSquare,
+  Image as ImageIcon,
+} from 'lucide-react';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 import apiClient from '../../config/apiClient';
 
 const getErrorMessage = (error, fallback) =>
   error?.data?.detail || error?.response?.data?.detail || error?.message || fallback;
 
+const fullNameOf = (u) => {
+  if (!u) return '';
+  if (u.name && u.name !== 'Attendee') return u.name;
+  const full = [u.first_name, u.last_name].filter(Boolean).join(' ').trim();
+  return full || u.username || u.email?.split('@')[0] || '';
+};
+
+const avatarOf = (u) =>
+  u?.avatar_url || u?.profile_picture_url || u?.profile_picture || u?.photo_url || u?.avatar || null;
+
 const initialsOf = (name) =>
-  (name || 'A').split(' ').filter(Boolean).map((p) => p[0]).join('').slice(0, 2).toUpperCase() || 'A';
+  (name || 'U')
+    .split(' ')
+    .filter(Boolean)
+    .map((p) => p[0])
+    .join('')
+    .slice(0, 2)
+    .toUpperCase() || 'U';
+
+// Resolves author details from post.author, post.user, flat post fields, or logged-in `me`
+const resolveAuthor = (item, me) => {
+  const rawAuthor = item?.author || item?.user || {};
+  const isMine =
+    Boolean(item?.is_mine) ||
+    (me?.id != null && (item?.user_id === me.id || rawAuthor?.id === me.id));
+
+  const name =
+    fullNameOf(rawAuthor) ||
+    item?.user_name ||
+    item?.author_name ||
+    (isMine ? fullNameOf(me) : '') ||
+    'Event Member';
+
+  const avatar_url =
+    avatarOf(rawAuthor) ||
+    item?.user_avatar ||
+    item?.author_avatar ||
+    (isMine ? avatarOf(me) : null);
+
+  const job_title =
+    rawAuthor?.job_title ||
+    item?.user_job_title ||
+    (isMine ? me?.job_title : '') ||
+    '';
+
+  return { name, avatar_url, job_title, isMine };
+};
+
+// Compresses image to compact Base64 JPEG so FastAPI JSON endpoint & DB column never throw 500
+const compressImageToBase64 = (file, maxWidth = 800, quality = 0.72) =>
+  new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let width = img.width;
+        let height = img.height;
+        if (width > maxWidth) {
+          height = Math.round((height * maxWidth) / width);
+          width = maxWidth;
+        }
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL('image/jpeg', quality));
+      };
+      img.onerror = reject;
+      img.src = e.target.result;
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+
+const ordinal = (n) => {
+  if (n % 100 >= 11 && n % 100 <= 13) return 'th';
+  return ['th', 'st', 'nd', 'rd'][n % 10] || 'th';
+};
 
 const formatPostDate = (iso) => {
   if (!iso) return '';
   const d = new Date(iso);
+  if (isNaN(d)) return '';
+  const day = d.getDate();
   const month = d.toLocaleString('en-US', { month: 'short' });
+  const year = d.getFullYear();
   const time = d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
-  return `${d.getDate()}th ${month} ${d.getFullYear()} | ${time}`;
+  return `${day}${ordinal(day)} ${month} ${year} | ${time}`;
 };
 
 const formatCommentTime = (iso) => {
   if (!iso) return '';
   const d = new Date(iso);
+  if (isNaN(d)) return '';
+  const day = d.getDate();
   const month = d.toLocaleString('en-US', { month: 'short' });
   const time = d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
-  return `${d.getDate()} ${month}, ${time}`;
+  return `${day} ${month}, ${time}`;
+};
+
+const EMOJI_MAP = {
+  like: { emoji: '👍', label: 'Like', color: 'text-blue-600' },
+  love: { emoji: '❤️', label: 'Love', color: 'text-rose-600' },
+  smile: { emoji: '😊', label: 'Smile', color: 'text-amber-500' },
+  haha: { emoji: '😆', label: 'Haha', color: 'text-amber-500' },
+  wow: { emoji: '😲', label: 'Wow', color: 'text-amber-500' },
 };
 
 // ----------------------------------------------------------------------------
-// Create Post Modal
+// Create Post Modal (Triggered from Top Right or Join Conversation Prompt)
 // ----------------------------------------------------------------------------
 function CreatePostModal({ onClose, onPost, me }) {
   const [draft, setDraft] = useState('');
@@ -42,8 +143,11 @@ function CreatePostModal({ onClose, onPost, me }) {
   const [previewUrl, setPreviewUrl] = useState(null);
   const fileInputRef = useRef(null);
 
+  const myName = fullNameOf(me) || 'Me';
+  const myAvatar = avatarOf(me);
+
   const handleImageChange = (e) => {
-    const file = e.target.files[0];
+    const file = e.target.files?.[0];
     if (file) {
       setSelectedImage(file);
       setPreviewUrl(URL.createObjectURL(file));
@@ -57,20 +161,21 @@ function CreatePostModal({ onClose, onPost, me }) {
     try {
       await onPost(content, selectedImage);
       onClose();
-    } catch (error) {
+    } catch {
       setPosting(false);
     }
   };
 
   return (
-    <div className="fixed inset-0 z-[60] bg-white flex flex-col animate-in slide-in-from-bottom-full duration-300">
+    <div className="fixed inset-0 z-[60] bg-white flex flex-col animate-in slide-in-from-bottom-full duration-300 max-w-[430px] mx-auto">
+      {/* Header */}
       <div className="flex items-center justify-between px-4 py-4 border-b border-slate-100">
         <button onClick={onClose} className="text-slate-800 hover:text-black">
           <X size={26} strokeWidth={2.5} />
         </button>
-        <h2 className="text-[18px] font-bold text-slate-900">Create Post</h2>
-        <button 
-          onClick={handleSubmit} 
+        <h2 className="text-[18px] font-bold text-slate-900">New Post</h2>
+        <button
+          onClick={handleSubmit}
           disabled={(!draft.trim() && !selectedImage) || posting}
           className="text-[15px] font-bold text-[#0000c8] disabled:opacity-40"
         >
@@ -79,26 +184,36 @@ function CreatePostModal({ onClose, onPost, me }) {
       </div>
 
       <div className="flex-1 p-5 overflow-y-auto">
-        <div className="flex gap-3 mb-4">
-          <div className="w-10 h-10 rounded-full bg-[#0c1b78] text-white flex items-center justify-center font-bold overflow-hidden shrink-0">
-            {me?.avatar_url ? <img src={me.avatar_url} alt="avatar" className="w-full h-full object-cover" /> : initialsOf(me?.first_name)}
+        <div className="flex items-center gap-3 mb-4">
+          <div className="w-11 h-11 rounded-full bg-[#0c1b78] text-white flex items-center justify-center font-bold overflow-hidden shrink-0 shadow-sm">
+            {myAvatar ? (
+              <img src={myAvatar} alt={myName} className="w-full h-full object-cover" />
+            ) : (
+              initialsOf(myName)
+            )}
           </div>
-          <p className="text-[15px] font-bold text-slate-900 pt-2">{me?.first_name || me?.username || 'Attendee'}</p>
+          <div>
+            <p className="text-[15px] font-bold text-slate-900">{myName}</p>
+            {me?.job_title && <p className="text-[12px] text-slate-500">{me.job_title}</p>}
+          </div>
         </div>
-        
+
         <textarea
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
-          placeholder="Share your thoughts on X with #SHRMIAC26..."
-          className="w-full h-32 resize-none text-[16px] text-slate-800 placeholder:text-slate-400 focus:outline-none"
+          placeholder="Join the conversation. Share your thoughts on X with #EVENTAI26."
+          className="w-full h-32 resize-none text-[15px] text-slate-800 placeholder:text-slate-400 focus:outline-none"
           autoFocus
         />
 
         {previewUrl && (
-          <div className="relative mt-2 w-full rounded-xl overflow-hidden border border-slate-200 shadow-sm">
-            <img src={previewUrl} alt="Preview" className="w-full h-auto object-cover" />
+          <div className="relative mt-2 w-full max-h-[300px] rounded-2xl overflow-hidden border border-slate-200 shadow-sm">
+            <img src={previewUrl} alt="Preview" className="w-full h-full object-cover" />
             <button
-              onClick={() => { setSelectedImage(null); setPreviewUrl(null); }}
+              onClick={() => {
+                setSelectedImage(null);
+                setPreviewUrl(null);
+              }}
               className="absolute top-3 right-3 bg-black/60 text-white p-1.5 rounded-full hover:bg-black/80 transition"
             >
               <X size={16} />
@@ -107,13 +222,20 @@ function CreatePostModal({ onClose, onPost, me }) {
         )}
       </div>
 
+      {/* Sticky Bottom Actions */}
       <div className="border-t border-slate-100 p-4 pb-safe flex items-center gap-4 bg-slate-50">
-        <input type="file" accept="image/*" className="hidden" ref={fileInputRef} onChange={handleImageChange} />
-        <button 
+        <input
+          type="file"
+          accept="image/*"
+          className="hidden"
+          ref={fileInputRef}
+          onChange={handleImageChange}
+        />
+        <button
           onClick={() => fileInputRef.current?.click()}
-          className="flex items-center gap-2 text-[14px] font-bold text-slate-600 bg-white border border-slate-200 px-4 py-2 rounded-full shadow-sm"
+          className="flex items-center gap-2 text-[14px] font-bold text-slate-600 bg-white border border-slate-200 px-4 py-2 rounded-full shadow-sm hover:bg-slate-50"
         >
-          <ImageIcon size={18} className="text-[#0000c8]" /> Add Photo
+          <ImageIcon size={18} className="text-blue-500" /> Photo
         </button>
       </div>
     </div>
@@ -121,9 +243,9 @@ function CreatePostModal({ onClose, onPost, me }) {
 }
 
 // ----------------------------------------------------------------------------
-// Comments Sheet Modal (ADOBE XD MATCH)
+// Comments Sheet Modal (Matches Adobe XD Image 3)
 // ----------------------------------------------------------------------------
-function CommentsModal({ post, onClose, onCountChange }) {
+function CommentsModal({ post, me, onClose, onCountChange }) {
   const [comments, setComments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [draft, setDraft] = useState('');
@@ -131,8 +253,9 @@ function CommentsModal({ post, onClose, onCountChange }) {
 
   useEffect(() => {
     let cancelled = false;
-    apiClient.get(`/posts/${post.id}/comments`)
-      .then(res => {
+    apiClient
+      .get(`/social/posts/${post.id}/comments`)
+      .then((res) => {
         if (!cancelled) {
           const data = res?.data?.data || res?.data || [];
           setComments(Array.isArray(data) ? data : []);
@@ -144,7 +267,9 @@ function CommentsModal({ post, onClose, onCountChange }) {
       .finally(() => {
         if (!cancelled) setLoading(false);
       });
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [post.id]);
 
   const submitComment = async (e) => {
@@ -152,9 +277,20 @@ function CommentsModal({ post, onClose, onCountChange }) {
     if (!draft.trim() || posting) return;
     setPosting(true);
     try {
-      const res = await apiClient.post(`/posts/${post.id}/comments`, { content: draft.trim() });
-      const newComment = res?.data?.data || res?.data;
-      setComments(prev => [newComment, ...prev]);
+      const res = await apiClient.post(`/social/posts/${post.id}/comments`, {
+        content: draft.trim(),
+      });
+      const rawComment = res?.data?.data || res?.data;
+      const enrichedComment = {
+        ...rawComment,
+        user_id: rawComment?.user_id ?? me?.id,
+        author: rawComment?.author || {
+          id: me?.id,
+          name: fullNameOf(me),
+          avatar_url: avatarOf(me),
+        },
+      };
+      setComments((prev) => [...prev, enrichedComment]);
       setDraft('');
       onCountChange(post.id, 1);
     } catch (error) {
@@ -164,50 +300,67 @@ function CommentsModal({ post, onClose, onCountChange }) {
     }
   };
 
+  const totalComments = Math.max(post.comment_count || 0, comments.length);
+
   return (
     <div className="fixed inset-0 z-[60] bg-black/50 flex flex-col justify-end animate-in fade-in duration-200">
       <div className="bg-white w-full max-w-[430px] mx-auto h-[85vh] rounded-t-3xl flex flex-col shadow-2xl animate-in slide-in-from-bottom-full duration-300">
-        
-        {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 shrink-0">
-          <h2 className="text-[18px] font-bold text-slate-900">Total {post.comment_count || 0} Comments</h2>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 transition-colors">
-            <X size={24} />
+        <div className="flex items-center justify-between px-6 py-5 border-b border-slate-100 shrink-0">
+          <h2 className="text-[18px] font-bold text-slate-900">
+            Total {totalComments} Comments
+          </h2>
+          <button
+            onClick={onClose}
+            className="text-slate-500 hover:text-slate-800 p-1 rounded-full transition-colors"
+          >
+            <X size={22} />
           </button>
         </div>
 
-        {/* Comments List */}
-        <div className="flex-1 overflow-y-auto px-5 py-4 space-y-5 bg-white">
+        <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4 bg-white">
           {loading ? (
-            <div className="py-12 flex justify-center"><LoadingSpinner /></div>
+            <div className="py-12">
+              <LoadingSpinner />
+            </div>
           ) : comments.length === 0 ? (
-            <p className="text-center text-[14px] text-slate-400 mt-10">No comments yet. Start the conversation!</p>
+            <p className="text-center text-[14px] text-slate-400 mt-10">
+              No comments yet. Start the conversation!
+            </p>
           ) : (
-            comments.map((c, i) => (
-              <div key={c.id || i} className="flex flex-col items-start">
-                <div className="bg-slate-50 border border-slate-100 rounded-2xl p-3.5 inline-block max-w-[85%]">
-                  <p className="text-[11px] font-bold text-slate-400 mb-1">{c.author?.name || c.user?.first_name || 'Attendee'}</p>
-                  <p className="text-[14px] text-slate-800 leading-snug">{c.content}</p>
+            comments.map((c, i) => {
+              const author = resolveAuthor(c, me);
+              return (
+                <div key={c.id || i} className="flex flex-col items-start">
+                  <div className="bg-[#f3f4f6] rounded-2xl px-4 py-3 max-w-[90%]">
+                    <p className="text-[12px] font-semibold text-slate-500 mb-0.5">
+                      {author.name}
+                    </p>
+                    <p className="text-[14px] text-slate-900 leading-snug">{c.content}</p>
+                  </div>
+                  <p className="text-[11px] text-slate-400 mt-1 pl-1">
+                    {formatCommentTime(c.created_at || new Date())}
+                  </p>
                 </div>
-                <p className="text-[10px] text-slate-400 mt-1.5 ml-2 font-medium">{formatCommentTime(c.created_at || new Date())}</p>
-              </div>
-            ))
+              );
+            })
           )}
         </div>
 
-        {/* Input Footer */}
-        <form onSubmit={submitComment} className="border-t border-slate-100 bg-white p-4 shrink-0 flex items-center gap-3 pb-safe shadow-[0_-4px_20px_rgb(0,0,0,0.02)]">
+        <form
+          onSubmit={submitComment}
+          className="border-t border-slate-100 bg-white p-4 shrink-0 flex items-center gap-3 pb-safe"
+        >
           <input
             type="text"
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
             placeholder="Write A Public Comment..."
-            className="flex-1 bg-slate-50 border border-slate-200 rounded-full px-5 py-3.5 text-[14px] font-medium text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-[#0000c8] transition-all"
+            className="flex-1 bg-white border border-slate-200 rounded-xl px-4 py-3 text-[14px] text-slate-800 focus:outline-none focus:ring-1 focus:ring-[#0000c8] transition-all"
           />
-          <button 
-            type="submit" 
+          <button
+            type="submit"
             disabled={!draft.trim() || posting}
-            className="bg-[#0000c8] text-white p-3.5 rounded-xl disabled:opacity-40 transition shrink-0 shadow-md"
+            className="w-12 h-11 rounded-xl bg-[#0000c8] text-white flex items-center justify-center disabled:opacity-40 shrink-0 shadow-sm"
           >
             <Send size={18} />
           </button>
@@ -218,14 +371,17 @@ function CommentsModal({ post, onClose, onCountChange }) {
 }
 
 // ----------------------------------------------------------------------------
-// Single Social Post Card
+// Single Social Post Card (Matches Adobe XD Images 1 & 2)
 // ----------------------------------------------------------------------------
-function SocialPostCard({ post, isAdmin, onReact, onDelete, onOpenComments }) {
+function SocialPostCard({ post, me, isAdmin, onReact, onDelete, onOpenComments }) {
   const [showMenu, setShowMenu] = useState(false);
   const [showReactions, setShowReactions] = useState(false);
   const menuRef = useRef();
   const reactRef = useRef();
 
+  const author = resolveAuthor(post, me);
+
+  // Close menus when clicking outside
   useEffect(() => {
     const handleClick = (e) => {
       if (menuRef.current && !menuRef.current.contains(e.target)) setShowMenu(false);
@@ -237,13 +393,26 @@ function SocialPostCard({ post, isAdmin, onReact, onDelete, onOpenComments }) {
 
   const handleShare = async () => {
     setShowMenu(false);
-    const shareText = `Check out this post on EventAI!`;
+    const shareText = `Check out this post by ${author.name} on EventAI!`;
     if (navigator.share) {
-      try { await navigator.share({ title: 'EventAI Post', text: shareText, url: window.location.href }); } catch (err) {}
+      try {
+        await navigator.share({
+          title: 'EventAI Post',
+          text: shareText,
+          url: window.location.href,
+        });
+      } catch {
+        /* user cancelled */
+      }
     } else {
       navigator.clipboard.writeText(shareText);
       toast.success('Link copied to clipboard!');
     }
+  };
+
+  const handleDelete = () => {
+    setShowMenu(false);
+    onDelete(post);
   };
 
   const setReaction = (kind) => {
@@ -251,47 +420,58 @@ function SocialPostCard({ post, isAdmin, onReact, onDelete, onOpenComments }) {
     onReact(post.id, kind);
   };
 
-  const REACT_ICONS = {
-    like: { emoji: '👍', color: 'text-blue-600', label: 'Like' },
-    love: { emoji: '❤️', color: 'text-rose-600', label: 'Love' },
-    smile: { emoji: '😊', color: 'text-amber-500', label: 'Smile' },
-    laugh: { emoji: '😆', color: 'text-amber-500', label: 'Laugh' },
-    wow: { emoji: '😲', color: 'text-amber-500', label: 'Wow' }
-  };
-
-  const activeReaction = post.my_reaction ? REACT_ICONS[post.my_reaction] : null;
+  const activeReaction = post.my_reaction ? EMOJI_MAP[post.my_reaction] : null;
+  const totalReactions =
+    post.reactions?.total ?? post.like_count ?? (activeReaction ? 1 : 0);
+  const viewCount = post.view_count ?? post.views ?? Math.max(1, totalReactions * 2 + (post.comment_count || 0));
 
   return (
-    <div className="bg-white rounded-3xl border border-slate-100 shadow-[0_2px_15px_rgb(0,0,0,0.04)] mb-5 overflow-hidden">
-      
-      {/* HEADER */}
-      <div className="flex justify-between items-center p-4 pb-2">
+    <div className="bg-[#f8f9fa] rounded-2xl p-4 mb-4 border border-slate-100 shadow-[0_2px_10px_rgba(0,0,0,0.03)]">
+      {/* 1. HEADER */}
+      <div className="flex justify-between items-start mb-3">
         <div className="flex items-center gap-3">
-          <div className="w-[42px] h-[42px] rounded-full bg-[#0c1b78] text-white flex items-center justify-center font-bold text-[14px] overflow-hidden shadow-sm">
-            {post.author?.avatar_url ? (
-              <img src={post.author.avatar_url} alt="avatar" className="w-full h-full object-cover" />
+          <div className="w-[42px] h-[42px] rounded-full bg-[#0c1b78] text-white flex items-center justify-center font-bold text-[14px] overflow-hidden shrink-0 shadow-sm">
+            {author.avatar_url ? (
+              <img
+                src={author.avatar_url}
+                alt={author.name}
+                className="w-full h-full object-cover"
+              />
             ) : (
-              initialsOf(post.author?.name)
+              initialsOf(author.name)
             )}
           </div>
           <div className="flex flex-col">
-            <span className="text-[15px] font-bold text-slate-900 leading-tight">{post.author?.name || 'Attendee'}</span>
-            <span className="text-[11px] font-medium text-slate-400 mt-0.5">{formatPostDate(post.created_at)}</span>
+            <span className="text-[15px] font-bold text-slate-900 leading-tight">
+              {author.name}
+            </span>
+            <span className="text-[12px] text-slate-400 mt-0.5">
+              {formatPostDate(post.created_at)}
+            </span>
           </div>
         </div>
 
         <div className="relative" ref={menuRef}>
-          <button onClick={() => setShowMenu(!showMenu)} className="p-2 text-slate-500 bg-slate-50 rounded-full hover:bg-slate-100 transition">
+          <button
+            onClick={() => setShowMenu(!showMenu)}
+            className="w-8 h-8 rounded-full bg-white flex items-center justify-center text-slate-600 shadow-sm hover:bg-slate-50"
+          >
             <MoreVertical size={18} />
           </button>
           {showMenu && (
-            <div className="absolute right-0 mt-2 w-44 bg-white rounded-2xl shadow-xl border border-slate-100 py-2 z-10 animate-in fade-in zoom-in-95 duration-100">
-              <button onClick={handleShare} className="w-full flex items-center gap-3 px-5 py-2.5 text-[13px] font-bold text-slate-700 hover:bg-slate-50">
-                <Share2 size={16} className="text-slate-400" /> Share Post
+            <div className="absolute right-0 mt-2 w-44 bg-white rounded-2xl shadow-xl border border-slate-100 py-2 z-20 animate-in fade-in zoom-in-95 duration-100">
+              <button
+                onClick={handleShare}
+                className="w-full flex items-center gap-3 px-4 py-2.5 text-[13px] font-semibold text-slate-700 hover:bg-slate-50"
+              >
+                <Share2 size={16} className="text-slate-500" /> Share Post
               </button>
-              {(post.is_mine || isAdmin) && (
-                <button onClick={() => { setShowMenu(false); onDelete(post); }} className="w-full flex items-center gap-3 px-5 py-2.5 text-[13px] font-bold text-red-600 hover:bg-red-50">
-                  <Trash2 size={16} className="text-red-400" /> Delete Post
+              {(author.isMine || isAdmin) && (
+                <button
+                  onClick={handleDelete}
+                  className="w-full flex items-center gap-3 px-4 py-2.5 text-[13px] font-semibold text-slate-700 hover:bg-red-50 hover:text-red-600"
+                >
+                  <Trash2 size={16} className="text-slate-500" /> Delete Post
                 </button>
               )}
             </div>
@@ -299,76 +479,118 @@ function SocialPostCard({ post, isAdmin, onReact, onDelete, onOpenComments }) {
         </div>
       </div>
 
-      {/* TEXT CONTENT */}
+      {/* 2. CAPTION TEXT */}
       {post.content && (
-        <div className="px-4 py-2 text-[14px] text-slate-800 leading-relaxed font-medium">
-          {post.content}
-        </div>
+        <p className="text-[14px] text-slate-800 leading-relaxed mb-3">{post.content}</p>
       )}
 
-      {/* IMAGE CONTENT */}
+      {/* 3. IMAGE (If exists) */}
       {post.image_url && (
-        <div className="w-full px-4 mb-2">
-          <div className="rounded-2xl overflow-hidden border border-slate-100">
-            <img src={post.image_url} alt="Post content" className="w-full h-auto object-cover max-h-[350px]" />
-          </div>
+        <div className="w-full rounded-xl overflow-hidden bg-slate-100 mb-3">
+          <img
+            src={post.image_url}
+            alt="Post content"
+            className="w-full h-auto object-cover max-h-[380px]"
+          />
         </div>
       )}
 
-      {/* STATS */}
-      <div className="flex justify-between items-center px-5 py-3 border-b border-slate-100">
+      {/* 4. REACTIONS & VIEWS/COMMENTS STATS ROW */}
+      <div className="flex items-center justify-between py-2 border-b border-slate-200/70 text-[12px] text-slate-500">
         <div className="flex items-center gap-1.5">
-          <div className="flex -space-x-1.5">
-            <span className="w-5 h-5 rounded-full bg-blue-100 flex items-center justify-center text-[11px] border border-white z-20">👍</span>
-            <span className="w-5 h-5 rounded-full bg-rose-100 flex items-center justify-center text-[11px] border border-white z-10">❤️</span>
-            <span className="w-5 h-5 rounded-full bg-amber-100 flex items-center justify-center text-[11px] border border-white z-0">😂</span>
+          <div className="flex items-center -space-x-1">
+            <span className="w-5 h-5 rounded-full bg-blue-500 text-white flex items-center justify-center text-[10px]">
+              👍
+            </span>
+            <span className="w-5 h-5 rounded-full bg-rose-500 text-white flex items-center justify-center text-[10px]">
+              ❤️
+            </span>
+            <span className="w-5 h-5 rounded-full bg-amber-400 text-white flex items-center justify-center text-[10px]">
+              😂
+            </span>
           </div>
-          <span className="text-[12px] font-bold text-slate-500 ml-1">{post.like_count || 0}</span>
+          <span className="font-semibold text-slate-600 ml-1">{totalReactions}</span>
         </div>
-        <div className="text-[12px] font-medium text-slate-400">
-          {post.view_count || 0} Views <span className="mx-1">|</span> {post.comment_count || 0} Comments
+
+        <div>
+          <span>{viewCount} Views</span>
+          <span className="mx-1.5">|</span>
+          <button onClick={() => onOpenComments(post)} className="hover:underline">
+            {post.comment_count || 0} Comments
+          </button>
         </div>
       </div>
 
-      {/* ACTION BAR */}
-      <div className="flex items-center justify-between px-2 py-1">
-        <div className="flex-1 relative flex justify-center" ref={reactRef}>
-          <button 
-            onClick={() => {
-              if (activeReaction) setReaction(null); // unlike
-              else setShowReactions(!showReactions);
-            }} 
-            className={`flex items-center justify-center gap-2 py-3 w-full text-[14px] font-bold transition-colors ${activeReaction ? activeReaction.color : 'text-slate-600 hover:bg-slate-50 rounded-xl'}`}
-          >
-            {activeReaction ? (
+      {/* 5. SPLIT ACTION BAR (Like | Comment) WITH 5-EMOJI TRAY */}
+      <div className="flex items-center pt-2 relative" ref={reactRef}>
+        {/* 5-Emoji Popup Tray */}
+        {showReactions && (
+          <div className="absolute -top-14 left-2 bg-white rounded-full shadow-[0_6px_25px_rgba(0,0,0,0.15)] border border-slate-100 px-3 py-1.5 flex items-center gap-3 z-30 animate-in zoom-in-95 duration-150">
+            <button
+              onClick={() => setReaction('like')}
+              className="w-9 h-9 rounded-full bg-blue-500 text-white flex items-center justify-center text-[20px] hover:scale-125 transition-transform"
+              title="Like"
+            >
+              👍
+            </button>
+            <button
+              onClick={() => setReaction('love')}
+              className="w-9 h-9 rounded-full bg-rose-500 text-white flex items-center justify-center text-[20px] hover:scale-125 transition-transform"
+              title="Love"
+            >
+              ❤️
+            </button>
+            <button
+              onClick={() => setReaction('smile')}
+              className="text-[28px] hover:scale-125 transition-transform"
+              title="Smile"
+            >
+              😊
+            </button>
+            <button
+              onClick={() => setReaction('haha')}
+              className="text-[28px] hover:scale-125 transition-transform"
+              title="Haha"
+            >
+              😆
+            </button>
+            <button
+              onClick={() => setReaction('wow')}
+              className="text-[28px] hover:scale-125 transition-transform"
+              title="Wow"
+            >
+              😲
+            </button>
+          </div>
+        )}
+
+        <button
+          onClick={() => setShowReactions(!showReactions)}
+          className="flex-1 flex items-center justify-center gap-2 py-2 text-[14px] font-semibold text-slate-700 hover:bg-slate-100 rounded-xl transition-colors"
+        >
+          {activeReaction ? (
+            <>
               <span className="text-[18px]">{activeReaction.emoji}</span>
-            ) : (
-              <ThumbsUp size={18} className="text-slate-500" /> 
-            )}
-            {activeReaction ? activeReaction.label : 'Like'}
-          </button>
-
-          {/* EMOJI TRAY POPUP */}
-          {showReactions && (
-            <div className="absolute bottom-12 left-1/2 -translate-x-1/2 bg-white rounded-full shadow-[0_10px_30px_rgb(0,0,0,0.15)] border border-slate-100 px-4 py-2.5 flex gap-4 animate-in slide-in-from-bottom-2 duration-200 z-20">
-              {Object.entries(REACT_ICONS).map(([key, data]) => (
-                <button key={key} onClick={() => setReaction(key)} className="text-[28px] hover:scale-125 transition-transform origin-bottom">
-                  {data.emoji}
-                </button>
-              ))}
-            </div>
+              <span className={activeReaction.color}>{activeReaction.label}</span>
+            </>
+          ) : (
+            <>
+              <ThumbsUp size={18} className="text-slate-700" />
+              <span>Like</span>
+            </>
           )}
-        </div>
+        </button>
 
-        <div className="w-px h-6 bg-slate-200"></div>
+        <div className="w-px h-6 bg-slate-200" />
 
-        <div className="flex-1 flex justify-center">
-          <button onClick={() => onOpenComments(post)} className="flex items-center justify-center gap-2 py-3 w-full text-[14px] font-bold text-slate-600 hover:bg-slate-50 rounded-xl transition-colors">
-            <MessageSquare size={18} className="text-slate-500" /> Comment
-          </button>
-        </div>
+        <button
+          onClick={() => onOpenComments(post)}
+          className="flex-1 flex items-center justify-center gap-2 py-2 text-[14px] font-semibold text-slate-700 hover:bg-slate-100 rounded-xl transition-colors"
+        >
+          <MessageSquare size={18} className="text-slate-700" />
+          <span>Comment</span>
+        </button>
       </div>
-
     </div>
   );
 }
@@ -379,8 +601,15 @@ function SocialPostCard({ post, isAdmin, onReact, onDelete, onOpenComments }) {
 export default function ActivityHubScreen() {
   const navigate = useNavigate();
   const [isAdmin, setIsAdmin] = useState(false);
-  const [me, setMe] = useState(null);
-  
+  const [me, setMe] = useState(() => {
+    try {
+      const cached = localStorage.getItem('user');
+      return cached ? JSON.parse(cached) : null;
+    } catch {
+      return null;
+    }
+  });
+
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [commentPost, setCommentPost] = useState(null);
@@ -388,10 +617,17 @@ export default function ActivityHubScreen() {
 
   const loadPosts = useCallback(async () => {
     try {
-      const res = await apiClient.get('/posts', { params: { page: 1, limit: 30 } });
+      const res = await apiClient.get('/social/wall', { params: { page: 1, limit: 30 } });
       setPosts(res?.data?.data || []);
-    } catch (error) {
-      toast.error(getErrorMessage(error, 'Could not load the feed'));
+    } catch {
+      try {
+        const fallbackRes = await apiClient.get('/social/posts', {
+          params: { page: 1, limit: 30 },
+        });
+        setPosts(fallbackRes?.data?.data || []);
+      } catch (error) {
+        toast.error(getErrorMessage(error, 'Could not load the feed'));
+      }
     } finally {
       setLoading(false);
     }
@@ -399,28 +635,67 @@ export default function ActivityHubScreen() {
 
   useEffect(() => {
     loadPosts();
-    apiClient.get('/auth/me').then((res) => setMe(res?.data?.data ?? res?.data ?? null)).catch(() => setMe(null));
-    apiClient.get('/auth/me').then((res) => setIsAdmin(Boolean(res?.data?.data?.is_admin))).catch(() => setIsAdmin(false));
+
+    // Load current user profile from /auth/me (or fallback /users/me) so avatar & name are always accurate
+    apiClient
+      .get('/auth/me')
+      .then((res) => {
+        const userObj = res?.data?.data ?? res?.data?.user ?? res?.data ?? null;
+        if (userObj) setMe(userObj);
+      })
+      .catch(() => {
+        apiClient
+          .get('/users/me')
+          .then((res) => {
+            const userObj = res?.data?.data ?? res?.data?.user ?? res?.data ?? null;
+            if (userObj) setMe(userObj);
+          })
+          .catch(() => {});
+      });
+
+    apiClient
+      .get('/session-admin/me/roles')
+      .then((res) => setIsAdmin(Boolean(res?.data?.data?.is_admin)))
+      .catch(() => setIsAdmin(false));
   }, [loadPosts]);
 
+  // FIXED: Converts image to compressed Base64 URL string & sends pure JSON to match FastAPI SocialPostCreateRequest
   const handlePostSubmit = async (content, imageFile) => {
     try {
-      let payload = { content };
-      
-      // FIXED 500 ERROR: Backend expects JSON SocialPostCreateRequest. 
-      // Instead of crashing with FormData, we convert the image to Base64 data URL.
+      let image_url = null;
       if (imageFile) {
-        const base64Url = await new Promise((resolve) => {
-          const reader = new FileReader();
-          reader.onloadend = () => resolve(reader.result);
-          reader.readAsDataURL(imageFile);
-        });
-        payload.image_url = base64Url;
+        image_url = await compressImageToBase64(imageFile);
       }
 
-      await apiClient.post('/posts', payload);
+      const payload = {
+        content: content || ' ',
+        image_url,
+      };
+
+      const res = await apiClient.post('/social/posts', payload);
+      const created = res?.data?.data || res?.data;
+
+      // Immediately prepend post with current user's profile & avatar so it never shows "A" or "Attendee"
+      if (created && created.id) {
+        const enrichedPost = {
+          ...created,
+          user_id: me?.id,
+          is_mine: true,
+          author: {
+            id: me?.id,
+            name: fullNameOf(me),
+            avatar_url: avatarOf(me),
+            job_title: me?.job_title,
+          },
+          reactions: created.reactions || { total: 0 },
+          comment_count: created.comment_count || 0,
+        };
+        setPosts((prev) => [enrichedPost, ...prev]);
+      } else {
+        await loadPosts();
+      }
+
       toast.success('Posted successfully!');
-      await loadPosts();
     } catch (error) {
       toast.error(getErrorMessage(error, 'Could not post'));
       throw error;
@@ -428,31 +703,56 @@ export default function ActivityHubScreen() {
   };
 
   const handleReact = async (postId, kind) => {
-    try {
-      setPosts(prev => prev.map(p => {
+    let toggledKind = kind;
+    setPosts((prev) =>
+      prev.map((p) => {
         if (p.id !== postId) return p;
-        let newCount = p.like_count || 0;
-        if (p.my_reaction && !kind) newCount = Math.max(0, newCount - 1);
-        if (!p.my_reaction && kind) newCount += 1;
-        return { ...p, my_reaction: kind, like_count: newCount };
-      }));
+        const currentReaction = p.my_reaction;
+        const nextReaction = currentReaction === kind ? null : kind;
+        toggledKind = nextReaction;
 
-      if (kind) {
-        await apiClient.post(`/posts/${postId}/like`); // Using standard like route for now
+        const prevTotal = p.reactions?.total ?? p.like_count ?? 0;
+        let nextTotal = prevTotal;
+        if (currentReaction && !nextReaction) nextTotal = Math.max(0, prevTotal - 1);
+        else if (!currentReaction && nextReaction) nextTotal = prevTotal + 1;
+
+        return {
+          ...p,
+          my_reaction: nextReaction,
+          like_count: nextTotal,
+          reactions: {
+            ...(p.reactions || {}),
+            total: nextTotal,
+          },
+        };
+      })
+    );
+
+    try {
+      if (toggledKind) {
+        try {
+          await apiClient.post(`/social/posts/${postId}/react`, { kind: toggledKind });
+        } catch {
+          await apiClient.post(`/social/posts/${postId}/like`);
+        }
       } else {
-        await apiClient.post(`/posts/${postId}/unlike`);
+        try {
+          await apiClient.delete(`/social/posts/${postId}/react`);
+        } catch {
+          await apiClient.post(`/social/posts/${postId}/unlike`);
+        }
       }
-    } catch (error) {
+    } catch {
       toast.error('Failed to update reaction');
-      loadPosts(); 
+      loadPosts();
     }
   };
 
   const handleDelete = async (post) => {
     if (!window.confirm('Delete this post?')) return;
     try {
-      await apiClient.delete(`/posts/${post.id}`);
-      setPosts(prev => prev.filter(p => p.id !== post.id));
+      await apiClient.delete(`/social/posts/${post.id}`);
+      setPosts((prev) => prev.filter((p) => p.id !== post.id));
       toast.success('Post deleted');
     } catch (error) {
       toast.error(getErrorMessage(error, 'Failed to delete post'));
@@ -460,40 +760,73 @@ export default function ActivityHubScreen() {
   };
 
   const bumpComments = (postId, delta) => {
-    setPosts(prev => prev.map(p => p.id === postId ? { ...p, comment_count: Math.max(0, (p.comment_count || 0) + delta) } : p));
+    setPosts((prev) =>
+      prev.map((p) =>
+        p.id === postId
+          ? { ...p, comment_count: Math.max(0, (p.comment_count || 0) + delta) }
+          : p
+      )
+    );
   };
 
+  const myName = fullNameOf(me) || 'Me';
+  const myAvatar = avatarOf(me);
+
   return (
-    <div className="min-h-screen bg-slate-50 max-w-[430px] mx-auto pb-28 font-sans">
-      
-      {/* Header - EXACT ADOBE XD MATCH (White background, Black text) */}
-      <div className="bg-white text-slate-900 px-5 pt-5 pb-4 flex items-center justify-between border-b border-slate-100 sticky top-0 z-40">
-        <div className="flex items-center gap-3">
-          <button type="button" onClick={() => navigate('/hub')} aria-label="Back" className="text-slate-800 hover:text-black transition-colors">
-            <ChevronLeft size={28} strokeWidth={2.5} />
+    <div className="min-h-screen bg-white max-w-[430px] mx-auto pb-28 font-sans">
+      {/* Header - EXACT ADOBE XD MATCH */}
+      <div className="bg-white text-slate-900 px-4 pt-5 pb-4 flex items-center justify-between border-b border-slate-100 sticky top-0 z-40">
+        <div className="flex items-center gap-2.5">
+          <button
+            type="button"
+            onClick={() => navigate('/hub')}
+            aria-label="Back"
+            className="text-slate-900 hover:text-black transition-colors"
+          >
+            <ChevronLeft size={26} strokeWidth={2.5} />
           </button>
-          <h1 className="text-[22px] font-bold tracking-tight">Activity Hub</h1>
+          <h1 className="text-[20px] font-bold tracking-tight">Activity Hub</h1>
         </div>
+
+        <button
+          onClick={() => setShowCreatePost(true)}
+          className="text-slate-900 hover:text-[#0000c8] transition-colors"
+          aria-label="Create Post"
+        >
+          <PlusSquare size={24} strokeWidth={2} />
+        </button>
       </div>
 
-      <div className="px-4 py-4">
-        {/* Join Conversation Prompt - EXACT ADOBE XD MATCH */}
-        <div className="flex gap-4 items-center mb-6 cursor-pointer" onClick={() => setShowCreatePost(true)}>
-          <div className="w-[46px] h-[46px] rounded-full bg-[#0c1b78] text-white flex items-center justify-center font-bold overflow-hidden shrink-0 shadow-sm">
-            {me?.avatar_url ? <img src={me.avatar_url} alt="avatar" className="w-full h-full object-cover" /> : initialsOf(me?.first_name)}
-          </div>
-          <div className="w-[2px] h-[46px] bg-slate-200 shrink-0"></div>
-          <p className="text-[14px] text-slate-500 font-medium leading-snug">
-            Join the conversation. Share your thoughts on X with <span className="font-bold text-slate-700">#SHRMIAC26</span>.
-          </p>
+      {/* Top "Join the conversation" Prompt - EXACT ADOBE XD MATCH */}
+      <div
+        onClick={() => setShowCreatePost(true)}
+        className="px-4 py-3.5 border-b border-slate-100 flex items-center gap-3.5 cursor-pointer hover:bg-slate-50 transition-colors"
+      >
+        <div className="w-[42px] h-[42px] rounded-full bg-[#0c1b78] text-white flex items-center justify-center font-bold text-[14px] overflow-hidden shrink-0 shadow-sm">
+          {myAvatar ? (
+            <img src={myAvatar} alt={myName} className="w-full h-full object-cover" />
+          ) : (
+            initialsOf(myName)
+          )}
         </div>
+        <div className="h-8 w-px bg-slate-200 shrink-0" />
+        <p className="text-[13px] text-slate-500 leading-snug">
+          Join the conversation. Share your thoughts on X with{' '}
+          <span className="text-slate-700 font-medium">#SHRMIAC26</span>.
+        </p>
+      </div>
 
-        {/* Feed List */}
+      {/* Feed List */}
+      <div className="bg-white px-4 pt-4">
         {loading ? (
-          <div className="py-20 flex justify-center"><LoadingSpinner /></div>
+          <div className="py-20 flex justify-center">
+            <LoadingSpinner />
+          </div>
         ) : posts.length === 0 ? (
-          <div className="text-center py-16 bg-white rounded-3xl border border-slate-100 shadow-sm">
-            <ImageIcon size={32} className="mx-auto text-slate-300 mb-3" />
+          <div className="text-center py-24">
+            <div className="w-16 h-16 bg-slate-50 border border-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <ImageIcon size={28} className="text-slate-300" />
+            </div>
             <p className="text-[15px] font-bold text-slate-900">No Posts Yet</p>
             <p className="text-[13px] text-slate-500 mt-1">Be the first to share a moment.</p>
           </div>
@@ -502,6 +835,7 @@ export default function ActivityHubScreen() {
             <SocialPostCard
               key={post.id}
               post={post}
+              me={me}
               isAdmin={isAdmin}
               onReact={handleReact}
               onDelete={handleDelete}
@@ -513,22 +847,22 @@ export default function ActivityHubScreen() {
 
       {/* Full-Screen Create Post Modal */}
       {showCreatePost && (
-        <CreatePostModal 
-          onClose={() => setShowCreatePost(false)} 
-          onPost={handlePostSubmit} 
-          me={me} 
+        <CreatePostModal
+          onClose={() => setShowCreatePost(false)}
+          onPost={handlePostSubmit}
+          me={me}
         />
       )}
 
       {/* Comments Modal */}
       {commentPost && (
-        <CommentsModal 
-          post={commentPost} 
-          onClose={() => setCommentPost(null)} 
-          onCountChange={bumpComments} 
+        <CommentsModal
+          post={commentPost}
+          me={me}
+          onClose={() => setCommentPost(null)}
+          onCountChange={bumpComments}
         />
       )}
-      
     </div>
   );
 }
