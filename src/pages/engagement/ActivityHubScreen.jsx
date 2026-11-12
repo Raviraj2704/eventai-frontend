@@ -31,6 +31,7 @@ const fullNameOf = (u) => {
   return full || u.username || u.email?.split('@')[0] || '';
 };
 
+// Fixed avatarOf to correctly extract the avatar_url
 const avatarOf = (u) =>
   u?.avatar_url || u?.profile_picture_url || u?.profile_picture || u?.photo_url || u?.avatar || null;
 
@@ -812,7 +813,7 @@ export default function ActivityHubScreen() {
         <div className="h-8 w-px bg-slate-200 shrink-0" />
         <p className="text-[13px] text-slate-500 leading-snug">
           Join the conversation. Share your thoughts on X with{' '}
-          <span className="text-slate-700 font-medium">#SHRMIAC26</span>.
+          <span className="text-slate-700 font-medium">#EVENTAI26</span>.
         </p>
       </div>
 
