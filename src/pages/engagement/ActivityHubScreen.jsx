@@ -31,10 +31,18 @@ const fullNameOf = (u) => {
   return full || u.username || u.email?.split('@')[0] || '';
 };
 
-// Fixed avatarOf to correctly extract the avatar_url
+// Fixed avatarOf to correctly extract the avatar_url from ANY database field
 const avatarOf = (u) =>
-  u?.avatar_url || u?.profile_picture_url || u?.profile_picture || u?.photo_url || u?.avatar || null;
-
+  u?.avatar_url || 
+  u?.picture || 
+  u?.profile_picture_url || 
+  u?.profile_picture || 
+  u?.photo_url || 
+  u?.avatar || 
+  u?.profile_image || 
+  u?.image || 
+  null;
+  
 const initialsOf = (name) =>
   (name || 'U')
     .split(' ')
