@@ -436,7 +436,8 @@ const authService = {
 
       console.log('📧 Requesting password reset for:', email);
 
-      const response = await apiClient.post('/auth/forgot-password', {
+      // FIXED: Removed duplicate /api/v1/ prefix
+      const response = await apiClient.post('/auth/request-password-reset', {
         email: email.toLowerCase().trim(),
       });
 
@@ -495,6 +496,7 @@ const authService = {
 
       console.log('🔒 Resetting password');
 
+      // FIXED: Removed duplicate /api/v1/ prefix
       const response = await apiClient.post('/auth/reset-password', {
         token,
         new_password: newPassword,

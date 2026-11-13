@@ -66,6 +66,7 @@ apiClient.interceptors.response.use(
   },
   (error) => {
     // FIX: Silence 401 errors if we are currently on the login page or splash screen
+    // This stops the UI from spamming toasts when logging out.
     const currentPath = window.location.pathname;
     const isPublicPage = currentPath === '/login' || currentPath === '/';
     
