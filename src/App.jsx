@@ -29,6 +29,8 @@ const RegisterScreen = lazy(() => import('./pages/auth/RegisterScreen'));
 const VerifyEmailScreen = lazy(() => import('./pages/auth/VerifyEmailScreen'));
 const CompleteProfileScreen = lazy(() => import('./pages/auth/CompleteProfileScreen'));
 const FeedbackScreen = lazy(() => import('./pages/main/FeedbackScreen'));
+const ChatListScreen = lazy(() => import('./pages/chat/ChatListScreen'));
+const ChatDetailScreen = lazy(() => import('./pages/chat/ChatDetailScreen'));
 
 // Pages - Main
 const HomeScreen = lazy(() => import('./pages/main/HomeScreen'));
@@ -163,6 +165,10 @@ function App() {
           h(Route, { path: '/my-favourites', element: wrapPrivate(MyFavouritesScreen) }),
           h(Route, { path: '/notifications', element: wrapPrivate(NotificationsScreen) }),
           h(Route, { path: '/leaderboard', element: wrapPrivate(LeaderboardScreen) }),
+
+          // Chat routes
+          h(Route, { path: '/chat', element: wrapPrivate(ChatListScreen) }),
+          h(Route, { path: '/chat/:id', element: wrapPrivate(ChatDetailScreen) }),
 
           // Engagement routes
           h(Route, { path: '/social-wall', element: wrapPrivate(SocialWallScreen) }),
