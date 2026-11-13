@@ -223,7 +223,7 @@ export default function HomeScreen() {
           <div className="flex gap-2">
             <button
               type="button"
-              onClick={() => navigate('/networking')}
+              onClick={() => navigate('/chat')}
               aria-label="Messages"
               className="w-10 h-10 rounded-full bg-white/15 flex items-center justify-center"
             >
