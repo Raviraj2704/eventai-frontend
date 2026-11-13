@@ -50,21 +50,9 @@ apiClient.interceptors.request.use(
     config.headers['X-Request-ID'] = generateRequestId();
     config.headers['X-Client-Version'] = '1.0.0';
 
-    // Log request in development
-    if (import.meta.env.DEV) {
-      console.log('📤 API Request:', {
-        method: config.method.toUpperCase(),
-        url: config.url,
-        baseURL: config.baseURL,
-        headers: config.headers,
-        data: config.data,
-      });
-    }
-
     return config;
   },
   (error) => {
-    console.error('❌ Request Interceptor Error:', error);
     return Promise.reject(error);
   }
 );
@@ -74,75 +62,39 @@ apiClient.interceptors.request.use(
 // ============================================
 apiClient.interceptors.response.use(
   (response) => {
-    // Log successful response in development
-    if (import.meta.env.DEV) {
-      console.log('📥 API Response:', {
-        status: response.status,
-        statusText: response.statusText,
-        url: response.config.url,
-        data: response.data,
-      });
-    }
-
-    // Transform response if needed
-    return {
-      status: response.status,
-      statusText: response.statusText,
-      data: response.data,
-      headers: response.headers,
-      config: response.config,
-    };
+    return response;
   },
   (error) => {
-    // Handle different error scenarios
-    if (!error.response) {
-      // Network error
-      console.error('🌐 Network Error:', error.message);
-      
-      // Check if backend is actually running
-      const errorMsg = `Network Error: Cannot reach server at ${getBaseURL()}. 
-        Ensure backend is running and CORS is configured properly.`;
-      
-      return Promise.reject({
-        status: 0,
-        message: errorMsg,
-        originalError: error,
-      });
-    }
-
-    const { status, data } = error.response;
-
-    // Log error response
-    console.error('❌ API Error Response:', {
-      status,
-      statusText: error.response.statusText,
-      data,
-      url: error.config.url,
-    });
+    // If the user is already on the login page or splash screen, silently ignore 401 errors from delayed background requests
+    const isPublicPage = window.location.pathname === '/login' || window.location.pathname === '/';
+    
+    const status = error.response ? error.response.status : null;
+    const data = error.response ? error.response.data : null;
 
     // Handle 401 Unauthorized - token expired or invalid
     if (status === 401) {
-      console.warn('⚠️ Unauthorized - Token expired or invalid');
-      
-      // Remove the cached profile so the next user doesn't see it
+      // Clear all auth data completely to break loops
       Object.keys(localStorage)
         .filter((key) => key.startsWith('event'))
         .forEach((key) => localStorage.removeItem(key));
 
-      // Clear all auth data to let React Router handle the redirect gracefully
       localStorage.removeItem('access_token');
       localStorage.removeItem('refresh_token');
       localStorage.removeItem('user');
       localStorage.removeItem('user_id');
 
-      // Dispatch event for authStore to catch and update state, preventing the infinite reload loop
-      window.dispatchEvent(new Event('auth-token-expired'));
-
-      return Promise.reject({
-        status: 401,
-        message: 'Session expired. Please login again.',
-        data,
-      });
+      if (!isPublicPage) {
+        console.error('🚫 Unauthorized - Token expired or invalid');
+        window.dispatchEvent(new Event('auth-token-expired'));
+        return Promise.reject({
+          status: 401,
+          message: 'Session expired. Please login again.',
+          data,
+        });
+      } else {
+        // Silently fail if they are already logged out / on public page
+        return Promise.reject({ status: 401, silent: true });
+      }
     }
 
     // Handle 403 Forbidden
@@ -187,11 +139,15 @@ apiClient.interceptors.response.use(
     }
 
     // Generic error response
-    return Promise.reject({
-      status,
-      message: data?.message || error.response.statusText || 'An error occurred',
-      data,
-    });
+    if (!isPublicPage) {
+      return Promise.reject({
+        status,
+        message: data?.message || error.response?.statusText || 'An error occurred',
+        data,
+      });
+    } else {
+      return Promise.reject({ silent: true });
+    }
   }
 );
 
