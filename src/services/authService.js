@@ -1,4 +1,26 @@
+// ============================================================================
+// Auth Service - Handles all authentication operations
+// File: src/services/authService.js
+// Includes login, register, email verification, profile completion, and token refresh
+// ============================================================================
+
 import apiClient, { setAuthToken, clearAuthData, getAuthToken } from '../config/apiClient';
+
+/**
+ * Helper to safely extract an email string whether a caller passes:
+ * - two arguments: (email, password)
+ * - or a single object: ({ email, password })
+ * This prevents "TypeError: email.toLowerCase is not a function" crashes.
+ */
+const extractEmailString = (input) => {
+  if (typeof input === 'string') {
+    return input;
+  }
+  if (input && typeof input === 'object' && typeof input.email === 'string') {
+    return input.email;
+  }
+  return '';
+};
 
 /**
  * Auth Service - Handles all authentication operations
@@ -7,12 +29,20 @@ import apiClient, { setAuthToken, clearAuthData, getAuthToken } from '../config/
 const authService = {
   /**
    * Login user with email and password
-   * @param {string} email User email
-   * @param {string} password User password
+   * Supports both login(email, password) and login({ email, password })
+   * @param {string|object} emailOrObj User email string or credentials object
+   * @param {string} [passwordArg] User password
    * @returns {Promise} Login response with tokens and user data
    */
-  async login(email, password) {
+  async login(emailOrObj, passwordArg) {
     try {
+      // Safely unpack if called as login({ email, password }) or login(email, password)
+      const email = extractEmailString(emailOrObj);
+      const password =
+        typeof emailOrObj === 'object' && emailOrObj !== null
+          ? emailOrObj.password ?? passwordArg
+          : passwordArg;
+
       if (!email || !password) {
         return {
           success: false,
@@ -21,16 +51,30 @@ const authService = {
         };
       }
 
-      console.log('🔐 Attempting login for:', email);
+      const normalizedEmail = email.toLowerCase().trim();
+
+      console.log('🔐 Attempting login for:', normalizedEmail);
 
       // Make login request
       const response = await apiClient.post('/auth/login', {
-        email: email.toLowerCase().trim(),
+        email: normalizedEmail,
         password,
       });
 
-      // Extract tokens and user data
-      const { access_token, refresh_token, user } = response.data;
+      // Extract tokens and user data (supports both flat response.data and nested response.data.data)
+      const payload = response.data?.data || response.data || {};
+      const access_token =
+        response.data?.access_token ||
+        payload?.access_token ||
+        response.data?.token ||
+        payload?.token;
+      const refresh_token =
+        response.data?.refresh_token ||
+        payload?.refresh_token;
+      const user =
+        response.data?.user ||
+        payload?.user ||
+        (payload?.id || payload?.email ? payload : null);
 
       if (!access_token) {
         throw new Error('No access token received from server');
@@ -38,6 +82,7 @@ const authService = {
 
       // Store tokens in localStorage
       localStorage.setItem('access_token', access_token);
+      localStorage.setItem('token', access_token);
       if (refresh_token) {
         localStorage.setItem('refresh_token', refresh_token);
       }
@@ -45,19 +90,23 @@ const authService = {
       // Store user data
       if (user) {
         localStorage.setItem('user', JSON.stringify(user));
-        localStorage.setItem('user_id', user.id);
+        if (user.id !== undefined && user.id !== null) {
+          localStorage.setItem('user_id', user.id);
+        }
       }
 
       // Set auth header for future requests
       setAuthToken(access_token);
 
-      console.log('✅ Login successful for:', email);
+      console.log('✅ Login successful for:', normalizedEmail);
 
       return {
         success: true,
         access_token,
+        token: access_token,
         refresh_token,
         user,
+        data: response.data,
         status: response.status,
       };
     } catch (error) {
@@ -88,12 +137,27 @@ const authService = {
 
   /**
    * Register new user
-   * @param {object} userData User registration data
+   * Supports both register(userDataObject) and register(email, password, name)
+   * @param {object|string} userData User registration data
    * @returns {Promise} Registration response
    */
-  async register(userData) {
+  async register(userData, passwordArg, nameArg) {
     try {
-      const { email, password, passwordConfirm, name } = userData;
+      const normalizedData =
+        typeof userData === 'object' && userData !== null
+          ? userData
+          : {
+              email: userData,
+              password: passwordArg,
+              passwordConfirm: passwordArg,
+              name: nameArg,
+            };
+
+      const email = extractEmailString(normalizedData.email);
+      const password = normalizedData.password;
+      const passwordConfirm =
+        normalizedData.passwordConfirm ?? normalizedData.confirmPassword ?? normalizedData.password;
+      const name = normalizedData.name || normalizedData.full_name || normalizedData.username || '';
 
       // Validate input
       if (!email || !password || !passwordConfirm || !name) {
@@ -120,14 +184,38 @@ const authService = {
         };
       }
 
-      console.log('📝 Registering user:', email);
+      const normalizedEmail = email.toLowerCase().trim();
+
+      console.log('📝 Registering user:', normalizedEmail);
 
       const response = await apiClient.post('/auth/register', {
-        email: email.toLowerCase().trim(),
+        ...normalizedData,
+        email: normalizedEmail,
         password,
         passwordConfirm,
         name: name.trim(),
       });
+
+      // If the backend also returns tokens upon registration, store them
+      const payload = response.data?.data || response.data || {};
+      const access_token = response.data?.access_token || payload?.access_token || payload?.token;
+      const refresh_token = response.data?.refresh_token || payload?.refresh_token;
+      const user = response.data?.user || payload?.user;
+
+      if (access_token) {
+        localStorage.setItem('access_token', access_token);
+        localStorage.setItem('token', access_token);
+        setAuthToken(access_token);
+      }
+      if (refresh_token) {
+        localStorage.setItem('refresh_token', refresh_token);
+      }
+      if (user) {
+        localStorage.setItem('user', JSON.stringify(user));
+        if (user.id !== undefined && user.id !== null) {
+          localStorage.setItem('user_id', user.id);
+        }
+      }
 
       console.log('✅ Registration successful');
 
@@ -136,6 +224,8 @@ const authService = {
         message: response.data?.message || 'Registration successful',
         status: response.status,
         data: response.data,
+        user,
+        access_token,
       };
     } catch (error) {
       console.error('❌ Registration error:', error);
@@ -162,12 +252,19 @@ const authService = {
 
   /**
    * Verify email with OTP
-   * @param {string} email User email
-   * @param {string} otp One-time password
+   * Supports both verifyEmail(email, otp) and verifyEmail({ email, otp })
+   * @param {string|object} emailOrObj User email or object containing { email, otp }
+   * @param {string} [otpArg] One-time password
    * @returns {Promise} Verification response
    */
-  async verifyEmail(email, otp) {
+  async verifyEmail(emailOrObj, otpArg) {
     try {
+      const email = extractEmailString(emailOrObj);
+      const otp =
+        typeof emailOrObj === 'object' && emailOrObj !== null
+          ? emailOrObj.otp ?? otpArg
+          : otpArg;
+
       if (!email || !otp) {
         return {
           success: false,
@@ -176,11 +273,13 @@ const authService = {
         };
       }
 
-      console.log('🔍 Verifying email:', email);
+      const normalizedEmail = email.toLowerCase().trim();
+
+      console.log('🔍 Verifying email:', normalizedEmail);
 
       const response = await apiClient.post('/auth/verify-email', {
-        email: email.toLowerCase().trim(),
-        otp: otp.trim(),
+        email: normalizedEmail,
+        otp: String(otp).trim(),
       });
 
       console.log('✅ Email verified successfully');
@@ -216,11 +315,14 @@ const authService = {
 
   /**
    * Resend verification email
-   * @param {string} email User email
+   * Supports both resendVerificationEmail(email) and resendVerificationEmail({ email })
+   * @param {string|object} emailOrObj User email
    * @returns {Promise} Response
    */
-  async resendVerificationEmail(email) {
+  async resendVerificationEmail(emailOrObj) {
     try {
+      const email = extractEmailString(emailOrObj);
+
       if (!email) {
         return {
           success: false,
@@ -229,10 +331,12 @@ const authService = {
         };
       }
 
-      console.log('📧 Resending verification email to:', email);
+      const normalizedEmail = email.toLowerCase().trim();
+
+      console.log('📧 Resending verification email to:', normalizedEmail);
 
       const response = await apiClient.post('/auth/resend-verification', {
-        email: email.toLowerCase().trim(),
+        email: normalizedEmail,
       });
 
       console.log('✅ Verification email resent');
@@ -241,6 +345,7 @@ const authService = {
         success: true,
         message: response.data?.message || 'Verification email sent',
         status: response.status,
+        data: response.data,
       };
     } catch (error) {
       console.error('❌ Resend email error:', error);
@@ -260,8 +365,16 @@ const authService = {
         success: false,
         error: errorMessage || 'Failed to resend verification email',
         status,
+        data,
       };
     }
+  },
+
+  /**
+   * Alias for resendVerificationEmail in case components call authService.resendVerification()
+   */
+  async resendVerification(emailOrObj) {
+    return this.resendVerificationEmail(emailOrObj);
   },
 
   /**
@@ -322,6 +435,7 @@ const authService = {
 
   /**
    * Logout user
+   * Clears local tokens immediately first so in-flight requests don't spam 401 errors
    * @returns {Promise} Logout response
    */
   async logout() {
@@ -329,18 +443,35 @@ const authService = {
       console.log('👋 Logging out...');
 
       const token = getAuthToken();
-      if (token) {
-        await apiClient.post('/auth/logout');
-      }
 
       // Remove the cached profile so the next user doesn't see it
       Object.keys(localStorage)
         .filter((key) => key.startsWith('event'))
         .forEach((key) => localStorage.removeItem(key));
 
-      // Clear auth data
+      // Clear auth data & headers first to prevent background 401 console spam
       clearAuthData();
-      delete apiClient.defaults.headers.common['Authorization'];
+      localStorage.removeItem('access_token');
+      localStorage.removeItem('refresh_token');
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      localStorage.removeItem('user_id');
+      if (apiClient?.defaults?.headers?.common) {
+        delete apiClient.defaults.headers.common['Authorization'];
+      }
+
+      // Notify backend if token was present (ignore any 401/network failure silently)
+      if (token) {
+        await apiClient
+          .post(
+            '/auth/logout',
+            {},
+            {
+              headers: { Authorization: `Bearer ${token}` },
+            }
+          )
+          .catch(() => null);
+      }
 
       console.log('✅ Logout successful');
 
@@ -358,7 +489,14 @@ const authService = {
 
       // Clear auth data anyway
       clearAuthData();
-      delete apiClient.defaults.headers.common['Authorization'];
+      localStorage.removeItem('access_token');
+      localStorage.removeItem('refresh_token');
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      localStorage.removeItem('user_id');
+      if (apiClient?.defaults?.headers?.common) {
+        delete apiClient.defaults.headers.common['Authorization'];
+      }
 
       return {
         success: true,
@@ -393,6 +531,7 @@ const authService = {
 
       // Update tokens
       localStorage.setItem('access_token', access_token);
+      localStorage.setItem('token', access_token);
       if (newRefreshToken) {
         localStorage.setItem('refresh_token', newRefreshToken);
       }
@@ -421,11 +560,14 @@ const authService = {
 
   /**
    * Reset password with email
-   * @param {string} email User email
+   * Supports both requestPasswordReset(email) and requestPasswordReset({ email })
+   * @param {string|object} emailOrObj User email
    * @returns {Promise} Response
    */
-  async requestPasswordReset(email) {
+  async requestPasswordReset(emailOrObj) {
     try {
+      const email = extractEmailString(emailOrObj);
+
       if (!email) {
         return {
           success: false,
@@ -434,11 +576,13 @@ const authService = {
         };
       }
 
-      console.log('📧 Requesting password reset for:', email);
+      const normalizedEmail = email.toLowerCase().trim();
+
+      console.log('📧 Requesting password reset for:', normalizedEmail);
 
       // FIXED: Removed duplicate /api/v1/ prefix
       const response = await apiClient.post('/auth/request-password-reset', {
-        email: email.toLowerCase().trim(),
+        email: normalizedEmail,
       });
 
       console.log('✅ Password reset email sent');
@@ -446,6 +590,9 @@ const authService = {
       return {
         success: true,
         message: response.data?.message || 'Password reset email sent',
+        reset_link: response.data?.reset_link,
+        token: response.data?.token,
+        data: response.data,
         status: response.status,
       };
     } catch (error) {
@@ -466,18 +613,29 @@ const authService = {
         success: false,
         error: errorMessage || 'Failed to request password reset',
         status,
+        data,
       };
     }
   },
 
   /**
    * Reset password with token
-   * @param {string} token Reset token
-   * @param {string} newPassword New password
+   * Supports both resetPassword(token, newPassword) and resetPassword({ token, newPassword })
+   * @param {string|object} tokenOrObj Reset token or object
+   * @param {string} [newPasswordArg] New password
    * @returns {Promise} Response
    */
-  async resetPassword(token, newPassword) {
+  async resetPassword(tokenOrObj, newPasswordArg) {
     try {
+      const token =
+        typeof tokenOrObj === 'object' && tokenOrObj !== null
+          ? tokenOrObj.token
+          : tokenOrObj;
+      const newPassword =
+        typeof tokenOrObj === 'object' && tokenOrObj !== null
+          ? tokenOrObj.new_password || tokenOrObj.newPassword || tokenOrObj.password || newPasswordArg
+          : newPasswordArg;
+
       if (!token || !newPassword) {
         return {
           success: false,
@@ -507,6 +665,7 @@ const authService = {
       return {
         success: true,
         message: response.data?.message || 'Password reset successful',
+        data: response.data,
         status: response.status,
       };
     } catch (error) {
@@ -527,13 +686,14 @@ const authService = {
         success: false,
         error: errorMessage || 'Password reset failed',
         status,
+        data,
       };
     }
   },
 
   /**
-   * Get current user data
-   * @returns {object} User data
+   * Get current user data synchronously from localStorage
+   * @returns {object|null} User data
    */
   getCurrentUser() {
     try {
@@ -542,6 +702,31 @@ const authService = {
     } catch (error) {
       console.error('Error parsing user data:', error);
       return null;
+    }
+  },
+
+  /**
+   * Fetch fresh user profile from backend API when needed
+   * @returns {Promise} Response with user profile
+   */
+  async fetchCurrentUser() {
+    try {
+      const token = getAuthToken();
+      if (!token) {
+        return { success: false, status: 401, error: 'Not authenticated' };
+      }
+      const response = await apiClient.get('/users/me');
+      const user = response.data?.data || response.data?.user || response.data;
+      if (user && typeof user === 'object') {
+        localStorage.setItem('user', JSON.stringify(user));
+      }
+      return { success: true, user, data: user, status: response.status };
+    } catch (error) {
+      return {
+        success: false,
+        status: error?.response?.status || 401,
+        error: error?.response?.data?.detail || error?.message,
+      };
     }
   },
 
