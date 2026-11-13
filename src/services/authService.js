@@ -122,7 +122,7 @@ const authService = {
 
       console.log('📝 Registering user:', email);
 
-      const response = await apiClient.post('/api/v1/auth/register', {
+      const response = await apiClient.post('/auth/register', {
         email: email.toLowerCase().trim(),
         password,
         passwordConfirm,
@@ -178,7 +178,7 @@ const authService = {
 
       console.log('🔍 Verifying email:', email);
 
-      const response = await apiClient.post('/api/v1/auth/verify-email', {
+      const response = await apiClient.post('/auth/verify-email', {
         email: email.toLowerCase().trim(),
         otp: otp.trim(),
       });
@@ -231,7 +231,7 @@ const authService = {
 
       console.log('📧 Resending verification email to:', email);
 
-      const response = await apiClient.post('/api/v1/auth/resend-verification', {
+      const response = await apiClient.post('/auth/resend-verification', {
         email: email.toLowerCase().trim(),
       });
 
@@ -282,7 +282,7 @@ const authService = {
 
       console.log('👤 Completing profile');
 
-      const response = await apiClient.post('/api/v1/auth/complete-profile', profileData);
+      const response = await apiClient.post('/auth/complete-profile', profileData);
 
       // Update stored user data
       if (response.data?.user) {
@@ -319,7 +319,7 @@ const authService = {
       };
     }
   },
-  
+
   /**
    * Logout user
    * @returns {Promise} Logout response
@@ -330,7 +330,7 @@ const authService = {
 
       const token = getAuthToken();
       if (token) {
-         await apiClient.post('/auth/logout');
+        await apiClient.post('/auth/logout');
       }
 
       // Remove the cached profile so the next user doesn't see it
@@ -381,7 +381,7 @@ const authService = {
 
       console.log('🔄 Refreshing token...');
 
-      const response = await apiClient.post('/api/v1/auth/refresh', {
+      const response = await apiClient.post('/auth/refresh', {
         refresh_token: refreshToken,
       });
 
@@ -436,7 +436,7 @@ const authService = {
 
       console.log('📧 Requesting password reset for:', email);
 
-      const response = await apiClient.post('/api/v1/auth/request-password-reset', {
+      const response = await apiClient.post('/auth/forgot-password', {
         email: email.toLowerCase().trim(),
       });
 
@@ -495,9 +495,9 @@ const authService = {
 
       console.log('🔒 Resetting password');
 
-      const response = await apiClient.post('/api/v1/auth/reset-password', {
+      const response = await apiClient.post('/auth/reset-password', {
         token,
-        password: newPassword,
+        new_password: newPassword,
       });
 
       console.log('✅ Password reset successful');
