@@ -1,9 +1,8 @@
 // ============================================================================
-// Main App Component with Routing - FIXED FOR 5G SPEED (CODE SPLITTING)
-// ============================================================================
+// Main App Component with Routing
 // File: src/App.jsx
 // Purpose: Root component with React Router setup, auth flow, and lazy loading
-// Status: Production-Ready ✅
+// ============================================================================
 
 import React, { useState, useEffect, Suspense, lazy } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
@@ -12,7 +11,7 @@ import { Toaster, toast } from 'react-hot-toast';
 // Store
 import { useAuthStore } from './store/authStore';
 
-// Components (Non-lazy for immediate core layout)
+// Components (non-lazy, needed immediately)
 import PrivateRoute from './components/Auth/PrivateRoute';
 import BottomNavigation from './components/layout/BottomNavigation';
 import AIAssistant from './components/ai/AIAssistant';
@@ -20,7 +19,7 @@ import LoadingSpinner from './components/common/LoadingSpinner';
 import NotificationsScreen from './pages/main/NotificationsScreen';
 
 // ============================================================================
-// LAZY LOADED PAGES (Code Splitting for instant initial load)
+// LAZY LOADED PAGES (code splitting)
 // ============================================================================
 
 // Pages - Auth
@@ -45,6 +44,7 @@ const MyContactsScreen = lazy(() => import('./pages/main/MyContactsScreen'));
 const MyMeetingsScreen = lazy(() => import('./pages/main/MyMeetingsScreen'));
 const MyBadgeScreen = lazy(() => import('./pages/main/MyBadgeScreen'));
 const MyFavouritesScreen = lazy(() => import('./pages/main/MyFavouritesScreen'));
+const LeaderboardScreen = lazy(() => import('./pages/main/LeaderboardScreen'));
 
 // Pages - Engagement
 const SocialWallScreen = lazy(() => import('./pages/engagement/SocialWallScreen'));
@@ -63,7 +63,7 @@ const LearningPathsScreen = lazy(() => import('./pages/gamification/LearningPath
 
 // Pages - Engagement Center & Admin
 const EngagementCenterScreen = lazy(() => import('./pages/engagement-center/engagementCenterScreen.jsx'));
-const AdminDashboardScreen = lazy(() => import('./pages/admin/adminDashboardScreen.jsx'));
+const AdminDashboardScreen = lazy(() => import('./pages/admin/AdminDashboardScreen.jsx'));
 const AdminRBACDashboard = lazy(() => import('./pages/admin/AdminRBACDashboard.jsx'));
 
 // AI Features Screens
@@ -87,8 +87,8 @@ function LoadingFallback() {
         justifyContent: 'center',
         alignItems: 'center',
         height: '100vh',
-        background: '#f3f4f6'
-      }
+        background: '#f3f4f6',
+      },
     },
     h(LoadingSpinner, { fullScreen: true })
   );
@@ -108,7 +108,7 @@ function App() {
 
   useEffect(() => {
     const handleTokenExpiration = () => {
-      logout(); 
+      logout();
       toast.error('Session expired. Please log in again.');
     };
 
@@ -126,9 +126,9 @@ function App() {
         duration: 4000,
         style: {
           background: '#1f2937',
-          color: '#fff'
-        }
-      }
+          color: '#fff',
+        },
+      },
     }),
     h(
       Router,
@@ -139,14 +139,15 @@ function App() {
         h(
           Routes,
           null,
-          // Public Routes
+
+          // Public routes
           h(Route, { path: '/', element: h(SplashScreen) }),
           h(Route, { path: '/login', element: h(LoginScreen) }),
           h(Route, { path: '/register', element: h(RegisterScreen) }),
           h(Route, { path: '/verify-email', element: h(VerifyEmailScreen) }),
           h(Route, { path: '/complete-profile', element: h(CompleteProfileScreen) }),
 
-          // Main Protected Routes
+          // Main protected routes
           h(Route, { path: '/home', element: wrapPrivate(HomeScreen) }),
           h(Route, { path: '/sessions', element: wrapPrivate(SessionsScreen) }),
           h(Route, { path: '/hub', element: wrapPrivate(HubScreen) }),
@@ -161,11 +162,9 @@ function App() {
           h(Route, { path: '/my-badges', element: wrapPrivate(MyBadgeScreen) }),
           h(Route, { path: '/my-favourites', element: wrapPrivate(MyFavouritesScreen) }),
           h(Route, { path: '/notifications', element: wrapPrivate(NotificationsScreen) }),
-          
-          // Redirect old leaderboard route to the new Engagement Center
-          h(Route, { path: '/leaderboard', element: h(Navigate, { to: '/engagement-center?tab=leaderboard', replace: true }) }),
-          
-          // Engagement Routes
+          h(Route, { path: '/leaderboard', element: wrapPrivate(LeaderboardScreen) }),
+
+          // Engagement routes
           h(Route, { path: '/social-wall', element: wrapPrivate(SocialWallScreen) }),
           h(Route, { path: '/activity-hub', element: wrapPrivate(ActivityHubScreen) }),
           h(Route, { path: '/ai-matches', element: wrapPrivate(AIMatchesScreen) }),
@@ -174,34 +173,31 @@ function App() {
           h(Route, { path: '/briefcase', element: wrapPrivate(BriefcaseScreen) }),
           h(Route, { path: '/polls', element: h(Navigate, { to: '/engagement-center', replace: true }) }),
 
-          // Gamification & Learning Routes
+          // Gamification & learning routes
           h(Route, { path: '/ratings', element: wrapPrivate(RatingsScreen) }),
           h(Route, { path: '/analytics', element: wrapPrivate(AnalyticsScreen) }),
           h(Route, { path: '/announcements', element: wrapPrivate(AnnouncementsScreen) }),
           h(Route, { path: '/speakers', element: wrapPrivate(SpeakersScreen) }),
           h(Route, { path: '/learning-paths', element: wrapPrivate(LearningPathsScreen) }),
 
-          // Engagement Center & Admin Routes
-          h(Route, { path: '/engagement-center', element: wrapPrivate(EngagementCenterScreen)}),
+          // Engagement Center & admin routes
+          h(Route, { path: '/engagement-center', element: wrapPrivate(EngagementCenterScreen) }),
           h(Route, { path: '/admin', element: wrapPrivate(AdminDashboardScreen, null, true) }),
           h(Route, { path: '/admin/rbac', element: wrapPrivate(AdminRBACDashboard, null, true) }),
 
-          // AI Features Routes
+          // AI feature routes
           h(Route, {
             path: '/discover',
-            element: wrapPrivate(AIEventRecommendations, { userProfile: userProfile })
+            element: wrapPrivate(AIEventRecommendations, { userProfile: userProfile }),
           }),
           h(Route, { path: '/sessions/:id/summary', element: wrapPrivate(AISessionSummary) }),
-          h(Route, {
-            path: '/sessions/:id/quiz',
-            element: wrapPrivate(SessionQuizPage)
-          }),
+          h(Route, { path: '/sessions/:id/quiz', element: wrapPrivate(SessionQuizPage) }),
           h(Route, { path: '/network-matches', element: wrapPrivate(AIPerfectNetworkMatch) }),
 
-          // Fallback Route
+          // Fallback route
           h(Route, {
             path: '*',
-            element: h(Navigate, { to: isAuthenticated ? '/home' : '/', replace: true })
+            element: h(Navigate, { to: isAuthenticated ? '/home' : '/', replace: true }),
           })
         )
       ),
