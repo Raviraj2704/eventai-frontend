@@ -19,9 +19,6 @@ import AIAssistant from './components/ai/AIAssistant';
 import LoadingSpinner from './components/common/LoadingSpinner';
 import NotificationsScreen from './pages/main/NotificationsScreen';
 
-
-
-
 // ============================================================================
 // LAZY LOADED PAGES (Code Splitting for instant initial load)
 // ============================================================================
@@ -48,9 +45,6 @@ const MyContactsScreen = lazy(() => import('./pages/main/MyContactsScreen'));
 const MyMeetingsScreen = lazy(() => import('./pages/main/MyMeetingsScreen'));
 const MyBadgeScreen = lazy(() => import('./pages/main/MyBadgeScreen'));
 const MyFavouritesScreen = lazy(() => import('./pages/main/MyFavouritesScreen'));
-const LeaderboardScreen = lazy(() => import('./pages/main/LeaderBoardScreen'));
-
-
 
 // Pages - Engagement
 const SocialWallScreen = lazy(() => import('./pages/engagement/SocialWallScreen'));
@@ -69,7 +63,7 @@ const LearningPathsScreen = lazy(() => import('./pages/gamification/LearningPath
 
 // Pages - Engagement Center & Admin
 const EngagementCenterScreen = lazy(() => import('./pages/engagement-center/engagementCenterScreen.jsx'));
-const AdminDashboardScreen = lazy(() => import('./pages/admin/AdminDashboardScreen.jsx'));
+const AdminDashboardScreen = lazy(() => import('./pages/admin/adminDashboardScreen.jsx'));
 const AdminRBACDashboard = lazy(() => import('./pages/admin/AdminRBACDashboard.jsx'));
 
 // AI Features Screens
@@ -109,14 +103,12 @@ function wrapPrivate(Component, props, adminOnly) {
 }
 
 function App() {
-  // Grab logout from the store to handle state cleanup
   const { isAuthenticated, logout } = useAuthStore();
   const [userProfile] = useState(null);
 
-  // Listen for the custom 401 Unauthorized event from apiClient.js
   useEffect(() => {
     const handleTokenExpiration = () => {
-      logout(); // Clears Zustand state, triggering a clean redirect to /login
+      logout(); 
       toast.error('Session expired. Please log in again.');
     };
 
@@ -169,7 +161,10 @@ function App() {
           h(Route, { path: '/my-badges', element: wrapPrivate(MyBadgeScreen) }),
           h(Route, { path: '/my-favourites', element: wrapPrivate(MyFavouritesScreen) }),
           h(Route, { path: '/notifications', element: wrapPrivate(NotificationsScreen) }),
-          h(Route, { path: '/leaderboard', element: wrapPrivate(LeaderboardScreen) }),
+          
+          // Redirect old leaderboard route to the new Engagement Center
+          h(Route, { path: '/leaderboard', element: h(Navigate, { to: '/engagement-center?tab=leaderboard', replace: true }) }),
+          
           // Engagement Routes
           h(Route, { path: '/social-wall', element: wrapPrivate(SocialWallScreen) }),
           h(Route, { path: '/activity-hub', element: wrapPrivate(ActivityHubScreen) }),
@@ -187,7 +182,7 @@ function App() {
           h(Route, { path: '/learning-paths', element: wrapPrivate(LearningPathsScreen) }),
 
           // Engagement Center & Admin Routes
-          h(Route, { path: '/engagement-center', element: wrapPrivate(EngagementCenterScreen) }),
+          h(Route, { path: '/engagement-center', element: wrapPrivate(EngagementCenterScreen)}),
           h(Route, { path: '/admin', element: wrapPrivate(AdminDashboardScreen, null, true) }),
           h(Route, { path: '/admin/rbac', element: wrapPrivate(AdminRBACDashboard, null, true) }),
 
@@ -212,7 +207,6 @@ function App() {
       ),
       isAuthenticated && h(BottomNavigation)
     ),
-    // Single Unified AI Assistant Floating Widget
     isAuthenticated && h(AIAssistant, { userProfile: userProfile })
   );
 }
