@@ -21,6 +21,7 @@ import NotificationsScreen from './pages/main/NotificationsScreen';
 
 
 
+
 // ============================================================================
 // LAZY LOADED PAGES (Code Splitting for instant initial load)
 // ============================================================================
@@ -47,6 +48,7 @@ const MyContactsScreen = lazy(() => import('./pages/main/MyContactsScreen'));
 const MyMeetingsScreen = lazy(() => import('./pages/main/MyMeetingsScreen'));
 const MyBadgeScreen = lazy(() => import('./pages/main/MyBadgeScreen'));
 const MyFavouritesScreen = lazy(() => import('./pages/main/MyFavouritesScreen'));
+const LeaderboardScreen = lazy(() => import('./pages/main/LeaderBoardScreen'));
 
 
 
@@ -167,7 +169,7 @@ function App() {
           h(Route, { path: '/my-badges', element: wrapPrivate(MyBadgeScreen) }),
           h(Route, { path: '/my-favourites', element: wrapPrivate(MyFavouritesScreen) }),
           h(Route, { path: '/notifications', element: wrapPrivate(NotificationsScreen) }),
-        
+          h(Route, { path: '/leaderboard', element: wrapPrivate(LeaderboardScreen) }),
           // Engagement Routes
           h(Route, { path: '/social-wall', element: wrapPrivate(SocialWallScreen) }),
           h(Route, { path: '/activity-hub', element: wrapPrivate(ActivityHubScreen) }),
