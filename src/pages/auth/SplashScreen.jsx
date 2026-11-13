@@ -10,11 +10,11 @@ import { Calendar, MapPin, Sparkles } from 'lucide-react';
 const SplashScreen = () => {
   const navigate = useNavigate();
 
-  // Auto-redirect to Login after 3 seconds
+  // Auto-redirect to Login after 20 seconds
   useEffect(() => {
     const timer = setTimeout(() => {
       navigate('/login', { replace: true });
-    }, 3000);
+    }, 20000);
     
     return () => clearTimeout(timer);
   }, [navigate]);
