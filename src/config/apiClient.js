@@ -65,8 +65,9 @@ apiClient.interceptors.response.use(
     return response;
   },
   (error) => {
-    // If the user is already on the login page or splash screen, silently ignore 401 errors from delayed background requests
-    const isPublicPage = window.location.pathname === '/login' || window.location.pathname === '/';
+    // FIX: Silence 401 errors if we are currently on the login page or splash screen
+    const currentPath = window.location.pathname;
+    const isPublicPage = currentPath === '/login' || currentPath === '/';
     
     const status = error.response ? error.response.status : null;
     const data = error.response ? error.response.data : null;
