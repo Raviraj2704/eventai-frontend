@@ -6,7 +6,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ChevronLeft, Search, ArrowUpDown, Loader2 } from 'lucide-react';
-import chatService from '../../services/chatService';
+import chatService from '../../services/chatService.js';
 
 export default function ChatListScreen() {
   const navigate = useNavigate();
