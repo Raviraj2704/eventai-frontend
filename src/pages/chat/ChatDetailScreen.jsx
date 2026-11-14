@@ -7,7 +7,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { ChevronLeft, Send, Check, X, AlertTriangle, Loader2 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
-import chatService from '../services/chatService';
+import chatService from '../../services/chatService';
 
 export default function ChatDetailScreen() {
   const { id } = useParams();
