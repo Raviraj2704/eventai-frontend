@@ -20,6 +20,18 @@ const chatService = {
   },
 
   /**
+   * Fetch all available users to start a new chat with
+   */
+  async getAvailableUsers() {
+    try {
+      const response = await apiClient.get('/chat/users');
+      return { success: true, data: response.data.data };
+    } catch (error) {
+      return { success: false, error: 'Failed to load users' };
+    }
+  },
+
+  /**
    * Send a new chat request to a user
    */
   async sendChatRequest(userId) {

@@ -1,32 +1,61 @@
 // ============================================================================
 // File: src/pages/chat/ChatListScreen.jsx
-// Purpose: Live Chat Directory (Active, Received, Sent)
+// Purpose: Live Chat Directory with "Start New Chat" Feature
 // ============================================================================
 
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ChevronLeft, Search, ArrowUpDown, Loader2 } from 'lucide-react';
+import { ChevronLeft, Search, ArrowUpDown, Loader2, MessageSquarePlus, X } from 'lucide-react';
+import { toast } from 'react-hot-toast';
 import chatService from '../../services/chatService.js';
 
 export default function ChatListScreen() {
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState('active'); // 'active', 'received', 'sent'
+  const [activeTab, setActiveTab] = useState('active'); 
   const [searchQuery, setSearchQuery] = useState('');
   
   const [chats, setChats] = useState({ active: [], received: [], sent: [] });
   const [loading, setLoading] = useState(true);
 
+  // New Chat Modal States
+  const [showModal, setShowModal] = useState(false);
+  const [availableUsers, setAvailableUsers] = useState([]);
+  const [loadingUsers, setLoadingUsers] = useState(false);
+
   useEffect(() => {
-    const loadData = async () => {
-      setLoading(true);
-      const res = await chatService.getChatList();
-      if (res.success) {
-        setChats(res.data);
-      }
-      setLoading(false);
-    };
     loadData();
   }, []);
+
+  const loadData = async () => {
+    setLoading(true);
+    const res = await chatService.getChatList();
+    if (res.success) {
+      setChats(res.data);
+    }
+    setLoading(false);
+  };
+
+  const handleOpenNewChat = async () => {
+    setShowModal(true);
+    setLoadingUsers(true);
+    const res = await chatService.getAvailableUsers();
+    if (res.success) {
+      setAvailableUsers(res.data);
+    }
+    setLoadingUsers(false);
+  };
+
+  const handleSendRequest = async (userId) => {
+    const res = await chatService.sendChatRequest(userId);
+    if (res.success) {
+      toast.success('Chat request sent!');
+      setShowModal(false);
+      setActiveTab('sent');
+      loadData(); // Refresh list
+    } else {
+      toast.error(res.error);
+    }
+  };
 
   const currentList = chats[activeTab]?.filter(chat => 
     chat.name.toLowerCase().includes(searchQuery.toLowerCase())
@@ -98,18 +127,57 @@ export default function ChatListScreen() {
                   <span className="text-[13px] text-slate-400 mt-1 truncate max-w-[180px]">{chat.message}</span>
                 </div>
               </div>
-              <div className="flex flex-col items-end gap-1.5">
-                {chat.unread > 0 ? (
-                  <div className="w-5 h-5 rounded-full bg-slate-200 flex items-center justify-center text-[10px] font-bold text-slate-600">
-                    {chat.unread}
-                  </div>
-                ) : <div className="h-5"></div>}
-                {chat.date && <span className="text-[11px] font-medium text-slate-400">{chat.date}</span>}
-              </div>
             </div>
           ))
         )}
       </div>
+
+      {/* Floating Action Button */}
+      <button 
+        onClick={handleOpenNewChat}
+        className="fixed bottom-24 right-6 w-14 h-14 bg-[#0000c8] rounded-full flex items-center justify-center shadow-lg shadow-blue-900/30 hover:bg-blue-800 transition-colors"
+      >
+        <MessageSquarePlus size={24} className="text-white" />
+      </button>
+
+      {/* New Chat Modal */}
+      {showModal && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-end justify-center sm:items-center">
+          <div className="bg-white w-full max-w-[430px] rounded-t-2xl sm:rounded-2xl h-[70vh] sm:h-[500px] flex flex-col">
+            <div className="flex items-center justify-between p-5 border-b border-slate-100">
+              <h2 className="text-lg font-bold text-slate-900">Start New Chat</h2>
+              <button onClick={() => setShowModal(false)} className="p-1 text-slate-400 hover:bg-slate-100 rounded-full">
+                <X size={20} />
+              </button>
+            </div>
+            
+            <div className="flex-1 overflow-y-auto p-5">
+              {loadingUsers ? (
+                <div className="flex justify-center py-10"><Loader2 className="w-8 h-8 text-blue-600 animate-spin" /></div>
+              ) : availableUsers.length === 0 ? (
+                <p className="text-center text-slate-500 mt-10">No other users found.</p>
+              ) : (
+                availableUsers.map(user => (
+                  <div key={user.id} className="flex items-center justify-between py-3 border-b border-slate-50">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-600 font-bold border border-slate-200">
+                        {user.avatar}
+                      </div>
+                      <span className="font-semibold text-slate-800">{user.name}</span>
+                    </div>
+                    <button 
+                      onClick={() => handleSendRequest(user.id)}
+                      className="bg-blue-50 text-[#0000c8] px-4 py-1.5 rounded-full text-[13px] font-bold hover:bg-blue-100"
+                    >
+                      Connect
+                    </button>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
