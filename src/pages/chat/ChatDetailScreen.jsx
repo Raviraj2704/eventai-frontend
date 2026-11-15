@@ -1,6 +1,6 @@
 // ============================================================================
 // File: src/pages/chat/ChatDetailScreen.jsx
-// Purpose: Live Conversation & Accept/Reject Logic (Full-Screen Mobile Overlay)
+// Purpose: Live Conversation & Accept/Reject Logic (Decoupled Fixed Footer)
 // ============================================================================
 
 import React, { useState, useEffect, useRef } from 'react';
@@ -30,7 +30,6 @@ export default function ChatDetailScreen() {
     }
   }, [id, chatState]);
 
-  // Auto-scroll to bottom of chat
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
@@ -40,9 +39,7 @@ export default function ChatDetailScreen() {
     const res = await chatService.getMessages(id);
     if (res.success) {
       setMessages(res.data);
-      if (res.connection_status) {
-        setChatState(res.connection_status);
-      }
+      if (res.connection_status) setChatState(res.connection_status);
     } else {
       toast.error(res.error);
     }
@@ -66,8 +63,6 @@ export default function ChatDetailScreen() {
 
   const handleSend = async () => {
     if (!message.trim() || sending) return;
-    
-    // Optimistic UI update
     const textToSend = message;
     const tempId = Date.now();
     setMessages(prev => [...prev, { id: tempId, text: textToSend, time: 'Sending...', sender: 'me' }]);
@@ -86,11 +81,11 @@ export default function ChatDetailScreen() {
   };
 
   return (
-    // The master wrapper breaks out of React Router's flow
-    <div className="fixed top-0 left-0 right-0 bottom-0 z-[999] bg-white h-screen max-h-screen w-full flex flex-col sm:relative sm:max-w-[430px] sm:mx-auto sm:shadow-2xl">
+    // Standard block wrapper with huge bottom padding so messages don't hide behind the footer
+    <div className="bg-white min-h-screen w-full max-w-[430px] mx-auto pb-[130px] relative">
       
-      {/* HEADER */}
-      <div className="flex-none h-16 flex items-center px-2 border-b border-slate-100 shadow-sm bg-white">
+      {/* STICKY HEADER */}
+      <div className="sticky top-0 z-[50] flex items-center px-2 py-3 border-b border-slate-100 shadow-sm bg-white">
         <button onClick={() => navigate('/chat')} className="p-2">
           <ChevronLeft size={24} className="text-slate-800" />
         </button>
@@ -102,10 +97,10 @@ export default function ChatDetailScreen() {
         </div>
       </div>
 
-      {/* CHAT BODY */}
-      <div className="flex-1 overflow-y-auto px-4 py-6 bg-slate-50 flex flex-col gap-4">
+      {/* NORMAL CHAT BODY (No flexbox heights used) */}
+      <div className="px-4 py-6 bg-slate-50 min-h-[80vh] flex flex-col gap-4">
         {loading ? (
-          <div className="flex justify-center items-center h-full">
+          <div className="flex justify-center items-center py-20">
             <Loader2 className="w-6 h-6 text-blue-600 animate-spin" />
           </div>
         ) : messages.length === 0 && chatState === 'active' ? (
@@ -128,11 +123,11 @@ export default function ChatDetailScreen() {
             </div>
           ))
         )}
-        <div ref={messagesEndRef} className="h-4 w-full flex-none" />
+        <div ref={messagesEndRef} className="h-4 w-full" />
       </div>
 
-      {/* FOOTER */}
-      <div className="flex-none bg-white border-t border-slate-200 p-3 pb-safe">
+      {/* FIXED FOOTER (Completely decoupled from the layout flow, nailed to browser bottom) */}
+      <div className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[430px] z-[9999] bg-white border-t border-slate-200 p-3 pb-safe shadow-[0_-5px_15px_-5px_rgba(0,0,0,0.1)]">
         
         {chatState === 'active' && (
           <div className="flex items-center gap-3">
@@ -189,6 +184,7 @@ export default function ChatDetailScreen() {
             <p className="text-[13px] text-rose-500 font-medium">User is currently not available for chat!</p>
           </div>
         )}
+
       </div>
     </div>
   );
