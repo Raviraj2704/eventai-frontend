@@ -86,11 +86,11 @@ export default function ChatDetailScreen() {
   };
 
   return (
-    // Bulletproof mobile wrapper: forces exactly 100% of the viewport height and hides any overflow
-    <div className="fixed inset-0 w-full h-[100dvh] bg-white z-[60] sm:relative sm:max-w-[430px] sm:mx-auto sm:shadow-2xl overflow-hidden flex flex-col">
+    // The main wrapper covers the whole screen
+    <div className="fixed inset-0 w-full h-[100dvh] bg-white z-[60] sm:relative sm:max-w-[430px] sm:mx-auto sm:shadow-2xl overflow-hidden">
       
-      {/* Header (Shrink-0 prevents it from squishing) */}
-      <div className="flex items-center px-2 py-3 border-b border-slate-100 shadow-sm bg-white shrink-0 h-[60px]">
+      {/* HEADER: Pinned exactly to the top */}
+      <div className="absolute top-0 left-0 right-0 h-[60px] flex items-center px-2 border-b border-slate-100 shadow-sm bg-white z-20">
         <button onClick={() => navigate('/chat')} className="p-2">
           <ChevronLeft size={24} className="text-slate-800" />
         </button>
@@ -102,8 +102,8 @@ export default function ChatDetailScreen() {
         </div>
       </div>
 
-      {/* Chat Body (Flex-1 allows it to take up remaining space, overflow-y-auto enables scrolling) */}
-      <div className="flex-1 overflow-y-auto px-4 py-6 bg-slate-50 flex flex-col gap-4">
+      {/* CHAT BODY: Pinned exactly between the header (60px) and footer (75px) */}
+      <div className="absolute top-[60px] bottom-[75px] left-0 right-0 overflow-y-auto px-4 py-6 bg-slate-50 flex flex-col gap-4 z-10">
         {loading ? (
           <div className="flex justify-center items-center h-full">
             <Loader2 className="w-6 h-6 text-blue-600 animate-spin" />
@@ -131,10 +131,9 @@ export default function ChatDetailScreen() {
         <div ref={messagesEndRef} className="h-4 w-full shrink-0" />
       </div>
 
-      {/* Dynamic Footer (Shrink-0 keeps it visible at the exact bottom) */}
-      <div className="bg-white border-t border-slate-200 p-3 shrink-0 min-h-[70px]">
+      {/* FOOTER: Pinned exactly to the bottom */}
+      <div className="absolute bottom-0 left-0 right-0 min-h-[75px] bg-white border-t border-slate-200 p-3 pb-safe z-20">
         
-        {/* State 1: Active Chat Input */}
         {chatState === 'active' && (
           <div className="flex items-center gap-3">
             <div className="flex-1 border border-slate-200 rounded-[20px] bg-slate-50 px-4 py-2.5 flex items-center focus-within:bg-white focus-within:border-[#0000c8] transition-colors">
@@ -158,7 +157,6 @@ export default function ChatDetailScreen() {
           </div>
         )}
 
-        {/* State 2: Request Received (Accept/Reject) */}
         {chatState === 'received' && (
           <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 flex flex-col gap-3">
             <p className="text-[13px] text-slate-600 font-medium text-center">To continue chat please accept request</p>
@@ -179,21 +177,18 @@ export default function ChatDetailScreen() {
           </div>
         )}
 
-        {/* State 3: Request Sent (Waiting) */}
         {chatState === 'sent' && (
           <div className="bg-indigo-50/50 border border-indigo-100 rounded-xl p-4 text-center">
-            <p className="text-[13px] text-indigo-600 font-medium">Chat request has been sent. Waiting for approval!</p>
+            <p className="text-[13px] text-indigo-600 font-medium">Request sent. Waiting for approval!</p>
           </div>
         )}
 
-        {/* State 4: Rejected / Blocked */}
-        {chatState === 'rejected' || chatState === 'blocked' ? (
+        {(chatState === 'rejected' || chatState === 'blocked') && (
           <div className="bg-rose-50 border border-rose-100 rounded-xl p-4 flex items-center justify-center gap-2">
             <AlertTriangle size={16} className="text-rose-500" />
-            <p className="text-[13px] text-rose-500 font-medium">This user is currently not available for chat!</p>
+            <p className="text-[13px] text-rose-500 font-medium">User is currently not available for chat!</p>
           </div>
-        ) : null}
-
+        )}
       </div>
     </div>
   );
