@@ -86,11 +86,11 @@ export default function ChatDetailScreen() {
   };
 
   return (
-    // Fixed wrapper strictly locked to screen height
-    <div className="fixed inset-0 z-[60] bg-white w-full h-[100dvh] flex flex-col sm:relative sm:max-w-[430px] sm:mx-auto sm:shadow-2xl">
+    // The master wrapper breaks out of React Router's flow
+    <div className="fixed top-0 left-0 right-0 bottom-0 z-[999] bg-white h-screen max-h-screen w-full flex flex-col sm:relative sm:max-w-[430px] sm:mx-auto sm:shadow-2xl">
       
-      {/* HEADER: Fixed height of 4rem (64px) using h-16, shrink-0 stops it from crushing */}
-      <div className="h-16 shrink-0 flex items-center px-2 border-b border-slate-100 shadow-sm bg-white z-20">
+      {/* HEADER */}
+      <div className="flex-none h-16 flex items-center px-2 border-b border-slate-100 shadow-sm bg-white">
         <button onClick={() => navigate('/chat')} className="p-2">
           <ChevronLeft size={24} className="text-slate-800" />
         </button>
@@ -102,7 +102,7 @@ export default function ChatDetailScreen() {
         </div>
       </div>
 
-      {/* CHAT BODY: flex-1 automatically fills ALL remaining space between header and footer */}
+      {/* CHAT BODY */}
       <div className="flex-1 overflow-y-auto px-4 py-6 bg-slate-50 flex flex-col gap-4">
         {loading ? (
           <div className="flex justify-center items-center h-full">
@@ -128,11 +128,11 @@ export default function ChatDetailScreen() {
             </div>
           ))
         )}
-        <div ref={messagesEndRef} className="h-4 w-full shrink-0" />
+        <div ref={messagesEndRef} className="h-4 w-full flex-none" />
       </div>
 
-      {/* FOOTER: shrink-0 keeps it glued to the bottom. pb-safe protects iPhone swipe bar */}
-      <div className="shrink-0 bg-white border-t border-slate-200 p-3 pb-safe z-20">
+      {/* FOOTER */}
+      <div className="flex-none bg-white border-t border-slate-200 p-3 pb-safe">
         
         {chatState === 'active' && (
           <div className="flex items-center gap-3">
