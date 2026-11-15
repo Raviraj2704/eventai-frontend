@@ -89,7 +89,7 @@ export default function ChatDetailScreen() {
 
   return (
     // pb-20 prevents the footer from hiding behind the bottom mobile navigation bar
-    <div className="h-screen bg-white flex flex-col font-sans max-w-[430px] mx-auto shadow-xl relative pb-20 md:pb-0">
+    <div className="h-[100dvh] bg-white flex flex-col font-sans max-w-[430px] mx-auto shadow-xl relative overflow-hidden">
       
       {/* Header */}
       <div className="flex items-center px-2 py-3 border-b border-slate-100 shadow-sm z-10 bg-white shrink-0">
@@ -105,7 +105,7 @@ export default function ChatDetailScreen() {
       </div>
 
       {/* Chat Body */}
-      <div className="flex-1 overflow-y-auto px-4 py-6 bg-white flex flex-col gap-4">
+      <div className="flex-1 min-h-0 overflow-y-auto px-4 py-6 bg-white flex flex-col gap-4">
         {loading ? (
           <div className="flex justify-center items-center h-full">
             <Loader2 className="w-6 h-6 text-blue-600 animate-spin" />
@@ -134,7 +134,7 @@ export default function ChatDetailScreen() {
       </div>
 
       {/* Dynamic Footer based on chat state */}
-      <div className="bg-white border-t border-slate-100 p-4 shrink-0">
+      <div className="bg-white border-t border-slate-100 p-4 shrink-0 pb-20 md:pb-4 z-20 shadow-[0_-4px_10px_rgba(0,0,0,0.02)]">
         
         {/* State 1: Active Chat Input */}
         {chatState === 'active' && (

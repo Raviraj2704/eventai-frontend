@@ -477,20 +477,6 @@ export default function HomeScreen() {
           onCountChange={bumpComments}
         />
       )}
-
-      {/* Floating AI button */}
-      <div className="fixed bottom-20 left-1/2 -translate-x-1/2 w-full max-w-[430px] pointer-events-none z-40">
-        <div className="flex justify-end pr-4">
-          <button
-            type="button"
-            onClick={() => navigate('/picbot')}
-            aria-label="AI Assistant"
-            className="pointer-events-auto w-14 h-14 rounded-full bg-white shadow-lg border border-neutral-200 flex items-center justify-center text-[#0000c8]"
-          >
-            <Sparkles size={24} />
-          </button>
-        </div>
       </div>
-    </div>
   );
 }

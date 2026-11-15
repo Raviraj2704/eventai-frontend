@@ -478,15 +478,6 @@ export default function HubScreen() {
 
       </div>
 
-      {/* Floating Orange AI Assistant FAB */}
-      <button
-        onClick={() => navigate('/discover')}
-        className="fixed bottom-20 right-4 w-14 h-14 rounded-full bg-gradient-to-tr from-amber-500 via-orange-500 to-rose-500 text-white shadow-[0_8px_20px_rgba(249,115,22,0.4)] flex items-center justify-center z-50 hover:scale-105 active:scale-95 transition-transform"
-        aria-label="AI Assistant"
-      >
-        <Sparkles size={24} className="animate-pulse" />
-      </button>
-
       {/* Engagement Center Bottom Sheet Drawer */}
       {showEngagementSheet && (
         <div 

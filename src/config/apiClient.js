@@ -40,22 +40,21 @@ apiClient.interceptors.request.use(
   (config) => {
     // Get token from localStorage
     const token = localStorage.getItem('access_token');
-
-    // Add Authorization header if token exists
+    
+    // Attach token to headers if it exists
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
-
-    // Add request metadata
-    config.headers['X-Request-ID'] = generateRequestId();
-    config.headers['X-Client-Version'] = '1.0.0';
-
+    
     return config;
   },
   (error) => {
     return Promise.reject(error);
   }
 );
+
+// Global flag outside the interceptor to prevent 401 spam loops
+let isLoggingOut = false;
 
 // ============================================
 // RESPONSE INTERCEPTOR
@@ -65,38 +64,43 @@ apiClient.interceptors.response.use(
     return response;
   },
   (error) => {
-    // FIX: Silence 401 errors if we are currently on the login page or splash screen
-    // This stops the UI from spamming toasts when logging out.
     const currentPath = window.location.pathname;
-    const isPublicPage = currentPath === '/login' || currentPath === '/';
+    const isPublicPage = currentPath === '/login' || currentPath === '/' || currentPath === '/register';
     
     const status = error.response ? error.response.status : null;
     const data = error.response ? error.response.data : null;
 
     // Handle 401 Unauthorized - token expired or invalid
     if (status === 401) {
-      // Clear all auth data completely to break loops
-      Object.keys(localStorage)
-        .filter((key) => key.startsWith('event'))
-        .forEach((key) => localStorage.removeItem(key));
+      if (!isLoggingOut) {
+        isLoggingOut = true;
+        
+        // Clear all auth data completely to break loops
+        Object.keys(localStorage)
+          .filter((key) => key.startsWith('event'))
+          .forEach((key) => localStorage.removeItem(key));
 
-      localStorage.removeItem('access_token');
-      localStorage.removeItem('refresh_token');
-      localStorage.removeItem('user');
-      localStorage.removeItem('user_id');
+        localStorage.removeItem('access_token');
+        localStorage.removeItem('refresh_token');
+        localStorage.removeItem('user');
+        localStorage.removeItem('user_id');
 
-      if (!isPublicPage) {
-        console.error('🚫 Unauthorized - Token expired or invalid');
-        window.dispatchEvent(new Event('auth-token-expired'));
-        return Promise.reject({
-          status: 401,
-          message: 'Session expired. Please login again.',
-          data,
-        });
-      } else {
-        // Silently fail if they are already logged out / on public page
-        return Promise.reject({ status: 401, silent: true });
+        if (!isPublicPage) {
+          console.error('🚫 Unauthorized - Token expired or invalid');
+          window.dispatchEvent(new Event('auth-token-expired'));
+          
+          // Reset flag after 2 seconds so they can log back in
+          setTimeout(() => { isLoggingOut = false; }, 2000);
+          
+          return Promise.reject({
+            status: 401,
+            message: 'Session expired. Please login again.',
+            data,
+          });
+        }
       }
+      // If already logging out, swallow the error silently to prevent console spam
+      return Promise.reject({ status: 401, silent: true });
     }
 
     // Handle 403 Forbidden
@@ -160,7 +164,7 @@ apiClient.interceptors.response.use(
 /**
  * Generate unique request ID for tracking
  */
-function generateRequestId() {
+export function generateRequestId() {
   return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 }
 
