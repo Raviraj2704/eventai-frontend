@@ -5,7 +5,7 @@
 // ============================================================================
 
 import React, { useState, useEffect, Suspense, lazy } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { Toaster, toast } from 'react-hot-toast';
 
 // Store
@@ -104,9 +104,10 @@ function wrapPrivate(Component, props, adminOnly) {
   );
 }
 
-function App() {
+function AppContent() {
   const { isAuthenticated, logout } = useAuthStore();
   const [userProfile] = useState(null);
+  const location = useLocation();
 
   useEffect(() => {
     const handleTokenExpiration = () => {
@@ -133,84 +134,84 @@ function App() {
       },
     }),
     h(
-      Router,
-      null,
+      Suspense,
+      { fallback: h(LoadingFallback) },
       h(
-        Suspense,
-        { fallback: h(LoadingFallback) },
-        h(
-          Routes,
-          null,
+        Routes,
+        null,
+        // Public routes
+        h(Route, { path: '/', element: h(SplashScreen) }),
+        h(Route, { path: '/login', element: h(LoginScreen) }),
+        h(Route, { path: '/register', element: h(RegisterScreen) }),
+        h(Route, { path: '/verify-email', element: h(VerifyEmailScreen) }),
+        h(Route, { path: '/complete-profile', element: h(CompleteProfileScreen) }),
 
-          // Public routes
-          h(Route, { path: '/', element: h(SplashScreen) }),
-          h(Route, { path: '/login', element: h(LoginScreen) }),
-          h(Route, { path: '/register', element: h(RegisterScreen) }),
-          h(Route, { path: '/verify-email', element: h(VerifyEmailScreen) }),
-          h(Route, { path: '/complete-profile', element: h(CompleteProfileScreen) }),
+        // Main protected routes
+        h(Route, { path: '/home', element: wrapPrivate(HomeScreen) }),
+        h(Route, { path: '/sessions', element: wrapPrivate(SessionsScreen) }),
+        h(Route, { path: '/hub', element: wrapPrivate(HubScreen) }),
+        h(Route, { path: '/networking', element: wrapPrivate(NetworkingScreen) }),
+        h(Route, { path: '/profile', element: wrapPrivate(ProfileScreen) }),
+        h(Route, { path: '/event-info', element: wrapPrivate(EventInfoScreen) }),
+        h(Route, { path: '/sessions/:id', element: wrapPrivate(SessionDetailScreen) }),
+        h(Route, { path: '/feedback', element: wrapPrivate(FeedbackScreen) }),
+        h(Route, { path: '/my-calendar', element: wrapPrivate(MyCalendarScreen) }),
+        h(Route, { path: '/my-contacts', element: wrapPrivate(MyContactsScreen) }),
+        h(Route, { path: '/my-meetings', element: wrapPrivate(MyMeetingsScreen) }),
+        h(Route, { path: '/my-badges', element: wrapPrivate(MyBadgeScreen) }),
+        h(Route, { path: '/my-favourites', element: wrapPrivate(MyFavouritesScreen) }),
+        h(Route, { path: '/notifications', element: wrapPrivate(NotificationsScreen) }),
+        h(Route, { path: '/leaderboard', element: wrapPrivate(LeaderboardScreen) }),
 
-          // Main protected routes
-          h(Route, { path: '/home', element: wrapPrivate(HomeScreen) }),
-          h(Route, { path: '/sessions', element: wrapPrivate(SessionsScreen) }),
-          h(Route, { path: '/hub', element: wrapPrivate(HubScreen) }),
-          h(Route, { path: '/networking', element: wrapPrivate(NetworkingScreen) }),
-          h(Route, { path: '/profile', element: wrapPrivate(ProfileScreen) }),
-          h(Route, { path: '/event-info', element: wrapPrivate(EventInfoScreen) }),
-          h(Route, { path: '/sessions/:id', element: wrapPrivate(SessionDetailScreen) }),
-          h(Route, { path: '/feedback', element: wrapPrivate(FeedbackScreen) }),
-          h(Route, { path: '/my-calendar', element: wrapPrivate(MyCalendarScreen) }),
-          h(Route, { path: '/my-contacts', element: wrapPrivate(MyContactsScreen) }),
-          h(Route, { path: '/my-meetings', element: wrapPrivate(MyMeetingsScreen) }),
-          h(Route, { path: '/my-badges', element: wrapPrivate(MyBadgeScreen) }),
-          h(Route, { path: '/my-favourites', element: wrapPrivate(MyFavouritesScreen) }),
-          h(Route, { path: '/notifications', element: wrapPrivate(NotificationsScreen) }),
-          h(Route, { path: '/leaderboard', element: wrapPrivate(LeaderboardScreen) }),
+        // Chat routes
+        h(Route, { path: '/chat', element: wrapPrivate(ChatListScreen) }),
+        h(Route, { path: '/chat/:id', element: wrapPrivate(ChatDetailScreen) }),
 
-          // Chat routes
-          h(Route, { path: '/chat', element: wrapPrivate(ChatListScreen) }),
-          h(Route, { path: '/chat/:id', element: wrapPrivate(ChatDetailScreen) }),
+        // Engagement routes
+        h(Route, { path: '/social-wall', element: wrapPrivate(SocialWallScreen) }),
+        h(Route, { path: '/activity-hub', element: wrapPrivate(ActivityHubScreen) }),
+        h(Route, { path: '/ai-matches', element: wrapPrivate(AIMatchesScreen) }),
+        h(Route, { path: '/partners', element: wrapPrivate(PartnersScreen) }),
+        h(Route, { path: '/partners/:partnerId', element: wrapPrivate(PartnerDetailScreen) }),
+        h(Route, { path: '/briefcase', element: wrapPrivate(BriefcaseScreen) }),
+        h(Route, { path: '/polls', element: h(Navigate, { to: '/engagement-center', replace: true }) }),
 
-          // Engagement routes
-          h(Route, { path: '/social-wall', element: wrapPrivate(SocialWallScreen) }),
-          h(Route, { path: '/activity-hub', element: wrapPrivate(ActivityHubScreen) }),
-          h(Route, { path: '/ai-matches', element: wrapPrivate(AIMatchesScreen) }),
-          h(Route, { path: '/partners', element: wrapPrivate(PartnersScreen) }),
-          h(Route, { path: '/partners/:partnerId', element: wrapPrivate(PartnerDetailScreen) }),
-          h(Route, { path: '/briefcase', element: wrapPrivate(BriefcaseScreen) }),
-          h(Route, { path: '/polls', element: h(Navigate, { to: '/engagement-center', replace: true }) }),
+        // Gamification & learning routes
+        h(Route, { path: '/ratings', element: wrapPrivate(RatingsScreen) }),
+        h(Route, { path: '/analytics', element: wrapPrivate(AnalyticsScreen) }),
+        h(Route, { path: '/announcements', element: wrapPrivate(AnnouncementsScreen) }),
+        h(Route, { path: '/speakers', element: wrapPrivate(SpeakersScreen) }),
+        h(Route, { path: '/learning-paths', element: wrapPrivate(LearningPathsScreen) }),
 
-          // Gamification & learning routes
-          h(Route, { path: '/ratings', element: wrapPrivate(RatingsScreen) }),
-          h(Route, { path: '/analytics', element: wrapPrivate(AnalyticsScreen) }),
-          h(Route, { path: '/announcements', element: wrapPrivate(AnnouncementsScreen) }),
-          h(Route, { path: '/speakers', element: wrapPrivate(SpeakersScreen) }),
-          h(Route, { path: '/learning-paths', element: wrapPrivate(LearningPathsScreen) }),
+        // Engagement Center & admin routes
+        h(Route, { path: '/engagement-center', element: wrapPrivate(EngagementCenterScreen) }),
+        h(Route, { path: '/admin', element: wrapPrivate(AdminDashboardScreen, null, true) }),
+        h(Route, { path: '/admin/rbac', element: wrapPrivate(AdminRBACDashboard, null, true) }),
 
-          // Engagement Center & admin routes
-          h(Route, { path: '/engagement-center', element: wrapPrivate(EngagementCenterScreen) }),
-          h(Route, { path: '/admin', element: wrapPrivate(AdminDashboardScreen, null, true) }),
-          h(Route, { path: '/admin/rbac', element: wrapPrivate(AdminRBACDashboard, null, true) }),
+        // AI feature routes
+        h(Route, {
+          path: '/discover',
+          element: wrapPrivate(AIEventRecommendations, { userProfile: userProfile }),
+        }),
+        h(Route, { path: '/sessions/:id/summary', element: wrapPrivate(AISessionSummary) }),
+        h(Route, { path: '/sessions/:id/quiz', element: wrapPrivate(SessionQuizPage) }),
+        h(Route, { path: '/network-matches', element: wrapPrivate(AIPerfectNetworkMatch) }),
 
-          // AI feature routes
-          h(Route, {
-            path: '/discover',
-            element: wrapPrivate(AIEventRecommendations, { userProfile: userProfile }),
-          }),
-          h(Route, { path: '/sessions/:id/summary', element: wrapPrivate(AISessionSummary) }),
-          h(Route, { path: '/sessions/:id/quiz', element: wrapPrivate(SessionQuizPage) }),
-          h(Route, { path: '/network-matches', element: wrapPrivate(AIPerfectNetworkMatch) }),
-
-          // Fallback route
-          h(Route, {
-            path: '*',
-            element: h(Navigate, { to: isAuthenticated ? '/home' : '/', replace: true }),
-          })
-        )
-      ),
-      isAuthenticated && h(BottomNavigation)
+        // Fallback route
+        h(Route, {
+          path: '*',
+          element: h(Navigate, { to: isAuthenticated ? '/home' : '/', replace: true }),
+        })
+      )
     ),
-    isAuthenticated && h(AIAssistant, { userProfile: userProfile })
+    isAuthenticated && h(BottomNavigation),
+    // FIX: Only show AI Assistant on the Home Screen
+    isAuthenticated && location.pathname === '/home' && h(AIAssistant, { userProfile: userProfile })
   );
+}
+
+function App() {
+  return h(Router, null, h(AppContent));
 }
 
 export default App;
