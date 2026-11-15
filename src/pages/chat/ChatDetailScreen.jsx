@@ -86,12 +86,11 @@ export default function ChatDetailScreen() {
   };
 
   return (
-    // fixed inset-0 z-[60] completely covers the bottom navigation bar!
-    // pb-safe ensures it sits above the iPhone home indicator
-    <div className="fixed inset-0 z-[60] bg-white flex flex-col font-sans max-w-[430px] mx-auto shadow-2xl">
+    // Bulletproof mobile wrapper: forces exactly 100% of the viewport height and hides any overflow
+    <div className="fixed inset-0 w-full h-[100dvh] bg-white z-[60] sm:relative sm:max-w-[430px] sm:mx-auto sm:shadow-2xl overflow-hidden flex flex-col">
       
-      {/* Header */}
-      <div className="flex items-center px-2 py-3 border-b border-slate-100 shadow-sm bg-white shrink-0">
+      {/* Header (Shrink-0 prevents it from squishing) */}
+      <div className="flex items-center px-2 py-3 border-b border-slate-100 shadow-sm bg-white shrink-0 h-[60px]">
         <button onClick={() => navigate('/chat')} className="p-2">
           <ChevronLeft size={24} className="text-slate-800" />
         </button>
@@ -99,11 +98,11 @@ export default function ChatDetailScreen() {
           <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-xs font-bold text-slate-600 border border-slate-200 uppercase">
             {chatName.substring(0,2)}
           </div>
-          <h1 className="text-[17px] font-bold text-slate-800 tracking-tight">{chatName}</h1>
+          <h1 className="text-[17px] font-bold text-slate-800 tracking-tight truncate max-w-[200px]">{chatName}</h1>
         </div>
       </div>
 
-      {/* Chat Body */}
+      {/* Chat Body (Flex-1 allows it to take up remaining space, overflow-y-auto enables scrolling) */}
       <div className="flex-1 overflow-y-auto px-4 py-6 bg-slate-50 flex flex-col gap-4">
         {loading ? (
           <div className="flex justify-center items-center h-full">
@@ -129,15 +128,15 @@ export default function ChatDetailScreen() {
             </div>
           ))
         )}
-        <div ref={messagesEndRef} />
+        <div ref={messagesEndRef} className="h-4 w-full shrink-0" />
       </div>
 
-      {/* Dynamic Footer based on chat state */}
-      <div className="bg-white border-t border-slate-200 p-3 pb-safe shrink-0">
+      {/* Dynamic Footer (Shrink-0 keeps it visible at the exact bottom) */}
+      <div className="bg-white border-t border-slate-200 p-3 shrink-0 min-h-[70px]">
         
         {/* State 1: Active Chat Input */}
         {chatState === 'active' && (
-          <div className="flex items-center gap-3 mb-2">
+          <div className="flex items-center gap-3">
             <div className="flex-1 border border-slate-200 rounded-[20px] bg-slate-50 px-4 py-2.5 flex items-center focus-within:bg-white focus-within:border-[#0000c8] transition-colors">
               <input 
                 type="text" 
@@ -161,7 +160,7 @@ export default function ChatDetailScreen() {
 
         {/* State 2: Request Received (Accept/Reject) */}
         {chatState === 'received' && (
-          <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 flex flex-col gap-3 mb-2">
+          <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 flex flex-col gap-3">
             <p className="text-[13px] text-slate-600 font-medium text-center">To continue chat please accept request</p>
             <div className="flex justify-center gap-4">
               <button 
@@ -182,14 +181,14 @@ export default function ChatDetailScreen() {
 
         {/* State 3: Request Sent (Waiting) */}
         {chatState === 'sent' && (
-          <div className="bg-indigo-50/50 border border-indigo-100 rounded-xl p-4 text-center mb-2">
+          <div className="bg-indigo-50/50 border border-indigo-100 rounded-xl p-4 text-center">
             <p className="text-[13px] text-indigo-600 font-medium">Chat request has been sent. Waiting for approval!</p>
           </div>
         )}
 
         {/* State 4: Rejected / Blocked */}
         {chatState === 'rejected' || chatState === 'blocked' ? (
-          <div className="bg-rose-50 border border-rose-100 rounded-xl p-4 flex items-center justify-center gap-2 mb-2">
+          <div className="bg-rose-50 border border-rose-100 rounded-xl p-4 flex items-center justify-center gap-2">
             <AlertTriangle size={16} className="text-rose-500" />
             <p className="text-[13px] text-rose-500 font-medium">This user is currently not available for chat!</p>
           </div>
