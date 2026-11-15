@@ -1,11 +1,11 @@
 // ============================================================================
 // File: src/pages/chat/ChatDetailScreen.jsx
-// Purpose: Live Conversation & Accept/Reject Logic (Indestructible Footer)
+// Purpose: Live Conversation & Accept/Reject Logic
 // ============================================================================
 
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { ChevronLeft, Send, Check, X, AlertTriangle, Loader2 } from 'lucide-react';
+import { ChevronLeft, Send, Check, X, AlertTriangle, Loader2, Trash2 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import chatService from '../../services/chatService.js';
 
@@ -24,7 +24,6 @@ export default function ChatDetailScreen() {
   
   const messagesEndRef = useRef(null);
 
-  // Fetch messages regardless of state to ensure we always have the latest database truth
   useEffect(() => {
     loadMessages();
   }, [id]);
@@ -79,14 +78,20 @@ export default function ChatDetailScreen() {
     setSending(false);
   };
 
-  // ------------------------------------------------------------------------
-  // INDESTRUCTIBLE FOOTER LOGIC
-  // ------------------------------------------------------------------------
+  const handleDelete = async (messageId) => {
+    const res = await chatService.deleteMessage(messageId);
+    if (res.success) {
+      setMessages(prev => prev.filter(m => m.id !== messageId));
+      toast.success('Message deleted');
+    } else {
+      toast.error(res.error);
+    }
+  };
+
   let renderFooter = null;
   const currentState = chatState?.toLowerCase();
 
   if (currentState === 'received') {
-    // 1. They sent you a request
     renderFooter = (
       <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 flex flex-col gap-3">
         <p className="text-[13px] text-slate-600 font-medium text-center">To continue chat please accept request</p>
@@ -101,14 +106,12 @@ export default function ChatDetailScreen() {
       </div>
     );
   } else if (currentState === 'sent' || currentState === 'pending') {
-    // 2. You sent a request and are waiting
     renderFooter = (
       <div className="bg-indigo-50/50 border border-indigo-100 rounded-xl p-4 text-center">
         <p className="text-[13px] text-indigo-600 font-medium">Request sent. Waiting for approval!</p>
       </div>
     );
   } else if (currentState === 'rejected' || currentState === 'blocked') {
-    // 3. Blocked / Rejected
     renderFooter = (
       <div className="bg-rose-50 border border-rose-100 rounded-xl p-4 flex items-center justify-center gap-2">
         <AlertTriangle size={16} className="text-rose-500" />
@@ -116,7 +119,6 @@ export default function ChatDetailScreen() {
       </div>
     );
   } else {
-    // 4. DEFAULT CATCH-ALL: Always render the typing box if the status is active, accepted, null, undefined, or unknown.
     renderFooter = (
       <div className="flex items-center gap-3">
         <div className="flex-1 border border-slate-300 rounded-[20px] bg-slate-50 px-4 py-2.5 flex items-center focus-within:bg-white focus-within:border-[#0000c8] transition-colors">
@@ -167,9 +169,16 @@ export default function ChatDetailScreen() {
           <p className="text-center text-slate-400 mt-10 text-[13px]">No messages yet. Say hello!</p>
         ) : (
           messages.map((msg) => (
-            <div key={msg.id} className={`flex flex-col ${msg.sender === 'me' ? 'items-end' : 'items-start'}`}>
-              <div className={`px-4 py-3 rounded-[16px] max-w-[80%] text-[15px] ${msg.sender === 'me' ? 'bg-[#2a2a2a] text-white rounded-tr-sm' : 'bg-white border border-slate-200 text-slate-800 rounded-tl-sm'}`}>
-                {msg.text}
+            <div key={msg.id} className={`flex flex-col group ${msg.sender === 'me' ? 'items-end' : 'items-start'}`}>
+              <div className="flex items-center gap-2">
+                {msg.sender === 'me' && (
+                  <button onClick={() => handleDelete(msg.id)} className="opacity-0 group-hover:opacity-100 text-rose-400 hover:text-rose-600 transition-opacity p-1.5" title="Delete message">
+                    <Trash2 size={16} />
+                  </button>
+                )}
+                <div className={`px-4 py-3 rounded-[16px] max-w-[80%] text-[15px] break-words ${msg.sender === 'me' ? 'bg-[#2a2a2a] text-white rounded-tr-sm' : 'bg-white border border-slate-200 text-slate-800 rounded-tl-sm'}`}>
+                  {msg.text}
+                </div>
               </div>
               <span className="text-[10px] text-slate-400 mt-1.5 font-medium px-1">{msg.time}</span>
             </div>
@@ -178,7 +187,7 @@ export default function ChatDetailScreen() {
         <div ref={messagesEndRef} className="h-4 w-full" />
       </div>
 
-      {/* FOOTER (Forced permanently to the bottom) */}
+      {/* FOOTER */}
       <div className="fixed bottom-0 left-0 right-0 w-full z-[9999] bg-white border-t border-slate-200 p-3 pb-8 sm:pb-3 shadow-[0_-5px_15px_-5px_rgba(0,0,0,0.1)]">
         <div className="max-w-[430px] mx-auto">
           {renderFooter}

@@ -6,9 +6,6 @@
 import apiClient from '../config/apiClient';
 
 const chatService = {
-  /**
-   * Fetch the grouped directory of active, received, and sent chat requests
-   */
   async getChatList() {
     try {
       const response = await apiClient.get('/chat/list');
@@ -19,9 +16,6 @@ const chatService = {
     }
   },
 
-  /**
-   * Fetch all available users to start a new chat with
-   */
   async getAvailableUsers() {
     try {
       const response = await apiClient.get('/chat/users');
@@ -31,9 +25,6 @@ const chatService = {
     }
   },
 
-  /**
-   * Send a new chat request to a user
-   */
   async sendChatRequest(userId) {
     try {
       const response = await apiClient.post(`/chat/request/${userId}`);
@@ -43,11 +34,6 @@ const chatService = {
     }
   },
 
-  /**
-   * Accept or Reject an incoming chat request
-   * @param {number} connectionId 
-   * @param {string} status 'accepted' or 'rejected'
-   */
   async respondToRequest(connectionId, status) {
     try {
       const response = await apiClient.put(`/chat/respond/${connectionId}`, { status });
@@ -57,9 +43,6 @@ const chatService = {
     }
   },
 
-  /**
-   * Load message history for an active connection
-   */
   async getMessages(connectionId) {
     try {
       const response = await apiClient.get(`/chat/${connectionId}/messages`);
@@ -73,15 +56,21 @@ const chatService = {
     }
   },
 
-  /**
-   * Send a new text message in an active chat
-   */
   async sendMessage(connectionId, text) {
     try {
       const response = await apiClient.post(`/chat/${connectionId}/messages`, { content: text });
       return { success: true, data: response.data.data };
     } catch (error) {
       return { success: false, error: error.response?.data?.detail || 'Failed to send message' };
+    }
+  },
+
+  async deleteMessage(messageId) {
+    try {
+      const response = await apiClient.delete(`/chat/messages/${messageId}`);
+      return { success: true, data: response.data };
+    } catch (error) {
+      return { success: false, error: error.response?.data?.detail || 'Failed to delete message' };
     }
   }
 };
