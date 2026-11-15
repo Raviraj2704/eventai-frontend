@@ -1,6 +1,6 @@
 // ============================================================================
 // File: src/pages/chat/ChatDetailScreen.jsx
-// Purpose: Live Conversation & Accept/Reject Logic
+// Purpose: Live Conversation & Accept/Reject Logic (Fixed Layout & Delete)
 // ============================================================================
 
 import React, { useState, useEffect, useRef } from 'react';
@@ -159,7 +159,7 @@ export default function ChatDetailScreen() {
         </div>
       </div>
 
-      {/* CHAT BODY */}
+      {/* CHAT BODY - FIXED LAYOUT */}
       <div className="px-4 py-6 pt-[80px] bg-slate-50 min-h-screen flex flex-col gap-4">
         {loading ? (
           <div className="flex justify-center items-center py-20">
@@ -168,21 +168,43 @@ export default function ChatDetailScreen() {
         ) : messages.length === 0 ? (
           <p className="text-center text-slate-400 mt-10 text-[13px]">No messages yet. Say hello!</p>
         ) : (
-          messages.map((msg) => (
-            <div key={msg.id} className={`flex flex-col group ${msg.sender === 'me' ? 'items-end' : 'items-start'}`}>
-              <div className="flex items-center gap-2">
-                {msg.sender === 'me' && (
-                  <button onClick={() => handleDelete(msg.id)} className="opacity-0 group-hover:opacity-100 text-rose-400 hover:text-rose-600 transition-opacity p-1.5" title="Delete message">
-                    <Trash2 size={16} />
-                  </button>
-                )}
-                <div className={`px-4 py-3 rounded-[16px] max-w-[80%] text-[15px] break-words ${msg.sender === 'me' ? 'bg-[#2a2a2a] text-white rounded-tr-sm' : 'bg-white border border-slate-200 text-slate-800 rounded-tl-sm'}`}>
-                  {msg.text}
+          messages.map((msg) => {
+            const isMe = msg.sender === 'me';
+            return (
+              <div key={msg.id} className={`flex w-full ${isMe ? 'justify-end' : 'justify-start'}`}>
+                <div className={`flex items-end gap-2 max-w-[95%] ${isMe ? 'flex-row-reverse' : 'flex-row'}`}>
+                  
+                  {/* Bubble & Time */}
+                  <div className={`flex flex-col ${isMe ? 'items-end' : 'items-start'}`}>
+                    <div 
+                      className={`px-4 py-2.5 text-[15px] break-words w-fit min-w-[50px] shadow-sm ${
+                        isMe 
+                          ? 'bg-[#0000c8] text-white rounded-[18px] rounded-br-sm' 
+                          : 'bg-white border border-slate-200 text-slate-800 rounded-[18px] rounded-bl-sm'
+                      }`}
+                    >
+                      {msg.text}
+                    </div>
+                    <span className="text-[10px] text-slate-400 mt-1 font-medium px-1">
+                      {msg.time}
+                    </span>
+                  </div>
+
+                  {/* Always Visible Delete Button */}
+                  {isMe && (
+                    <button 
+                      onClick={() => handleDelete(msg.id)} 
+                      className="p-2 mb-4 text-rose-500 bg-rose-50 hover:bg-rose-100 rounded-full flex-shrink-0 shadow-sm border border-rose-100 active:scale-95 transition-all"
+                      title="Delete message"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  )}
+
                 </div>
               </div>
-              <span className="text-[10px] text-slate-400 mt-1.5 font-medium px-1">{msg.time}</span>
-            </div>
-          ))
+            );
+          })
         )}
         <div ref={messagesEndRef} className="h-4 w-full" />
       </div>
