@@ -86,11 +86,11 @@ export default function ChatDetailScreen() {
   };
 
   return (
-    // The main wrapper covers the whole screen
-    <div className="fixed inset-0 w-full h-[100dvh] bg-white z-[60] sm:relative sm:max-w-[430px] sm:mx-auto sm:shadow-2xl overflow-hidden">
+    // Fixed wrapper strictly locked to screen height
+    <div className="fixed inset-0 z-[60] bg-white w-full h-[100dvh] flex flex-col sm:relative sm:max-w-[430px] sm:mx-auto sm:shadow-2xl">
       
-      {/* HEADER: Pinned exactly to the top */}
-      <div className="absolute top-0 left-0 right-0 h-[60px] flex items-center px-2 border-b border-slate-100 shadow-sm bg-white z-20">
+      {/* HEADER: Fixed height of 4rem (64px) using h-16, shrink-0 stops it from crushing */}
+      <div className="h-16 shrink-0 flex items-center px-2 border-b border-slate-100 shadow-sm bg-white z-20">
         <button onClick={() => navigate('/chat')} className="p-2">
           <ChevronLeft size={24} className="text-slate-800" />
         </button>
@@ -102,8 +102,8 @@ export default function ChatDetailScreen() {
         </div>
       </div>
 
-      {/* CHAT BODY: Pinned exactly between the header (60px) and footer (75px) */}
-      <div className="absolute top-[60px] bottom-[75px] left-0 right-0 overflow-y-auto px-4 py-6 bg-slate-50 flex flex-col gap-4 z-10">
+      {/* CHAT BODY: flex-1 automatically fills ALL remaining space between header and footer */}
+      <div className="flex-1 overflow-y-auto px-4 py-6 bg-slate-50 flex flex-col gap-4">
         {loading ? (
           <div className="flex justify-center items-center h-full">
             <Loader2 className="w-6 h-6 text-blue-600 animate-spin" />
@@ -131,8 +131,8 @@ export default function ChatDetailScreen() {
         <div ref={messagesEndRef} className="h-4 w-full shrink-0" />
       </div>
 
-      {/* FOOTER: Pinned exactly to the bottom */}
-      <div className="absolute bottom-0 left-0 right-0 min-h-[75px] bg-white border-t border-slate-200 p-3 pb-safe z-20">
+      {/* FOOTER: shrink-0 keeps it glued to the bottom. pb-safe protects iPhone swipe bar */}
+      <div className="shrink-0 bg-white border-t border-slate-200 p-3 pb-safe z-20">
         
         {chatState === 'active' && (
           <div className="flex items-center gap-3">
