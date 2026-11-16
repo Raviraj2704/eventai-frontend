@@ -150,8 +150,6 @@ export default function ProfileScreen() {
       phone: formData.phone,
       designation: formData.designation,
       company: formData.company,
-      industry: formData.industry,
-      subIndustry: formData.subIndustry,
       bio: formData.bio,
     };
 
