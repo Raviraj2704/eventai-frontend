@@ -2,24 +2,11 @@ import axios from 'axios';
 
 // Determine API base URL based on environment
 const getBaseURL = () => {
-  const isDev = import.meta.env.DEV;
-  const backendUrl = import.meta.env.VITE_BACKEND_URL;
-
-  if (backendUrl) {
-    return backendUrl;
-  }
-
-  if (isDev) {
-    return 'http://localhost:8000';
-  }
-
-  // Production URLs
-  if (window.location.hostname === 'localhost') {
-    return 'http://localhost:8000';
-  }
-
-  // For Vercel/Railway production
-  return 'https://event-ai-backend-o2f3.onrender.com/api/v1';
+  const raw = import.meta.env.VITE_BACKEND_URL || import.meta.env.VITE_API_BASE_URL;
+  const base = (raw || (import.meta.env.DEV
+    ? 'http://localhost:8000'
+    : 'https://eventai-backend-8txu.onrender.com')).replace(/\/+$/, '');
+  return base.endsWith('/api/v1') ? base : `${base}/api/v1`;
 };
 
 // Create axios instance
