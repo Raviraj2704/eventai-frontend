@@ -225,15 +225,15 @@ const NetworkingScreen = () => {
     <div className="min-h-screen bg-white max-w-[430px] mx-auto pb-28 font-sans">
       
       {/* 1. Header (Clean White Theme) */}
-      <div className="bg-white px-4 pt-6 pb-4 flex justify-between items-center gap-3 border-b border-slate-100 shadow-sm sticky top-0 z-10">
+      <div className="bg-white px-5 pt-8 pb-4 flex justify-between items-center gap-3 sticky top-0 z-10">
         <div>
-          <h1 className="text-[22px] font-bold text-slate-800 tracking-tight">Networking</h1>
-          <p className="text-[13px] font-medium text-slate-500 mt-0.5">Connect with fellow attendees</p>
-          <div className="flex flex-wrap gap-2 mt-4">
+          <h1 className="text-[24px] font-extrabold text-slate-900 tracking-tight">Networking</h1>
+          <p className="text-[14px] font-medium text-slate-500 mt-1">Connect with fellow attendees</p>
+          <div className="flex flex-wrap gap-2 mt-5">
             <button
               type="button"
               onClick={() => navigate('/my-contacts')}
-              className="rounded-full bg-slate-100 px-4 py-2 text-[13px] font-bold text-slate-700 hover:bg-slate-200 transition-colors"
+              className="rounded-[12px] bg-slate-50 border border-slate-100 px-5 py-2.5 text-[13px] font-bold text-slate-700 hover:bg-slate-100 transition-colors shadow-sm"
             >
               My Contacts
             </button>
@@ -242,35 +242,35 @@ const NetworkingScreen = () => {
         <button
           type="button"
           onClick={openInbox}
-          className="flex items-center gap-1.5 bg-slate-100 text-slate-700 px-4 py-2 rounded-full text-[13px] font-bold hover:bg-slate-200 transition-colors"
+          className="flex items-center gap-1.5 bg-slate-50 border border-slate-100 text-slate-700 px-4 py-2.5 rounded-[12px] text-[13px] font-bold hover:bg-slate-100 transition-colors shadow-sm"
         >
           <MessageSquare size={16} /> Inbox
         </button>
       </div>
 
       {/* 2. Search and Filter (Soft Rounded Styling) */}
-      <div className="px-4 pt-5 flex gap-3 relative">
+      <div className="px-5 pt-4 flex gap-3 relative">
         <div className="relative flex-1">
-          <Search className="absolute left-4 top-3.5 text-slate-400" size={18} />
+          <Search className="absolute left-4 top-4 text-slate-400" size={18} />
           <input
             type="text"
             placeholder="Search attendees..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-transparent rounded-[16px] text-[15px] focus:bg-white focus:border-blue-600 focus:ring-0 transition-all placeholder:text-slate-400 text-slate-800 outline-none"
+            className="w-full pl-11 pr-4 py-3.5 bg-slate-50 border border-transparent rounded-[16px] text-[15px] focus:bg-white focus:border-[#0000c8] focus:shadow-sm transition-all placeholder:text-slate-400 text-slate-800 outline-none"
           />
         </div>
         <button
           type="button"
           onClick={() => setDesignationOpen((open) => !open)}
           aria-label="Filter by job title"
-          className="w-[50px] h-[50px] bg-slate-50 rounded-[16px] flex items-center justify-center text-slate-600 hover:bg-slate-100 transition-colors shrink-0"
+          className="w-[52px] h-[52px] bg-slate-50 rounded-[16px] flex items-center justify-center text-slate-600 hover:bg-slate-100 transition-colors shrink-0"
         >
           <SlidersHorizontal size={18} />
         </button>
 
         {designationOpen && (
-          <div className="absolute top-full right-4 mt-2 w-56 max-h-64 overflow-y-auto bg-white border border-slate-100 shadow-xl rounded-[16px] z-50">
+          <div className="absolute top-full right-5 mt-2 w-56 max-h-64 overflow-y-auto bg-white border border-slate-100 shadow-xl rounded-[16px] z-50">
             <button
               type="button"
               onClick={() => {
@@ -304,7 +304,7 @@ const NetworkingScreen = () => {
 
       {/* Error */}
       {error && (
-        <div className="mx-4 mt-4 p-4 bg-rose-50 border border-rose-100 text-rose-600 rounded-[16px] text-[13px] font-medium">
+        <div className="mx-5 mt-4 p-4 bg-rose-50 text-rose-600 rounded-[16px] text-[13px] font-medium">
           {error}
           <button type="button" onClick={loadUsers} className="ml-3 underline font-bold">
             Try Again
@@ -318,23 +318,23 @@ const NetworkingScreen = () => {
         </div>
       ) : visibleUsers.length > 0 ? (
         <>
-          <p className="px-5 pt-6 pb-1 text-[13px] font-bold text-slate-400 uppercase tracking-wider">
+          <p className="px-5 pt-8 pb-3 text-[12px] font-bold text-slate-400 uppercase tracking-wider">
             {visibleUsers.length} {visibleUsers.length === 1 ? 'Person Found' : 'People Found'}
           </p>
 
           {/* 3. Representatives-style list (Soft Rounded Cards theme) */}
-          <div className="px-4 pt-2 flex flex-col gap-4">
+          <div className="px-5 pt-1 flex flex-col gap-4">
             {visibleUsers.map((u) => (
-              <div key={u.id} className="flex items-center gap-3 p-4 bg-slate-50 rounded-[20px]">
-                <div className="w-14 h-14 rounded-full bg-white shadow-sm flex items-center justify-center font-bold text-slate-500 text-[18px] shrink-0">
+              <div key={u.id} className="flex items-center gap-4 p-4 bg-slate-50 rounded-[16px]">
+                <div className="w-14 h-14 rounded-full bg-white border border-slate-100 shadow-sm flex items-center justify-center font-bold text-slate-600 text-[18px] shrink-0">
                   {getInitials(u)}
                 </div>
 
                 <div className="flex-1 min-w-0">
-                  <p className="text-[16px] font-bold text-slate-800 tracking-tight truncate">
+                  <p className="text-[16px] font-bold text-slate-900 tracking-tight truncate">
                     {getFullName(u)}
                   </p>
-                  <p className="text-[13px] font-medium text-slate-500 truncate mt-0.5">{u.job_title || 'Attendee'}</p>
+                  <p className="text-[13px] font-medium text-slate-600 truncate mt-0.5">{u.job_title || 'Attendee'}</p>
                   {u.company && (
                     <p className="text-[12px] font-medium text-slate-400 truncate flex items-center gap-1.5 mt-2">
                       <Briefcase size={12} /> {u.company}
@@ -357,7 +357,7 @@ const NetworkingScreen = () => {
                     <button
                       type="button"
                       onClick={() => setMeetingWith(u.id)}
-                      className="flex items-center justify-center gap-1.5 w-full rounded-full border border-blue-600 text-blue-600 py-2 px-4 text-[12px] font-bold hover:bg-blue-50 transition-colors"
+                      className="flex items-center justify-center gap-1.5 w-full rounded-full border border-slate-200 bg-white text-slate-700 py-2 px-4 text-[12px] font-bold hover:border-[#0000c8] hover:text-[#0000c8] transition-colors"
                     >
                       <CalendarPlus size={14} strokeWidth={2.5} /> Schedule
                     </button>
@@ -370,7 +370,7 @@ const NetworkingScreen = () => {
         </>
       ) : (
         !error && (
-          <div className="text-center py-20 px-4">
+          <div className="text-center py-20 px-5">
             <p className="text-slate-500 font-medium mb-4 text-[15px]">
               {searchQuery || designationFilter !== 'all'
                 ? 'No people found matching your filters'
@@ -396,13 +396,13 @@ const NetworkingScreen = () => {
       {inboxOpen && (
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[60] flex items-end justify-center">
           <div className="bg-white w-full max-w-[430px] h-[75vh] rounded-t-[24px] shadow-2xl flex flex-col mb-0">
-            <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
-              <p className="font-bold text-[18px] text-slate-800 tracking-tight">Messages</p>
+            <div className="flex items-center justify-between px-6 py-5 border-b border-slate-100">
+              <p className="font-bold text-[20px] text-slate-900 tracking-tight">Messages</p>
               <button
                 type="button"
                 onClick={() => setInboxOpen(false)}
                 aria-label="Close inbox"
-                className="text-slate-400 hover:text-slate-600 bg-slate-50 p-2 rounded-full transition-colors"
+                className="text-slate-400 hover:text-slate-600 bg-slate-50 p-2.5 rounded-full transition-colors"
               >
                 <X size={20} />
               </button>
@@ -412,17 +412,17 @@ const NetworkingScreen = () => {
               {inboxLoading ? (
                 <div className="pt-10"><LoadingSpinner /></div>
               ) : inboxItems.length === 0 ? (
-                <p className="text-center text-[14px] text-slate-400 font-medium pt-12">No conversations yet</p>
+                <p className="text-center text-[15px] text-slate-400 font-medium pt-12">No conversations yet</p>
               ) : (
                 inboxItems.map((item) => (
                   <button
                     type="button"
                     key={item.partner_user_id}
                     onClick={() => openChat(item.partner_user_id, item.name)}
-                    className="w-full text-left px-5 py-4 hover:bg-slate-50 transition-colors"
+                    className="w-full text-left px-6 py-5 hover:bg-slate-50 transition-colors"
                   >
-                    <p className="text-[15px] font-bold text-slate-800 truncate">{item.name}</p>
-                    <p className="text-[13px] text-slate-500 font-medium truncate mt-0.5">{item.last_message}</p>
+                    <p className="text-[16px] font-bold text-slate-900 truncate">{item.name}</p>
+                    <p className="text-[14px] text-slate-500 font-medium truncate mt-1">{item.last_message}</p>
                   </button>
                 ))
               )}
@@ -435,8 +435,8 @@ const NetworkingScreen = () => {
       {chatPartner && (
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[60] flex items-end justify-center">
           <div className="bg-white w-full max-w-[430px] h-[75vh] rounded-t-[24px] shadow-2xl flex flex-col mb-0">
-            <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
-              <p className="font-bold text-[18px] text-slate-800 tracking-tight truncate pr-2">{chatPartner.title}</p>
+            <div className="flex items-center justify-between px-6 py-5 border-b border-slate-100">
+              <p className="font-bold text-[20px] text-slate-900 tracking-tight truncate pr-2">{chatPartner.title}</p>
               <div className="flex items-center gap-2">
                 {messages.length > 0 && (
                   <button
@@ -444,7 +444,7 @@ const NetworkingScreen = () => {
                     onClick={handleClearChat}
                     aria-label="Delete conversation"
                     title="Delete entire conversation"
-                    className="text-slate-400 hover:text-rose-500 bg-slate-50 hover:bg-rose-50 p-2 rounded-full transition-colors"
+                    className="text-slate-400 hover:text-rose-500 bg-slate-50 hover:bg-rose-50 p-2.5 rounded-full transition-colors"
                   >
                     <Trash2 size={18} />
                   </button>
@@ -453,18 +453,18 @@ const NetworkingScreen = () => {
                   type="button"
                   onClick={closeChat}
                   aria-label="Close chat"
-                  className="text-slate-400 hover:text-slate-600 bg-slate-50 p-2 rounded-full transition-colors"
+                  className="text-slate-400 hover:text-slate-600 bg-slate-50 p-2.5 rounded-full transition-colors"
                 >
                   <X size={20} />
                 </button>
               </div>
             </div>
 
-            <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3 bg-white">
+            <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4 bg-white">
               {chatLoading ? (
                 <div className="pt-10"><LoadingSpinner /></div>
               ) : messages.length === 0 ? (
-                <p className="text-center text-[13px] text-slate-400 font-medium pt-8">No messages yet. Say hello!</p>
+                <p className="text-center text-[14px] text-slate-400 font-medium pt-8">No messages yet. Say hello!</p>
               ) : (
                 messages.map((m) => {
                   const mine = myUserId !== null && m.sender_id === myUserId;
@@ -476,8 +476,8 @@ const NetworkingScreen = () => {
                       }`}
                     >
                       <div
-                        className={`px-4 py-2.5 text-[15px] break-words shadow-sm ${
-                          mine ? 'bg-[#0000c8] text-white rounded-[18px] rounded-br-sm' : 'bg-slate-50 border border-slate-100 text-slate-800 rounded-[18px] rounded-bl-sm'
+                        className={`px-5 py-3 text-[15px] break-words shadow-sm ${
+                          mine ? 'bg-[#0000c8] text-white rounded-[20px] rounded-br-sm' : 'bg-slate-50 border border-slate-100 text-slate-800 rounded-[20px] rounded-bl-sm'
                         }`}
                       >
                         {m.content}
@@ -496,19 +496,19 @@ const NetworkingScreen = () => {
               )}
             </div>
 
-            <form onSubmit={handleSendMessage} className="flex gap-3 p-4 border-t border-slate-100 bg-white">
+            <form onSubmit={handleSendMessage} className="flex gap-3 p-5 border-t border-slate-100 bg-white">
               <input
                 type="text"
                 value={chatText}
                 onChange={(e) => setChatText(e.target.value)}
                 placeholder="Type your message..."
-                className="flex-1 px-4 py-3 bg-slate-50 rounded-full text-[15px] focus:bg-white focus:border-[#0000c8] border border-transparent transition-all outline-none placeholder:text-slate-400 text-slate-800 shadow-inner"
+                className="flex-1 px-5 py-3.5 bg-slate-50 rounded-full text-[15px] focus:bg-white focus:border-[#0000c8] border border-transparent transition-all outline-none placeholder:text-slate-400 text-slate-800 shadow-inner"
               />
               <button
                 type="submit"
                 disabled={sending || !chatText.trim()}
                 aria-label="Send message"
-                className="w-12 h-12 rounded-full bg-[#0000c8] text-white flex items-center justify-center shadow-md disabled:opacity-50 active:scale-95 transition-transform"
+                className="w-14 h-14 rounded-full bg-[#0000c8] text-white flex items-center justify-center shadow-md disabled:opacity-50 active:scale-95 transition-transform shrink-0"
               >
                 <Send size={18} className="ml-0.5" />
               </button>
