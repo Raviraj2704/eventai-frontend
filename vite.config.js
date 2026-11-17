@@ -18,7 +18,7 @@ export default defineConfig({
     open: true,
     proxy: {
       '/api': {
-        target: 'https://event-ai-backend-o2f3.onrender.com',
+        target: 'https://eventai-backend-8txu.onrender.com',
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/api/, '')
       }
