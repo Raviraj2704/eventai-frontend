@@ -201,4 +201,50 @@ export const getAPIBaseURL = () => {
   return getBaseURL();
 };
 
+// ============================================
+// REQUEST CACHING (Stops API Spam)
+// ============================================
+const apiCache = new Map();
+const pendingRequests = new Map();
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
+const originalGet = apiClient.get;
+
+apiClient.get = async (url, config) => {
+  // Endpoints we want to strictly cache
+  const cacheableEndpoints = ['/session-admin/me/roles', '/session-hub/days'];
+  const shouldCache = cacheableEndpoints.some(endpoint => url?.includes(endpoint));
+  
+  if (shouldCache) {
+    // 1. If data is already cached and fresh, return it instantly
+    const cached = apiCache.get(url);
+    if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+      return Promise.resolve(cached.response);
+    }
+    
+    // 2. If a request is CURRENTLY flying to the backend, wait for it instead of sending a new one
+    if (pendingRequests.has(url)) {
+      return pendingRequests.get(url);
+    }
+    
+    // 3. Fetch it once, cache it, and share the promise with any other components asking
+    const requestPromise = originalGet.call(apiClient, url, config)
+      .then(response => {
+        apiCache.set(url, { response, timestamp: Date.now() });
+        pendingRequests.delete(url);
+        return response;
+      })
+      .catch(error => {
+        pendingRequests.delete(url);
+        throw error;
+      });
+      
+    pendingRequests.set(url, requestPromise);
+    return requestPromise;
+  }
+
+  // Normal request for everything else (like chat messages)
+  return originalGet.call(apiClient, url, config);
+};
+
 export default apiClient;
