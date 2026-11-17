@@ -1,16 +1,6 @@
 // ============================================================================
-// Feedback Screen (matches the reference video)
+// Feedback Screen (matches the reference video & new clean theme)
 // File: src/pages/main/FeedbackScreen.jsx
-// Route: /feedback
-// Real API only:
-//   GET  /feedback-forms/active                  active form for attendees
-//   POST /feedback-forms/forms/{id}/responses    submit answers
-//   GET  /feedback-forms/forms                   admin: all forms
-//   POST /feedback-forms/forms                   admin: create form
-//   POST /feedback-forms/forms/{id}/publish      admin: publish
-//   POST /feedback-forms/forms/{id}/close        admin: close
-//   GET  /feedback-forms/forms/{id}/results      admin: results
-//   GET  /session-admin/me/roles                 is this account an organizer
 // ============================================================================
 
 import { useEffect, useState } from 'react';
@@ -28,7 +18,7 @@ const getErrorMessage = (error, fallback) =>
 const unwrap = (body) => body?.data ?? body ?? null;
 
 // ----------------------------------------------------------------------------
-// One question, shown to attendees
+// One question, shown to attendees (Clean Light Theme)
 // ----------------------------------------------------------------------------
 function QuestionInput({ index, question, value, onChange }) {
   const selected = value ?? (question.type === 'checkbox' ? [] : '');
@@ -39,22 +29,22 @@ function QuestionInput({ index, question, value, onChange }) {
       onChange(index, next);
     };
     return (
-      <div className="space-y-2">
+      <div className="space-y-1 mt-3">
         {question.options.map((opt) => (
           <button
             key={opt}
             type="button"
             onClick={() => toggle(opt)}
-            className="w-full flex items-center gap-3 rounded-xl border border-slate-200 px-4 py-3 text-left text-sm text-slate-800"
+            className="w-full flex items-center justify-between py-2.5 text-left text-[15px] text-slate-700 bg-transparent active:opacity-70 transition-opacity"
           >
+            <span>{opt}</span>
             <span
-              className={`w-5 h-5 rounded border flex items-center justify-center ${
-                selected.includes(opt) ? 'bg-[#0000c8] border-[#0000c8] text-white' : 'border-slate-400'
+              className={`w-5 h-5 rounded-[6px] border-2 flex items-center justify-center flex-shrink-0 transition-colors ${
+                selected.includes(opt) ? 'bg-[#0000c8] border-[#0000c8] text-white' : 'border-slate-300'
               }`}
             >
               {selected.includes(opt) && <CheckCircle2 size={14} />}
             </span>
-            {opt}
           </button>
         ))}
       </div>
@@ -63,24 +53,26 @@ function QuestionInput({ index, question, value, onChange }) {
 
   if (question.type === 'dropdown') {
     return (
-      <select
-        value={selected}
-        onChange={(e) => onChange(index, e.target.value)}
-        className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-base focus:outline-none focus:ring-2 focus:ring-blue-500"
-      >
-        <option value="">Select an option</option>
-        {question.options.map((opt) => (
-          <option key={opt} value={opt}>
-            {opt}
-          </option>
-        ))}
-      </select>
+      <div className="mt-3">
+        <select
+          value={selected}
+          onChange={(e) => onChange(index, e.target.value)}
+          className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-[15px] text-slate-800 focus:outline-none focus:border-[#0000c8] focus:ring-1 focus:ring-[#0000c8] appearance-none shadow-sm"
+        >
+          <option value="">Select an option</option>
+          {question.options.map((opt) => (
+            <option key={opt} value={opt}>
+              {opt}
+            </option>
+          ))}
+        </select>
+      </div>
     );
   }
 
   if (question.type === 'emoji') {
     return (
-      <div className="flex justify-between">
+      <div className="flex justify-between mt-4">
         {EMOJIS.map((emoji, i) => {
           const option = question.options[i] ?? EMOJIS[i];
           const active = selected === option;
@@ -90,8 +82,8 @@ function QuestionInput({ index, question, value, onChange }) {
               type="button"
               onClick={() => onChange(index, option)}
               aria-label={`Rate ${i + 1} of 5`}
-              className={`w-12 h-12 rounded-full text-2xl flex items-center justify-center border ${
-                active ? 'border-[#0000c8] bg-blue-50' : 'border-transparent'
+              className={`w-12 h-12 rounded-xl text-2xl flex items-center justify-center border-2 transition-all ${
+                active ? 'border-[#0000c8] bg-white shadow-sm scale-110' : 'border-transparent bg-[#eef0f6] hover:bg-[#e4e6ef]'
               }`}
             >
               {emoji}
@@ -104,22 +96,22 @@ function QuestionInput({ index, question, value, onChange }) {
 
   // radio (default)
   return (
-    <div className="space-y-2">
+    <div className="space-y-1 mt-3">
       {question.options.map((opt) => (
         <button
           key={opt}
           type="button"
           onClick={() => onChange(index, opt)}
-          className="w-full flex items-center gap-3 rounded-xl border border-slate-200 px-4 py-3 text-left text-sm text-slate-800"
+          className="w-full flex items-center justify-between py-2.5 text-left text-[15px] text-slate-700 bg-transparent active:opacity-70 transition-opacity"
         >
+          <span>{opt}</span>
           <span
-            className={`w-5 h-5 rounded-full border flex items-center justify-center ${
-              selected === opt ? 'border-[#0000c8]' : 'border-slate-400'
+            className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-colors ${
+              selected === opt ? 'border-[#0000c8]' : 'border-slate-300'
             }`}
           >
             {selected === opt && <span className="w-2.5 h-2.5 rounded-full bg-[#0000c8]" />}
           </span>
-          {opt}
         </button>
       ))}
     </div>
@@ -162,17 +154,17 @@ function AttendeeForm({ form, onSubmitted }) {
   };
 
   return (
-    <form onSubmit={submit} className="px-4 pt-4 space-y-6">
-      <div>
+    <form onSubmit={submit} className="px-4 pt-6 space-y-4">
+      <div className="mb-2 px-1">
         <h2 className="text-xl font-bold text-slate-900">{form.title}</h2>
         {form.description && <p className="text-sm text-slate-600 mt-1">{form.description}</p>}
       </div>
 
       {form.questions.map((q, index) => (
-        <div key={index} className="space-y-3">
-          <p className="text-sm font-semibold text-slate-900">
+        <div key={index} className="bg-[#f4f5f9] rounded-[20px] p-5">
+          <p className="text-[15px] font-medium text-slate-800">
             {index + 1}. {q.text}
-            {q.required && <span className="text-red-500"> *</span>}
+            {q.required && <span className="text-red-500">*</span>}
           </p>
           <QuestionInput index={index} question={q} value={answers[index]} onChange={setAnswer} />
         </div>
@@ -181,7 +173,7 @@ function AttendeeForm({ form, onSubmitted }) {
       <button
         type="submit"
         disabled={submitting}
-        className="w-full rounded-xl bg-[#0000c8] text-white py-3 font-semibold disabled:opacity-50"
+        className="w-full rounded-full bg-[#0000c8] text-white py-3.5 font-bold text-[15px] shadow-md disabled:opacity-50 mt-4 active:scale-[0.98] transition-transform"
       >
         {submitting ? 'Sending...' : 'Submit feedback'}
       </button>
@@ -252,38 +244,38 @@ function CreateFormSheet({ onClose, onCreated }) {
   };
 
   const inputClass =
-    'w-full px-3 py-2.5 border border-slate-300 rounded-lg text-base focus:outline-none focus:ring-2 focus:ring-blue-500';
+    'w-full px-4 py-3 bg-[#f8f9fc] border border-slate-200 rounded-xl text-[14px] text-slate-800 focus:outline-none focus:border-[#0000c8] focus:bg-white transition-colors';
 
   return (
     <div className="fixed inset-0 bg-black/50 z-[60] flex items-end justify-center" onClick={onClose}>
       <div
-        className="bg-white w-full max-w-[430px] max-h-[90vh] rounded-t-2xl flex flex-col mb-16"
+        className="bg-white w-full max-w-[430px] max-h-[90vh] rounded-t-[24px] flex flex-col mb-0 sm:mb-16"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200">
-          <p className="font-semibold text-slate-900">Create feedback form</p>
-          <button type="button" onClick={onClose} aria-label="Close" className="text-slate-500">
-            <X size={20} />
+        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
+          <p className="font-bold text-slate-900 text-[17px]">Create feedback form</p>
+          <button type="button" onClick={onClose} aria-label="Close" className="text-slate-400 hover:text-slate-700 bg-slate-100 p-1.5 rounded-full transition-colors">
+            <X size={18} strokeWidth={2.5} />
           </button>
         </div>
 
-        <form onSubmit={submit} className="flex-1 overflow-y-auto p-4 space-y-5">
+        <form onSubmit={submit} className="flex-1 overflow-y-auto p-4 space-y-5 pb-8">
           <div>
-            <label className="text-sm font-semibold text-slate-800">Form title</label>
-            <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} className={`${inputClass} mt-1`} />
+            <label className="text-[13px] font-bold text-slate-600 uppercase tracking-wider ml-1">Form title</label>
+            <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} className={`${inputClass} mt-1.5`} />
           </div>
 
           <div>
-            <label className="text-sm font-semibold text-slate-800">Description (optional)</label>
-            <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={2} className={`${inputClass} mt-1`} />
+            <label className="text-[13px] font-bold text-slate-600 uppercase tracking-wider ml-1">Description (optional)</label>
+            <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={2} className={`${inputClass} mt-1.5`} />
           </div>
 
           {questions.map((q, index) => (
-            <div key={index} className="rounded-xl border border-slate-200 p-4 space-y-3">
+            <div key={index} className="rounded-[20px] bg-white border border-slate-200 p-5 space-y-4 shadow-sm">
               <div className="flex justify-between items-center">
-                <p className="text-sm font-semibold text-slate-900">Question {index + 1}</p>
+                <p className="text-[15px] font-bold text-slate-800">Question {index + 1}</p>
                 {questions.length > 1 && (
-                  <button type="button" onClick={() => removeQuestion(index)} aria-label="Remove question" className="text-red-600">
+                  <button type="button" onClick={() => removeQuestion(index)} aria-label="Remove question" className="text-red-500 bg-red-50 p-1.5 rounded-lg">
                     <Trash2 size={16} />
                   </button>
                 )}
@@ -318,25 +310,26 @@ function CreateFormSheet({ onClose, onCreated }) {
                 />
               )}
 
-              <label className="flex items-center gap-2 text-sm text-slate-700">
+              <label className="flex items-center gap-3 text-[14px] font-medium text-slate-700 bg-slate-50 p-3 rounded-xl border border-slate-100 cursor-pointer">
                 <input
                   type="checkbox"
                   checked={q.required}
                   onChange={(e) => updateQuestion(index, { required: e.target.checked })}
+                  className="w-4 h-4 rounded text-[#0000c8] border-slate-300 focus:ring-[#0000c8]"
                 />
-                Required
+                Required field
               </label>
             </div>
           ))}
 
-          <button type="button" onClick={addQuestion} className="text-sm font-semibold text-[#0000c8]">
-            + Add question
+          <button type="button" onClick={addQuestion} className="w-full py-3 text-[14px] font-bold text-[#0000c8] bg-indigo-50 rounded-xl hover:bg-indigo-100 transition-colors">
+            + Add another question
           </button>
 
           <button
             type="submit"
             disabled={saving}
-            className="w-full rounded-lg bg-[#0000c8] text-white py-3 font-semibold disabled:opacity-50"
+            className="w-full rounded-full bg-[#0000c8] text-white py-3.5 font-bold shadow-md disabled:opacity-50 active:scale-[0.98] transition-transform mt-4"
           >
             {saving ? 'Saving...' : 'Save as draft'}
           </button>
@@ -351,39 +344,41 @@ function CreateFormSheet({ onClose, onCreated }) {
 // ----------------------------------------------------------------------------
 function AdminPanel({ forms, onCreate, onPublish, onClose, onResults, busyId }) {
   return (
-    <div className="px-4 pt-4 space-y-4">
+    <div className="px-4 pt-6 space-y-4">
       <button
         type="button"
         onClick={onCreate}
-        className="w-full flex items-center justify-center gap-2 rounded-xl bg-[#0000c8] text-white py-3 font-semibold"
+        className="w-full flex items-center justify-center gap-2 rounded-full bg-[#0000c8] text-white py-3.5 font-bold text-[15px] shadow-md active:scale-[0.98] transition-transform"
       >
-        <Plus size={18} />
+        <Plus size={18} strokeWidth={2.5} />
         Create feedback form
       </button>
 
-      {forms.length === 0 && <p className="text-center text-sm text-slate-500 py-8">No forms yet.</p>}
+      {forms.length === 0 && <p className="text-center text-[14px] text-slate-500 py-10">No forms have been created yet.</p>}
 
       {forms.map((form) => (
-        <div key={form.id} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+        <div key={form.id} className="rounded-[20px] border border-slate-100 bg-white p-5 shadow-sm">
           <div className="flex justify-between items-start gap-3">
             <div className="min-w-0">
-              <p className="text-base font-semibold text-slate-900">{form.title}</p>
-              <p className="text-xs text-slate-500 mt-1">
-                {form.questions.length} questions |{' '}
-                {form.status === 'published' ? 'Open to attendees' : form.status === 'closed' ? 'Closed' : 'Draft'}
+              <p className="text-[16px] font-bold text-slate-900">{form.title}</p>
+              <p className="text-[13px] text-slate-500 mt-1 font-medium">
+                {form.questions.length} questions <span className="mx-1.5 text-slate-300">•</span>
+                <span className={form.status === 'published' ? 'text-emerald-600' : form.status === 'closed' ? 'text-rose-500' : 'text-slate-500'}>
+                  {form.status === 'published' ? 'Open to attendees' : form.status === 'closed' ? 'Closed' : 'Draft'}
+                </span>
               </p>
             </div>
           </div>
 
-          <div className="flex flex-wrap gap-2 mt-3">
+          <div className="flex flex-wrap gap-2 mt-4">
             {form.status !== 'published' && (
               <button
                 type="button"
                 onClick={() => onPublish(form)}
                 disabled={busyId === form.id}
-                className="rounded-lg bg-emerald-600 text-white px-3 py-1.5 text-sm font-semibold disabled:opacity-50"
+                className="rounded-xl bg-emerald-50 text-emerald-700 px-4 py-2 text-[13px] font-bold disabled:opacity-50 transition-colors hover:bg-emerald-100"
               >
-                Publish
+                Publish Form
               </button>
             )}
             {form.status === 'published' && (
@@ -391,17 +386,17 @@ function AdminPanel({ forms, onCreate, onPublish, onClose, onResults, busyId }) 
                 type="button"
                 onClick={() => onClose(form)}
                 disabled={busyId === form.id}
-                className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-semibold text-slate-800 disabled:opacity-50"
+                className="rounded-xl bg-slate-50 border border-slate-200 px-4 py-2 text-[13px] font-bold text-slate-700 disabled:opacity-50 hover:bg-slate-100 transition-colors"
               >
-                Close
+                Close Form
               </button>
             )}
             <button
               type="button"
               onClick={() => onResults(form)}
-              className="flex items-center gap-1 rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-semibold text-slate-800"
+              className="flex items-center gap-1.5 rounded-xl bg-slate-50 border border-slate-200 px-4 py-2 text-[13px] font-bold text-slate-700 hover:bg-slate-100 transition-colors"
             >
-              <BarChart3 size={14} />
+              <BarChart3 size={15} strokeWidth={2.5} />
               Results
             </button>
           </div>
@@ -439,34 +434,40 @@ function ResultsSheet({ formId, onClose }) {
   return (
     <div className="fixed inset-0 bg-black/50 z-[60] flex items-end justify-center" onClick={onClose}>
       <div
-        className="bg-white w-full max-w-[430px] max-h-[85vh] rounded-t-2xl flex flex-col mb-16"
+        className="bg-white w-full max-w-[430px] max-h-[85vh] rounded-t-[24px] flex flex-col mb-0 sm:mb-16"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200">
-          <p className="font-semibold text-slate-900">Results</p>
-          <button type="button" onClick={onClose} aria-label="Close" className="text-slate-500">
-            <X size={20} />
+        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
+          <p className="font-bold text-slate-900 text-[17px]">Form Results</p>
+          <button type="button" onClick={onClose} aria-label="Close" className="text-slate-400 hover:text-slate-700 bg-slate-100 p-1.5 rounded-full transition-colors">
+            <X size={18} strokeWidth={2.5} />
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-4 space-y-6">
-          {loading && <LoadingSpinner />}
+        <div className="flex-1 overflow-y-auto p-5 space-y-6 pb-8">
+          {loading && <div className="py-10"><LoadingSpinner /></div>}
           {!loading && data && (
             <>
-              <p className="text-sm text-slate-600">
-                {data.total_responses} {data.total_responses === 1 ? 'response' : 'responses'}
-              </p>
+              <div className="bg-[#f8f9fc] rounded-[16px] p-4 text-center border border-slate-100">
+                <p className="text-[24px] font-black text-[#0000c8]">{data.total_responses}</p>
+                <p className="text-[13px] font-bold text-slate-500 uppercase tracking-wider mt-0.5">
+                  Total {data.total_responses === 1 ? 'Response' : 'Responses'}
+                </p>
+              </div>
+              
               {data.questions.map((q, i) => (
-                <div key={i} className="space-y-2">
-                  <p className="text-sm font-semibold text-slate-900">
+                <div key={i} className="space-y-3 bg-white border border-slate-100 shadow-sm rounded-[20px] p-5">
+                  <p className="text-[15px] font-bold text-slate-800 border-b border-slate-100 pb-3">
                     {i + 1}. {q.text}
                   </p>
-                  {q.options.map((opt) => (
-                    <div key={opt.label} className="flex justify-between text-sm text-slate-700 border-b border-slate-100 py-1">
-                      <span>{opt.label}</span>
-                      <span className="font-semibold">{opt.count}</span>
-                    </div>
-                  ))}
+                  <div className="pt-1 space-y-1">
+                    {q.options.map((opt) => (
+                      <div key={opt.label} className="flex justify-between items-center text-[14px] text-slate-700 py-2">
+                        <span className="font-medium">{opt.label}</span>
+                        <span className="font-bold bg-slate-100 px-3 py-1 rounded-full text-[12px]">{opt.count}</span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               ))}
             </>
@@ -558,11 +559,12 @@ export default function FeedbackScreen() {
 
   return (
     <div className="min-h-screen bg-white max-w-[430px] mx-auto pb-28">
-      <div className="bg-[#0c1b78] text-white px-4 pt-5 pb-4 flex items-center gap-3">
-        <button type="button" onClick={() => navigate('/hub')} aria-label="Back" className="text-white">
-          <ArrowLeft size={22} />
+      {/* NEW CLEAN HEADER: Matches Image 1 */}
+      <div className="bg-white text-slate-900 px-4 pt-5 pb-4 flex items-center gap-3 border-b border-slate-100 shadow-sm sticky top-0 z-10">
+        <button type="button" onClick={() => navigate('/hub')} aria-label="Back" className="text-slate-900 p-1 active:scale-95 transition-transform">
+          <ArrowLeft size={24} strokeWidth={2.5} />
         </button>
-        <h1 className="text-xl font-bold">Feedback</h1>
+        <h1 className="text-[22px] font-bold tracking-tight">Feedback</h1>
       </div>
 
       {loading ? (
@@ -579,10 +581,12 @@ export default function FeedbackScreen() {
           onResults={(form) => setResultsFormId(form.id)}
         />
       ) : submitted ? (
-        <div className="px-6 pt-20 text-center space-y-3">
-          <CheckCircle2 size={48} className="mx-auto text-emerald-600" />
-          <p className="text-lg font-semibold text-slate-900">Thank you for your feedback</p>
-          <p className="text-sm text-slate-600">Your response has been recorded.</p>
+        <div className="px-6 pt-20 text-center space-y-4">
+          <div className="w-20 h-20 bg-emerald-50 rounded-full flex items-center justify-center mx-auto mb-2">
+            <CheckCircle2 size={40} className="text-emerald-500" strokeWidth={2.5} />
+          </div>
+          <p className="text-[20px] font-bold text-slate-900">Feedback Received</p>
+          <p className="text-[15px] text-slate-600 leading-relaxed">Thank you for taking the time to share your thoughts. Your response has been securely recorded.</p>
         </div>
       ) : activeForm ? (
         <AttendeeForm
@@ -590,9 +594,10 @@ export default function FeedbackScreen() {
           onSubmitted={() => setSubmitted(true)}
         />
       ) : (
-        <p className="text-center text-sm text-slate-500 py-16 px-6">
-          There is no feedback form open right now. Check back later.
-        </p>
+        <div className="px-6 pt-24 text-center space-y-3">
+          <p className="text-[18px] font-bold text-slate-800">No Active Forms</p>
+          <p className="text-[15px] text-slate-500 leading-relaxed">There are currently no feedback forms open. Please check back later.</p>
+        </div>
       )}
 
       {createOpen && (
