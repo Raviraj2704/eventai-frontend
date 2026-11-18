@@ -11,6 +11,7 @@ import authService from '../../services/authService';
 import toast from 'react-hot-toast';
 import {
   ArrowLeft,
+  BarChart2,
   Bell,
   Bookmark,
   Briefcase,
@@ -325,6 +326,17 @@ export default function ProfileScreen() {
 
           {/* Settings */}
           <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden mt-6">
+            <button
+              onClick={() => navigate('/analytics')}
+              className="w-full flex items-center justify-between p-4 hover:bg-slate-50 transition border-b border-slate-100"
+            >
+              <div className="flex items-center gap-3">
+                <BarChart2 size={18} className="text-blue-600" />
+                <span className="text-sm font-medium text-slate-800">My Analytics</span>
+              </div>
+              <span className="text-lg text-slate-400">›</span>
+            </button>
+
             <button
               onClick={() => setShowTimeZoneModal(true)}
               className="w-full flex items-center justify-between p-4 hover:bg-slate-50 transition border-b border-slate-100"
