@@ -2,8 +2,8 @@
 // Analytics Screen
 // ============================================================================
 // File: src/pages/gamification/AnalyticsScreen.jsx
-// Purpose: Personal analytics and statistics (View-Only + useFeatureManagement)
-// Status: Production-Ready ✅
+// Purpose: Personal analytics and statistics (100% Real DB Data)
+// ============================================================================
 
 import React, { useEffect, useState } from 'react';
 import {
@@ -28,7 +28,6 @@ import apiClient from '../../config/apiClient';
 import { useFeatureManagement } from '../../hooks/useFeatureManagement';
 
 const AnalyticsScreen = () => {
-  // Integrate useFeatureManagement('analytics') - View only (Create: false, Delete: false)
   const { fetchItems } = useFeatureManagement('analytics');
 
   const [loading, setLoading] = useState(true);
@@ -53,39 +52,30 @@ const AnalyticsScreen = () => {
       const rawData = response?.data?.data || response?.data || {};
 
       const safeAnalytics = {
-        total_points: rawData.total_points ?? 150,
-        sessions_attended: rawData.sessions_attended ?? 3,
-        ratings_given: rawData.ratings_given ?? 2,
-        posts_created: rawData.posts_created ?? 1,
-        badges_earned: rawData.badges_earned ?? 2,
-        challenges_completed: rawData.challenges_completed ?? 1,
-        current_rank: rawData.current_rank ?? 1
+        total_points: rawData.total_points ?? 0,
+        sessions_attended: rawData.sessions_attended ?? 0,
+        ratings_given: rawData.ratings_given ?? 0,
+        posts_created: rawData.posts_created ?? 0,
+        badges_earned: rawData.badges_earned ?? 0,
+        challenges_completed: rawData.challenges_completed ?? 0,
+        current_rank: rawData.current_rank ?? 1,
+        active_days: rawData.active_days ?? 0
       };
 
       setAnalytics(safeAnalytics);
 
-      const mockPointsTrend = Array.from({ length: 7 }, (_, i) => ({
-        name: 'Day ' + (i + 1),
-        points: Math.floor(Math.random() * 50) + 10
-      }));
-
-      const mockActivityDistribution = [
-        { name: 'Sessions', value: safeAnalytics.sessions_attended || 1 },
-        { name: 'Ratings', value: safeAnalytics.ratings_given || 1 },
-        { name: 'Posts', value: safeAnalytics.posts_created || 1 },
-        { name: 'Challenges', value: safeAnalytics.challenges_completed || 1 }
-      ];
-
-      const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-      const mockEngagementByDay = Array.from({ length: 7 }, (_, i) => ({
-        name: days[i],
-        engagement: Math.floor(Math.random() * 80) + 20
-      }));
+      // Only include activity types that have real counts > 0
+      const realActivityDistribution = [
+        { name: 'Sessions', value: safeAnalytics.sessions_attended },
+        { name: 'Ratings', value: safeAnalytics.ratings_given },
+        { name: 'Posts', value: safeAnalytics.posts_created },
+        { name: 'Challenges', value: safeAnalytics.challenges_completed }
+      ].filter((item) => item.value > 0);
 
       setChartData({
-        pointsTrend: mockPointsTrend,
-        activityDistribution: mockActivityDistribution,
-        engagementByDay: mockEngagementByDay
+        pointsTrend: Array.isArray(rawData.points_trend) ? rawData.points_trend : [],
+        activityDistribution: realActivityDistribution,
+        engagementByDay: Array.isArray(rawData.engagement_by_day) ? rawData.engagement_by_day : []
       });
     } catch (error) {
       console.error('Error loading analytics:', error);
@@ -97,7 +87,8 @@ const AnalyticsScreen = () => {
         posts_created: 0,
         badges_earned: 0,
         challenges_completed: 0,
-        current_rank: 1
+        current_rank: 1,
+        active_days: 0
       });
     } finally {
       setLoading(false);
@@ -105,242 +96,188 @@ const AnalyticsScreen = () => {
   };
 
   if (loading) {
-    return React.createElement(
-      React.Fragment,
-      null,
-      React.createElement(Header, null),
-      React.createElement(LoadingSpinner, { fullScreen: true })
+    return (
+      <>
+        <Header />
+        <LoadingSpinner fullScreen />
+      </>
     );
   }
 
   const COLORS = ['#0284c7', '#a855f7', '#10b981', '#f59e0b', '#ef4444'];
   const isTopTen = (analytics?.current_rank || 1) <= 10;
 
-  return React.createElement(
-    React.Fragment,
-    null,
-    React.createElement(Header, null),
-    React.createElement(
-      'main',
-      { className: 'pb-20 md:pb-0' },
-      React.createElement(
-        'div',
-        { className: 'bg-gradient-to-r from-primary-600 to-secondary-600 text-white' },
-        React.createElement(
-          'div',
-          { className: 'container-max py-8' },
-          React.createElement('h1', { className: 'text-3xl md:text-4xl font-bold mb-2' }, 'Analytics'),
-          React.createElement('p', { className: 'text-white/80' }, 'Track your engagement and progress')
-        )
-      ),
-      /* NO Create or Delete buttons for Analytics (View-Only) */
-      React.createElement(
-        'div',
-        { className: 'container-max py-8' },
-        analytics &&
-          React.createElement(
-            React.Fragment,
-            null,
-            React.createElement(
-              'div',
-              { className: 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-8' },
-              React.createElement(
-                'div',
-                { className: 'bg-white rounded-lg border border-neutral-200 p-6' },
-                React.createElement(
-                  'div',
-                  { className: 'flex items-center justify-between mb-3' },
-                  React.createElement(TrendingUp, { className: 'w-6 h-6 text-primary-600' }),
-                  React.createElement('span', { className: 'text-2xl font-bold text-neutral-900' }, analytics.total_points)
-                ),
-                React.createElement('p', { className: 'text-sm text-neutral-600' }, 'Total Points')
-              ),
-              React.createElement(
-                'div',
-                { className: 'bg-white rounded-lg border border-neutral-200 p-6' },
-                React.createElement(
-                  'div',
-                  { className: 'flex items-center justify-between mb-3' },
-                  React.createElement(Users, { className: 'w-6 h-6 text-secondary-600' }),
-                  React.createElement('span', { className: 'text-2xl font-bold text-neutral-900' }, analytics.sessions_attended)
-                ),
-                React.createElement('p', { className: 'text-sm text-neutral-600' }, 'Sessions')
-              ),
-              React.createElement(
-                'div',
-                { className: 'bg-white rounded-lg border border-neutral-200 p-6' },
-                React.createElement(
-                  'div',
-                  { className: 'flex items-center justify-between mb-3' },
-                  React.createElement(Award, { className: 'w-6 h-6 text-yellow-600' }),
-                  React.createElement('span', { className: 'text-2xl font-bold text-neutral-900' }, analytics.badges_earned)
-                ),
-                React.createElement('p', { className: 'text-sm text-neutral-600' }, 'Badges')
-              ),
-              React.createElement(
-                'div',
-                { className: 'bg-white rounded-lg border border-neutral-200 p-6' },
-                React.createElement(
-                  'div',
-                  { className: 'flex items-center justify-between mb-3' },
-                  React.createElement(Target, { className: 'w-6 h-6 text-blue-600' }),
-                  React.createElement('span', { className: 'text-2xl font-bold text-neutral-900' }, analytics.challenges_completed)
-                ),
-                React.createElement('p', { className: 'text-sm text-neutral-600' }, 'Challenges')
-              ),
-              React.createElement(
-                'div',
-                { className: 'bg-white rounded-lg border border-neutral-200 p-6' },
-                React.createElement(
-                  'div',
-                  { className: 'flex items-center justify-between mb-3' },
-                  React.createElement(Clock, { className: 'w-6 h-6 text-green-600' }),
-                  React.createElement('span', { className: 'text-2xl font-bold text-neutral-900' }, '#' + analytics.current_rank)
-                ),
-                React.createElement('p', { className: 'text-sm text-neutral-600' }, 'Rank')
-              )
-            ),
-            React.createElement(
-              'div',
-              { className: 'grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8' },
-              React.createElement(
-                'div',
-                { className: 'bg-white rounded-lg border border-neutral-200 p-6' },
-                React.createElement('h3', { className: 'text-lg font-bold text-neutral-900 mb-4' }, 'Points Trend (Last 7 Days)'),
-                React.createElement(
-                  ResponsiveContainer,
-                  { width: '100%', height: 300 },
-                  React.createElement(
-                    LineChart,
-                    { data: chartData.pointsTrend },
-                    React.createElement(CartesianGrid, { strokeDasharray: '3 3', stroke: '#e5e7eb' }),
-                    React.createElement(XAxis, { dataKey: 'name', stroke: '#9ca3af' }),
-                    React.createElement(YAxis, { stroke: '#9ca3af' }),
-                    React.createElement(Tooltip, {
-                      contentStyle: {
+  return (
+    <>
+      <Header />
+      <main className="pb-20 md:pb-0">
+        <div className="bg-gradient-to-r from-primary-600 to-secondary-600 text-white">
+          <div className="container-max py-8">
+            <h1 className="text-3xl md:text-4xl font-bold mb-2">Analytics</h1>
+            <p className="text-white/80">Track your real-time engagement and progress</p>
+          </div>
+        </div>
+
+        <div className="container-max py-8">
+          {analytics && (
+            <>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
+                <div className="bg-white rounded-lg border border-neutral-200 p-6">
+                  <div className="flex items-center justify-between mb-3">
+                    <TrendingUp className="w-6 h-6 text-primary-600" />
+                    <span className="text-2xl font-bold text-neutral-900">{analytics.total_points}</span>
+                  </div>
+                  <p className="text-sm text-neutral-600">Total Points</p>
+                </div>
+
+                <div className="bg-white rounded-lg border border-neutral-200 p-6">
+                  <div className="flex items-center justify-between mb-3">
+                    <Users className="w-6 h-6 text-secondary-600" />
+                    <span className="text-2xl font-bold text-neutral-900">{analytics.sessions_attended}</span>
+                  </div>
+                  <p className="text-sm text-neutral-600">Sessions Attended</p>
+                </div>
+
+                <div className="bg-white rounded-lg border border-neutral-200 p-6">
+                  <div className="flex items-center justify-between mb-3">
+                    <Award className="w-6 h-6 text-yellow-600" />
+                    <span className="text-2xl font-bold text-neutral-900">{analytics.badges_earned}</span>
+                  </div>
+                  <p className="text-sm text-neutral-600">Badges Earned</p>
+                </div>
+
+                <div className="bg-white rounded-lg border border-neutral-200 p-6">
+                  <div className="flex items-center justify-between mb-3">
+                    <Target className="w-6 h-6 text-blue-600" />
+                    <span className="text-2xl font-bold text-neutral-900">{analytics.challenges_completed}</span>
+                  </div>
+                  <p className="text-sm text-neutral-600">Challenges</p>
+                </div>
+
+                <div className="bg-white rounded-lg border border-neutral-200 p-6">
+                  <div className="flex items-center justify-between mb-3">
+                    <Clock className="w-6 h-6 text-green-600" />
+                    <span className="text-2xl font-bold text-neutral-900">#{analytics.current_rank}</span>
+                  </div>
+                  <p className="text-sm text-neutral-600">Current Rank</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+                <div className="bg-white rounded-lg border border-neutral-200 p-6">
+                  <h3 className="text-lg font-bold text-neutral-900 mb-4">Points Trend (Last 7 Days)</h3>
+                  <ResponsiveContainer width="100%" height={300}>
+                    <LineChart data={chartData.pointsTrend}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                      <XAxis dataKey="name" stroke="#9ca3af" />
+                      <YAxis stroke="#9ca3af" allowDecimals={false} />
+                      <Tooltip
+                        contentStyle={{
+                          backgroundColor: '#1f2937',
+                          border: 'none',
+                          borderRadius: '8px',
+                          color: '#fff'
+                        }}
+                      />
+                      <Line
+                        type="monotone"
+                        dataKey="points"
+                        stroke="#0284c7"
+                        strokeWidth={2}
+                        dot={{ fill: '#0284c7', r: 4 }}
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+
+                <div className="bg-white rounded-lg border border-neutral-200 p-6">
+                  <h3 className="text-lg font-bold text-neutral-900 mb-4">Activity Distribution</h3>
+                  {chartData.activityDistribution.length === 0 ? (
+                    <div className="h-[300px] flex items-center justify-center text-sm text-neutral-400">
+                      No activity recorded yet. Attend sessions, rate talks, or post on the social wall!
+                    </div>
+                  ) : (
+                    <ResponsiveContainer width="100%" height={300}>
+                      <PieChart>
+                        <Pie
+                          data={chartData.activityDistribution}
+                          cx="50%"
+                          cy="50%"
+                          labelLine={false}
+                          label={(entry) => `${entry.name}: ${entry.value}`}
+                          outerRadius={100}
+                          fill="#8884d8"
+                          dataKey="value"
+                        >
+                          {chartData.activityDistribution.map((_, index) => (
+                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                          ))}
+                        </Pie>
+                        <Tooltip
+                          contentStyle={{
+                            backgroundColor: '#1f2937',
+                            border: 'none',
+                            borderRadius: '8px',
+                            color: '#fff'
+                          }}
+                        />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  )}
+                </div>
+              </div>
+
+              <div className="bg-white rounded-lg border border-neutral-200 p-6 mb-8">
+                <h3 className="text-lg font-bold text-neutral-900 mb-4">Daily Actions (Last 7 Days)</h3>
+                <ResponsiveContainer width="100%" height={300}>
+                  <BarChart data={chartData.engagementByDay}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                    <XAxis dataKey="name" stroke="#9ca3af" />
+                    <YAxis stroke="#9ca3af" allowDecimals={false} />
+                    <Tooltip
+                      contentStyle={{
                         backgroundColor: '#1f2937',
                         border: 'none',
                         borderRadius: '8px',
                         color: '#fff'
-                      }
-                    }),
-                    React.createElement(Line, {
-                      type: 'monotone',
-                      dataKey: 'points',
-                      stroke: '#0284c7',
-                      strokeWidth: 2,
-                      dot: { fill: '#0284c7', r: 4 }
-                    })
-                  )
-                )
-              ),
-              React.createElement(
-                'div',
-                { className: 'bg-white rounded-lg border border-neutral-200 p-6' },
-                React.createElement('h3', { className: 'text-lg font-bold text-neutral-900 mb-4' }, 'Activity Distribution'),
-                React.createElement(
-                  ResponsiveContainer,
-                  { width: '100%', height: 300 },
-                  React.createElement(
-                    PieChart,
-                    null,
-                    React.createElement(
-                      Pie,
-                      {
-                        data: chartData.activityDistribution,
-                        cx: '50%',
-                        cy: '50%',
-                        labelLine: false,
-                        label: (entry) => entry.name + ': ' + entry.value,
-                        outerRadius: 100,
-                        fill: '#8884d8',
-                        dataKey: 'value'
-                      },
-                      chartData.activityDistribution.map((_, index) =>
-                        React.createElement(Cell, {
-                          key: 'cell-' + index,
-                          fill: COLORS[index % COLORS.length]
-                        })
-                      )
-                    ),
-                    React.createElement(Tooltip, {
-                      contentStyle: {
-                        backgroundColor: '#1f2937',
-                        border: 'none',
-                        borderRadius: '8px',
-                        color: '#fff'
-                      }
-                    })
-                  )
-                )
-              )
-            ),
-            React.createElement(
-              'div',
-              { className: 'bg-white rounded-lg border border-neutral-200 p-6 mb-8' },
-              React.createElement('h3', { className: 'text-lg font-bold text-neutral-900 mb-4' }, 'Weekly Engagement'),
-              React.createElement(
-                ResponsiveContainer,
-                { width: '100%', height: 300 },
-                React.createElement(
-                  BarChart,
-                  { data: chartData.engagementByDay },
-                  React.createElement(CartesianGrid, { strokeDasharray: '3 3', stroke: '#e5e7eb' }),
-                  React.createElement(XAxis, { dataKey: 'name', stroke: '#9ca3af' }),
-                  React.createElement(YAxis, { stroke: '#9ca3af' }),
-                  React.createElement(Tooltip, {
-                    contentStyle: {
-                      backgroundColor: '#1f2937',
-                      border: 'none',
-                      borderRadius: '8px',
-                      color: '#fff'
-                    }
-                  }),
-                  React.createElement(Bar, {
-                    dataKey: 'engagement',
-                    fill: '#0284c7',
-                    radius: [8, 8, 0, 0]
-                  })
-                )
-              )
-            ),
-            React.createElement(
-              'div',
-              { className: 'grid grid-cols-1 md:grid-cols-3 gap-4' },
-              React.createElement(
-                'div',
-                { className: 'bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg border border-blue-200 p-6' },
-                React.createElement('h4', { className: 'font-semibold text-blue-900 mb-2' }, '🔥 Streak'),
-                React.createElement(
-                  'p',
-                  { className: 'text-sm text-blue-800' },
-                  "You're on a 3-day engagement streak! Keep it up to earn a streak badge."
-                )
-              ),
-              React.createElement(
-                'div',
-                { className: 'bg-gradient-to-br from-green-50 to-green-100 rounded-lg border border-green-200 p-6' },
-                React.createElement('h4', { className: 'font-semibold text-green-900 mb-2' }, '⬆️ Progress'),
-                React.createElement(
-                  'p',
-                  { className: 'text-sm text-green-800' },
-                  "You're " + (isTopTen ? 'in the top 10!' : 'making great progress!')
-                )
-              ),
-              React.createElement(
-                'div',
-                { className: 'bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg border border-purple-200 p-6' },
-                React.createElement('h4', { className: 'font-semibold text-purple-900 mb-2' }, '🎯 Next Goal'),
-                React.createElement(
-                  'p',
-                  { className: 'text-sm text-purple-800' },
-                  'Complete 2 more challenges to unlock the "Challenger" badge!'
-                )
-              )
-            )
-          )
-      )
-    )
+                      }}
+                    />
+                    <Bar dataKey="engagement" fill="#0284c7" radius={[8, 8, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg border border-blue-200 p-6">
+                  <h4 className="font-semibold text-blue-900 mb-2">🔥 Weekly Activity</h4>
+                  <p className="text-sm text-blue-800">
+                    {analytics.active_days > 0
+                      ? `You were active on ${analytics.active_days} of the last 7 days!`
+                      : 'Start attending sessions or posting updates to build your weekly streak.'}
+                  </p>
+                </div>
+
+                <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-lg border border-green-200 p-6">
+                  <h4 className="font-semibold text-green-900 mb-2">⬆️ Leaderboard Rank</h4>
+                  <p className="text-sm text-green-800">
+                    {analytics.total_points > 0
+                      ? `You are currently ranked #${analytics.current_rank}${isTopTen ? ' (Top 10!)' : ''}.`
+                      : 'Earn your first points by checking into sessions or rating speakers.'}
+                  </p>
+                </div>
+
+                <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg border border-purple-200 p-6">
+                  <h4 className="font-semibold text-purple-900 mb-2">🎯 Contributions</h4>
+                  <p className="text-sm text-purple-800">
+                    You have given {analytics.ratings_given} session {analytics.ratings_given === 1 ? 'rating' : 'ratings'} and created {analytics.posts_created} social {analytics.posts_created === 1 ? 'post' : 'posts'}.
+                  </p>
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+      </main>
+    </>
   );
 };
 
