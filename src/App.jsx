@@ -47,6 +47,8 @@ const MyMeetingsScreen = lazy(() => import('./pages/main/MyMeetingsScreen'));
 const MyBadgeScreen = lazy(() => import('./pages/main/MyBadgeScreen'));
 const MyFavouritesScreen = lazy(() => import('./pages/main/MyFavouritesScreen'));
 const LeaderboardScreen = lazy(() => import('./pages/main/LeaderboardScreen'));
+const PrivacyPolicyScreen = lazy(() => import('./pages/main/PrivacyPolicyScreen'));
+const TermsScreen = lazy(() => import('./pages/main/TermsScreen'));
 
 // Pages - Engagement
 const SocialWallScreen = lazy(() => import('./pages/engagement/SocialWallScreen'));
@@ -145,6 +147,8 @@ function AppContent() {
         h(Route, { path: '/register', element: h(RegisterScreen) }),
         h(Route, { path: '/verify-email', element: h(VerifyEmailScreen) }),
         h(Route, { path: '/complete-profile', element: h(CompleteProfileScreen) }),
+        h(Route, { path: '/privacy', element: h(PrivacyPolicyScreen) }),
+        h(Route, { path: '/terms', element: h(TermsScreen) }),
 
         // Main protected routes
         h(Route, { path: '/home', element: wrapPrivate(HomeScreen) }),
