@@ -191,6 +191,15 @@ const RegisterScreen = () => {
               Log in here
             </Link>
           </div>
+          <div className="flex items-center justify-center gap-3 pt-4 text-xs text-gray-400">
+            <Link to="/privacy" className="hover:text-gray-600 underline">
+              Privacy Policy
+            </Link>
+            <span>•</span>
+            <Link to="/terms" className="hover:text-gray-600 underline">
+              Terms of Service
+            </Link>
+          </div>
         </form>
       </div>
     </div>

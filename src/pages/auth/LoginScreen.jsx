@@ -367,6 +367,23 @@ export default function LoginScreen() {
               </button>
             </p>
           </div>
+          <div className="flex items-center justify-center gap-3 pt-4 text-[12px] text-slate-400 font-medium">
+            <button
+              type="button"
+              onClick={() => navigate('/privacy')}
+              className="hover:text-slate-600 underline"
+            >
+              Privacy Policy
+            </button>
+            <span>•</span>
+            <button
+              type="button"
+              onClick={() => navigate('/terms')}
+              className="hover:text-slate-600 underline"
+            >
+              Terms of Service
+            </button>
+          </div>
         </form>
       )}
     </div>
