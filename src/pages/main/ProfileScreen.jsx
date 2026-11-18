@@ -6,6 +6,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { apiGet, apiPost } from '../../services/api';
+import apiClient from '../../config/apiClient';
 import authService from '../../services/authService';
 import toast from 'react-hot-toast';
 import {
@@ -20,6 +21,7 @@ import {
   Globe,
   LogOut,
   Settings,
+  Trash2,
   UserSquare2,
   X,
 } from 'lucide-react';
@@ -63,6 +65,8 @@ export default function ProfileScreen() {
 
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [showTimeZoneModal, setShowTimeZoneModal] = useState(false);
   const [muteNotifications, setMuteNotifications] = useState(false);
   const [selectedTimeZone, setSelectedTimeZone] = useState(TIMEZONES[0]);
@@ -188,6 +192,21 @@ export default function ProfileScreen() {
     }
     localStorage.clear();
     navigate('/login');
+  };
+
+  const handleDeleteAccount = async () => {
+    setIsDeleting(true);
+    try {
+      await apiClient.delete('/users/me');
+      localStorage.clear();
+      toast.success('Your account has been permanently deleted.');
+      navigate('/login');
+    } catch (err) {
+      toast.error(err?.response?.data?.detail || 'Could not delete account. Please try again.');
+    } finally {
+      setIsDeleting(false);
+      setShowDeleteModal(false);
+    }
   };
 
   const display = (value) => value || NOT_SET;
@@ -337,10 +356,29 @@ export default function ProfileScreen() {
 
             <button
               onClick={() => setShowLogoutModal(true)}
-              className="w-full flex items-center gap-3 p-4 hover:bg-red-50 transition text-red-600"
+              className="w-full flex items-center gap-3 p-4 hover:bg-slate-50 transition text-slate-700 border-b border-slate-100"
             >
               <LogOut size={18} />
               <span className="text-sm font-medium">Logout</span>
+            </button>
+
+            <button
+              onClick={() => setShowDeleteModal(true)}
+              className="w-full flex items-center gap-3 p-4 hover:bg-red-50 transition text-red-600"
+            >
+              <Trash2 size={18} />
+              <span className="text-sm font-medium">Delete Account</span>
+            </button>
+          </div>
+
+          {/* Legal Links Footer */}
+          <div className="flex items-center justify-center gap-4 pt-2 pb-4 text-xs text-slate-400 font-medium">
+            <button type="button" onClick={() => navigate('/privacy')} className="hover:text-slate-600 underline">
+              Privacy Policy
+            </button>
+            <span>•</span>
+            <button type="button" onClick={() => navigate('/terms')} className="hover:text-slate-600 underline">
+              Terms of Service
             </button>
           </div>
         </div>
@@ -543,6 +581,37 @@ export default function ProfileScreen() {
                 className="flex-1 bg-[#0000c8] hover:bg-blue-800 text-white font-semibold py-3.5 rounded-xl transition text-sm shadow-md"
               >
                 Yes, Logout
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Account Confirmation Modal */}
+      {showDeleteModal && (
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl w-full max-w-sm p-8 text-center shadow-2xl">
+            <div className="w-16 h-16 bg-red-50 text-red-600 rounded-full flex items-center justify-center mx-auto mb-4 border border-red-100">
+              <Trash2 size={28} />
+            </div>
+            <h3 className="text-xl font-bold text-slate-900 mb-2">Delete Account?</h3>
+            <p className="text-sm text-slate-600 mb-6">
+              This will permanently delete your account, messages, and activity. This action cannot be undone.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowDeleteModal(false)}
+                disabled={isDeleting}
+                className="flex-1 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 font-semibold py-3.5 rounded-xl transition text-sm"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDeleteAccount}
+                disabled={isDeleting}
+                className="flex-1 bg-red-600 hover:bg-red-700 text-white font-semibold py-3.5 rounded-xl transition text-sm shadow-md disabled:opacity-60"
+              >
+                {isDeleting ? 'Deleting...' : 'Delete'}
               </button>
             </div>
           </div>
