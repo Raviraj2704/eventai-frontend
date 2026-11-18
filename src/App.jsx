@@ -7,6 +7,7 @@
 import React, { useState, useEffect, Suspense, lazy } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { Toaster, toast } from 'react-hot-toast';
+import { Analytics } from '@vercel/analytics/react';
 
 // Store
 import { useAuthStore } from './store/authStore';
@@ -135,6 +136,7 @@ function AppContent() {
         },
       },
     }),
+    h(Analytics),
     h(
       Suspense,
       { fallback: h(LoadingFallback) },
