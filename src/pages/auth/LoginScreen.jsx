@@ -34,7 +34,20 @@ export default function LoginScreen() {
 
   useEffect(() => {
     if (isAuthenticated) {
-      navigate('/home', { replace: true });
+      let storedEmail = '';
+      try {
+        const storedUser = JSON.parse(localStorage.getItem('user') || '{}');
+        storedEmail = (storedUser?.email || '').trim().toLowerCase();
+      } catch {
+        storedEmail = '';
+      }
+
+      const pendingOnboarding = localStorage.getItem('eventai_needs_onboarding');
+      if (pendingOnboarding && storedEmail && storedEmail === pendingOnboarding) {
+        navigate('/complete-profile', { replace: true });
+      } else {
+        navigate('/home', { replace: true });
+      }
     }
   }, [isAuthenticated, navigate]);
 
@@ -102,8 +115,12 @@ export default function LoginScreen() {
         error: null,
       });
 
-      toast.success('Welcome back!');
-      navigate('/home', { replace: true });
+      // 3. Route newly registered users to the 3-slide welcome tour & profile setup
+      const pendingOnboarding = localStorage.getItem('eventai_needs_onboarding');
+      const shouldOnboard = pendingOnboarding === cleanEmail;
+
+      toast.success(shouldOnboard ? 'Welcome to EventAI!' : 'Welcome back!');
+      navigate(shouldOnboard ? '/complete-profile' : '/home', { replace: true });
     } catch (err) {
       const msg =
         err?.response?.data?.detail ||

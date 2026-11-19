@@ -84,11 +84,14 @@ const CompleteProfileScreen = () => {
       const response = await apiClient.post('/auth/complete-profile', formData);
 
       if (response.data) {
-        updateProfile(formData);
+        if (typeof updateProfile === 'function') {
+          updateProfile(formData);
+        }
         localStorage.setItem('eventai_onboarded', 'true');
+        localStorage.removeItem('eventai_needs_onboarding');
         toast.success('Welcome to EventAI! Profile saved.');
         setTimeout(() => {
-          navigate('/home');
+          navigate('/home', { replace: true });
         }, 400);
       }
     } catch (error) {
@@ -101,7 +104,8 @@ const CompleteProfileScreen = () => {
 
   const handleSkip = () => {
     localStorage.setItem('eventai_onboarded', 'true');
-    navigate('/home');
+    localStorage.removeItem('eventai_needs_onboarding');
+    navigate('/home', { replace: true });
   };
 
   const CurrentIcon = WELCOME_SLIDES[slideIndex].icon;

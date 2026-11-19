@@ -68,6 +68,10 @@ const RegisterScreen = () => {
         throw new Error(errData.detail || 'Registration failed');
       }
 
+      // Flag this newly registered email for the 3-slide welcome tour + profile setup
+      localStorage.setItem('eventai_needs_onboarding', formData.email.trim().toLowerCase());
+      localStorage.removeItem('eventai_onboarded');
+
       toast.success('Account created! Please log in.');
       navigate('/login', { replace: true });
       
