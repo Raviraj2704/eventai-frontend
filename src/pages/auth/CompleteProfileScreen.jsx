@@ -111,7 +111,7 @@ const CompleteProfileScreen = () => {
   const CurrentIcon = WELCOME_SLIDES[slideIndex].icon;
 
   return (
-    <div className="min-h-screen bg-white max-w-[430px] mx-auto px-5 py-8 flex flex-col justify-between font-sans text-slate-800">
+    <div className="min-h-screen bg-white max-w-[390px] mx-auto px-5 py-8 flex flex-col justify-between font-sans text-slate-800">
       {/* Top Progress Bar & Skip Button */}
       <div>
         <div className="flex items-center justify-between mb-6">
@@ -128,7 +128,7 @@ const CompleteProfileScreen = () => {
         </div>
 
         {/* Step Indicator Bars */}
-        <div className="grid grid-cols-4 gap-2 mb-8">
+        <div className="grid grid-cols-4 gap-2 mb-5">
           {[0, 1, 2, 3].map((idx) => {
             const active = step === 1 ? idx <= slideIndex : true;
             return (
@@ -146,7 +146,7 @@ const CompleteProfileScreen = () => {
       {/* STEP 1: Welcome Feature Tour */}
       {step === 1 ? (
         <div className="flex-1 flex flex-col justify-center">
-          <div className="bg-slate-50 border border-slate-100 rounded-[24px] p-8 text-center">
+          <div className="bg-slate-50 border border-slate-100 rounded-[24px] p-5 text-center">
             <div className="w-16 h-16 rounded-2xl bg-white border border-slate-100 shadow-sm flex items-center justify-center mx-auto mb-6 text-[#0000c8]">
               <CurrentIcon size={32} />
             </div>
@@ -257,12 +257,12 @@ const CompleteProfileScreen = () => {
       )}
 
       {/* Bottom Action Buttons */}
-      <div className="pt-6">
+      <div className="pt-4">
         {step === 1 ? (
           <button
             type="button"
             onClick={handleNextSlide}
-            className="w-full py-3.5 rounded-[14px] bg-[#0000c8] text-white text-[15px] font-bold hover:bg-blue-900 transition-colors flex items-center justify-center gap-2 shadow-sm"
+            className="w-full py-3 rounded-[14px] bg-[#0000c8] text-white text-[15px] font-bold hover:bg-blue-900 transition-colors flex items-center justify-center gap-2 shadow-sm"
           >
             {slideIndex < WELCOME_SLIDES.length - 1 ? 'Next' : 'Set Up Profile'}
             <ArrowRight size={18} />
@@ -272,7 +272,7 @@ const CompleteProfileScreen = () => {
             <button
               type="button"
               onClick={handleSkip}
-              className="flex-1 py-3.5 rounded-[14px] bg-slate-100 text-slate-700 text-[14px] font-bold hover:bg-slate-200 transition-colors"
+              className="flex-1 py-3 rounded-[14px] bg-slate-100 text-slate-700 text-[14px] font-bold hover:bg-slate-200 transition-colors"
             >
               Skip for Now
             </button>
@@ -281,7 +281,7 @@ const CompleteProfileScreen = () => {
               type="submit"
               form="onboarding-profile-form"
               disabled={loading}
-              className="flex-1 py-3.5 rounded-[14px] bg-[#0000c8] text-white text-[14px] font-bold hover:bg-blue-900 transition-colors disabled:opacity-50 flex items-center justify-center gap-2 shadow-sm"
+              className="flex-1 py-3 rounded-[14px] bg-[#0000c8] text-white text-[14px] font-bold hover:bg-blue-900 transition-colors disabled:opacity-50 flex items-center justify-center gap-2 shadow-sm"
             >
               {loading ? 'Saving...' : 'Finish & Enter'}
               {!loading && <ArrowRight size={18} />}
