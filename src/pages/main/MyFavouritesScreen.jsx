@@ -80,7 +80,7 @@ export default function MyFavouritesScreen() {
 
   const tabClass = (active) =>
     `flex-1 rounded-xl py-2.5 text-sm font-semibold border ${
-      active ? 'bg-[#0000c8] text-white border-[#0000c8]' : 'border-slate-300 text-slate-800'
+      active ? 'bg-slate-900 text-white border-slate-900' : 'border-slate-300 text-slate-800'
     }`;
 
   const renderBody = () => {
@@ -160,8 +160,8 @@ export default function MyFavouritesScreen() {
 
   return (
     <div className="min-h-screen bg-white max-w-[430px] mx-auto pb-28">
-      <div className="bg-[#0c1b78] text-white px-4 pt-5 pb-4 flex items-center gap-3">
-        <button type="button" onClick={() => navigate('/profile')} aria-label="Back" className="text-white">
+      <div className="bg-white text-slate-900 border-b border-slate-200 px-4 pt-5 pb-4 flex items-center gap-3">
+        <button type="button" onClick={() => navigate('/profile')} aria-label="Back" className="text-slate-900">
           <ArrowLeft size={22} />
         </button>
         <h1 className="text-xl font-bold">My Favourites</h1>
