@@ -14,7 +14,7 @@ export default function SplashScreen() {
     // Automatically redirect to login after 20 seconds
     const timer = setTimeout(() => {
       navigate('/login');
-    }, 20000);
+    }, 5000);
     return () => clearTimeout(timer);
   }, [navigate]);
 
